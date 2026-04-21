@@ -1,0 +1,170 @@
+<odoo>
+    <record id="view_oca_repository_installer_list" model="ir.ui.view">
+        <field name="name">oca.repository.installer.list</field>
+        <field name="model">oca.repository.installer</field>
+        <field name="arch" type="xml">
+            <list string="Instalaciones OCA" create="1" delete="1">
+                <field name="name"/>
+                <field name="repo_url"/>
+                <field name="branch"/>
+                <field name="state"/>
+                <field name="addon_count"/>
+                <field name="write_date"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_oca_repository_installer_search" model="ir.ui.view">
+        <field name="name">oca.repository.installer.search</field>
+        <field name="model">oca.repository.installer</field>
+        <field name="arch" type="xml">
+            <search string="Buscar instalaciones OCA">
+                <field name="name"/>
+                <field name="repo_url"/>
+                <field name="repo_name"/>
+                <filter string="Preparado" name="prepared" domain="[('state', '=', 'prepared')]"/>
+                <filter string="Instalado" name="installed" domain="[('state', '=', 'installed')]"/>
+                <filter string="Con error" name="error" domain="[('state', '=', 'error')]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_oca_repository_installer_form" model="ir.ui.view">
+        <field name="name">oca.repository.installer.form</field>
+        <field name="model">oca.repository.installer</field>
+        <field name="arch" type="xml">
+            <form string="Instalador OCA">
+                <header>
+                    <button
+                        name="action_prepare_repository"
+                        string="Preparar repositorio"
+                        type="object"
+                        class="oe_highlight"
+                    />
+                    <button
+                        name="action_refresh_available_modules"
+                        string="Refrescar Apps"
+                        type="object"
+                    />
+                    <button
+                        name="action_install_selected_addon"
+                        string="Instalar addon seleccionado"
+                        type="object"
+                        class="btn-primary"
+                        invisible="not target_addon_id"
+                    />
+                    <field name="state" widget="statusbar" statusbar_visible="draft,prepared,installed,error"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="repo_url" placeholder="https://github.com/OCA/l10n-spain.git"/>
+                            <field name="branch"/>
+                            <field name="target_addon_id" options="{'no_create': True}"/>
+                        </group>
+                        <group>
+                            <field name="repo_name" readonly="1"/>
+                            <field name="clone_path" readonly="1"/>
+                            <field name="shared_addons_path" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group>
+                            <field name="runtime_path_registered" readonly="1"/>
+                            <field name="config_path_persisted" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="last_operation" readonly="1"/>
+                            <field name="addon_count" readonly="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Addons detectados">
+                            <field name="addon_ids" readonly="1" nolabel="1">
+                                <list string="Addons" create="0" delete="0">
+                                    <field name="name"/>
+                                    <field name="summary"/>
+                                    <field name="dependency_names"/>
+                                    <field name="python_dependency_names"/>
+                                    <field name="binary_dependency_names"/>
+                                    <field name="status_message"/>
+                                    <field name="installed_in_odoo"/>
+                                    <button
+                                        name="action_install_addon"
+                                        string="Instalar"
+                                        type="object"
+                                        class="btn-link"
+                                    />
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Diagnostico">
+                            <group>
+                                <field name="diagnostic_summary" readonly="1"/>
+                                <field name="resolution_hint" readonly="1"/>
+                                <field name="missing_python_dependencies" readonly="1"/>
+                                <field name="missing_binary_dependencies" readonly="1"/>
+                                <field name="missing_odoo_dependencies" readonly="1"/>
+                            </group>
+                        </page>
+                        <page string="Logs">
+                            <group>
+                                <field name="last_command" readonly="1"/>
+                                <field name="last_stdout" readonly="1"/>
+                                <field name="last_stderr" readonly="1"/>
+                                <field name="error_details" readonly="1"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_oca_repository_installer" model="ir.actions.act_window">
+        <field name="name">Instalador OCA</field>
+        <field name="res_model">oca.repository.installer</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="instalador_modulos_github.view_oca_repository_installer_search"/>
+    </record>
+
+    <record id="action_oca_installer_settings" model="ir.actions.act_window">
+        <field name="name">Configuracion</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">inline</field>
+        <field name="context">{'module': 'instalador_modulos_github'}</field>
+    </record>
+
+    <menuitem
+        id="menu_oca_installer_root"
+        name="OCA Installer"
+        action="action_oca_repository_installer"
+        groups="instalador_modulos_github.group_oca_installer_user"
+        sequence="10"
+        web_icon="instalador_modulos_github,static/description/icon.png"
+    />
+
+    <menuitem
+        id="menu_oca_installer_operations"
+        name="Instalaciones"
+        parent="menu_oca_installer_root"
+        action="action_oca_repository_installer"
+        groups="instalador_modulos_github.group_oca_installer_user"
+        sequence="10"
+    />
+
+    <menuitem
+        id="menu_oca_installer_settings"
+        name="Configuracion"
+        parent="menu_oca_installer_root"
+        action="action_oca_installer_settings"
+        groups="base.group_system"
+        sequence="20"
+    />
+</odoo>
