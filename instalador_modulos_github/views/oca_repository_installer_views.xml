@@ -144,8 +144,7 @@
     <menuitem
         id="menu_oca_installer_root"
         name="OCA Installer"
-        action="action_oca_repository_installer"
-        groups="instalador_modulos_github.group_oca_installer_user"
+        groups="base.group_user"
         sequence="10"
         web_icon="instalador_modulos_github,static/description/icon.png"
     />
@@ -155,7 +154,7 @@
         name="Instalaciones"
         parent="menu_oca_installer_root"
         action="action_oca_repository_installer"
-        groups="instalador_modulos_github.group_oca_installer_user"
+        groups="base.group_user"
         sequence="10"
     />
 
