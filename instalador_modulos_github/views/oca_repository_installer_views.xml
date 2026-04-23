@@ -64,6 +64,7 @@
                     <group>
                         <group>
                             <field name="repo_url" placeholder="https://github.com/OCA/l10n-spain.git"/>
+                            <field name="normalized_repo_url" readonly="1"/>
                             <field name="branch"/>
                             <field name="target_addon_id" options="{'no_create': True}"/>
                         </group>
@@ -71,16 +72,19 @@
                             <field name="repo_name" readonly="1"/>
                             <field name="clone_path" readonly="1"/>
                             <field name="shared_addons_path" readonly="1"/>
+                            <field name="addons_path_to_use" readonly="1"/>
                         </group>
                     </group>
                     <group>
                         <group>
                             <field name="runtime_path_registered" readonly="1"/>
                             <field name="config_path_persisted" readonly="1"/>
+                            <field name="final_module_state" readonly="1"/>
                         </group>
                         <group>
                             <field name="last_operation" readonly="1"/>
                             <field name="addon_count" readonly="1"/>
+                            <field name="failure_code" readonly="1"/>
                         </group>
                     </group>
                     <notebook>
@@ -89,10 +93,15 @@
                                 <list string="Addons" create="0" delete="0">
                                     <field name="name"/>
                                     <field name="summary"/>
-                                    <field name="dependency_names"/>
-                                    <field name="python_dependency_names"/>
-                                    <field name="binary_dependency_names"/>
+                                    <field name="manifest_installable"/>
+                                    <field name="exposed_in_shared_path"/>
+                                    <field name="available_in_odoo"/>
+                                    <field name="odoo_module_state"/>
                                     <field name="status_message"/>
+                                    <field name="dependency_names" optional="hide"/>
+                                    <field name="python_dependency_names" optional="hide"/>
+                                    <field name="binary_dependency_names" optional="hide"/>
+                                    <field name="last_validation_message" optional="hide"/>
                                     <field name="installed_in_odoo"/>
                                     <button
                                         name="action_install_addon"
@@ -105,11 +114,30 @@
                         </page>
                         <page string="Diagnostico">
                             <group>
-                                <field name="diagnostic_summary" readonly="1"/>
-                                <field name="resolution_hint" readonly="1"/>
-                                <field name="missing_python_dependencies" readonly="1"/>
-                                <field name="missing_binary_dependencies" readonly="1"/>
-                                <field name="missing_odoo_dependencies" readonly="1"/>
+                                <group string="Resumen funcional">
+                                    <field name="diagnostic_summary" readonly="1" nolabel="1"/>
+                                    <field name="detected_cause" readonly="1" nolabel="1"/>
+                                    <field name="resolution_hint" readonly="1" nolabel="1"/>
+                                </group>
+                                <group string="Estado real">
+                                    <field name="failure_code" readonly="1"/>
+                                    <field name="final_module_state" readonly="1"/>
+                                    <field name="runtime_path_registered" readonly="1"/>
+                                    <field name="config_path_persisted" readonly="1"/>
+                                </group>
+                            </group>
+                            <group>
+                                <group string="Causa detectada en rutas y carga">
+                                    <field name="path_diagnostics" readonly="1" nolabel="1"/>
+                                    <field name="odoo_log_highlights" readonly="1" nolabel="1"/>
+                                </group>
+                            </group>
+                            <group>
+                                <group string="Dependencias faltantes">
+                                    <field name="missing_python_dependencies" readonly="1" nolabel="1"/>
+                                    <field name="missing_binary_dependencies" readonly="1" nolabel="1"/>
+                                    <field name="missing_odoo_dependencies" readonly="1" nolabel="1"/>
+                                </group>
                             </group>
                         </page>
                         <page string="Logs">

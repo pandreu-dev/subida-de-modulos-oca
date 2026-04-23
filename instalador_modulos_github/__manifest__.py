@@ -1,7 +1,7 @@
 {
     "name": "Instalador OCA para Odoo 18",
     "summary": "Clona, expone e instala addons OCA desde una URL de GitHub",
-    "version": "18.0.1.0.0",
+    "version": "18.0.1.1.0",
     "category": "Administration",
     "author": "OpenAI",
     "maintainer": "OpenAI",
@@ -16,6 +16,7 @@ Funciones principales:
 - Refresco de Apps desde la propia interfaz.
 - Instalacion guiada del addon seleccionado.
 - Diagnostico claro de errores, dependencias Python, binarios y addons Odoo faltantes.
+- Validacion fuerte de rutas, manifests, installable y estado final real del modulo.
 
 Pensado para que una persona funcional pueda preparar e instalar addons OCA
 sin depender de comandos manuales en consola.

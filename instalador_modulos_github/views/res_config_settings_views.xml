@@ -21,7 +21,7 @@
                         </setting>
                         <setting
                             string="Carpeta OCA visible por Odoo"
-                            help="Esta ruta es la que Odoo debe ver como addons_path para encontrar los addons expuestos."
+                            help="Esta ruta debe ser la carpeta padre que contiene un subdirectorio por addon con su __manifest__.py. No debe apuntar directamente a un addon suelto."
                         >
                             <field name="oca_shared_addons_path"/>
                         </setting>
