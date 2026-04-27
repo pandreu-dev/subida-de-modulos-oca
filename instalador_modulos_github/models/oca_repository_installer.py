@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from urllib.parse import urlparse, urlunparse
 
 import odoo
-from odoo import _, api, fields, models, tools
+from odoo import SUPERUSER_ID, _, api, fields, models, tools
 from odoo.exceptions import UserError, ValidationError
 
 
@@ -1159,13 +1159,63 @@ class OcaRepositoryInstaller(models.Model):
                         candidates.add(module_name)
         return sorted(candidates)
 
-    def _build_exception_report(self, error, addon_line=False, log_messages=None):
-        trace_text = traceback.format_exc()
-        error_text = "%s\n%s" % (tools.ustr(error), trace_text)
+    def _build_exception_report(
+        self,
+        error,
+        addon_line=False,
+        log_messages=None,
+        safe=False,
+        addon_name=False,
+        traceback_text=None,
+        technical_context=None,
+    ):
+        traceback_text = traceback_text if traceback_text is not None else traceback.format_exc()
+        error_text = "%s\n%s" % (tools.ustr(error), traceback_text)
         missing_python = self._extract_missing_python_from_text(error_text)
         missing_odoo = self._extract_missing_odoo_from_text(error_text)
-        log_info = self._extract_log_signals(log_messages or [])
+        technical_context = technical_context or {}
 
+        if safe:
+            addon_label = addon_name or (addon_line and getattr(addon_line, "name", False)) or "addon"
+            summary = (
+                "La instalacion del addon %s fallo dentro de Odoo." % addon_label
+                if addon_label
+                else "La operacion ha fallado."
+            )
+            cause_lines = [
+                "Causa tecnica: %s" % self._exception_summary(error),
+            ]
+            if technical_context.get("last_command"):
+                cause_lines.append(
+                    "Ultimo comando externo ejecutado: %s"
+                    % technical_context["last_command"]
+                )
+            stderr_lines = self._split_text_lines(technical_context.get("last_stderr"))
+            if stderr_lines:
+                cause_lines.append("Ultimo stderr relevante: %s" % stderr_lines[0])
+            if log_messages:
+                cause_lines.append(
+                    "Mensajes Odoo capturados: %s"
+                    % " | ".join(self._unique_lines(log_messages)[:5])
+                )
+
+            resolution_lines = [
+                "La transaccion fue revertida correctamente.",
+                "Revisa el traceback tecnico y los logs Odoo capturados para encontrar la causa exacta.",
+            ]
+            return {
+                "summary": summary,
+                "cause": "\n".join(self._unique_lines(cause_lines)) or False,
+                "resolution": "\n".join(self._unique_lines(resolution_lines)),
+                "missing_python": False,
+                "missing_binary": False,
+                "missing_odoo": False,
+                "details": error_text,
+                "log_highlights": "\n".join(self._unique_lines(log_messages or [])) or False,
+                "failure_code": "isolated_install_failed",
+            }
+
+        log_info = self._extract_log_signals(log_messages or [])
         resolution_lines = []
         cause_lines = [_("Excepcion real: %s") % self._exception_summary(error)]
         if addon_line:
@@ -1525,9 +1575,82 @@ class OcaRepositoryInstaller(models.Model):
             "module_record": path_validation["module_record"],
         }
 
+    def _read_module_state_isolated(self, addon_name):
+        with self.pool.cursor() as cr:
+            isolated_env = api.Environment(cr, SUPERUSER_ID, dict(self.env.context))
+            module_record = isolated_env["ir.module.module"].search(
+                [("name", "=", addon_name)],
+                limit=1,
+            )
+            inconsistent_modules = isolated_env["ir.module.module"].search(
+                [("state", "in", ["to install", "to upgrade", "to remove"])],
+                limit=10,
+            )
+            return {
+                "final_state": module_record.state if module_record else "not_found",
+                "inconsistent_module_names": inconsistent_modules.mapped("name"),
+            }
+
+    def _install_module_in_isolated_cursor(self, addon_name):
+        capture = False
+        initial_state = False
+        try:
+            with self.pool.cursor() as cr:
+                isolated_env = api.Environment(cr, SUPERUSER_ID, dict(self.env.context))
+                module_record = isolated_env["ir.module.module"].search(
+                    [("name", "=", addon_name)],
+                    limit=1,
+                )
+                if not module_record:
+                    return {
+                        "ok": False,
+                        "module_found": False,
+                        "initial_state": "not_found",
+                        "log_messages": [],
+                        "technical_error": "ModuleNotFound: %s" % addon_name,
+                        "traceback": "",
+                    }
+
+                initial_state = module_record.state
+                _logger.info(
+                    "Instalador OCA: antes de button_immediate_install() aislado para %s. Estado actual: %s",
+                    addon_name,
+                    initial_state,
+                )
+                with self._capture_odoo_logs() as capture:
+                    module_record.button_immediate_install()
+                cr.commit()
+                _logger.info(
+                    "Instalador OCA: button_immediate_install() aislado completado para %s",
+                    addon_name,
+                )
+                return {
+                    "ok": True,
+                    "module_found": True,
+                    "initial_state": initial_state,
+                    "log_messages": capture.messages,
+                    "technical_error": False,
+                    "traceback": False,
+                }
+        except Exception as error:
+            trace_text = traceback.format_exc()
+            _logger.exception(
+                "Instalador OCA: fallo durante button_immediate_install() aislado para %s",
+                addon_name,
+            )
+            return {
+                "ok": False,
+                "module_found": True,
+                "initial_state": initial_state or "unknown",
+                "log_messages": capture.messages if capture else [],
+                "technical_error": self._exception_summary(error),
+                "traceback": trace_text,
+                "exception": error,
+            }
+
     def _post_validate_installation(self, addon_line, log_messages=None):
-        module_record = self.env["ir.module.module"].sudo().search([("name", "=", addon_line.name)], limit=1)
-        final_state = module_record.state if module_record else "not_found"
+        state_report = self._read_module_state_isolated(addon_line.name)
+        final_state = state_report["final_state"]
         log_info = self._extract_log_signals(log_messages or [])
         issues = []
         resolution_lines = []
@@ -1612,11 +1735,9 @@ class OcaRepositoryInstaller(models.Model):
         if not failure_code and log_info["codes"]:
             failure_code = log_info["codes"][0]
 
-        inconsistent_modules = self.env["ir.module.module"].sudo().search(
-            [("state", "in", ["to install", "to upgrade", "to remove"])]
-        )
+        inconsistent_modules = state_report["inconsistent_module_names"]
         if inconsistent_modules:
-            module_names = ", ".join(inconsistent_modules[:10].mapped("name"))
+            module_names = ", ".join(inconsistent_modules[:10])
             issues.append(
                 _("Odoo mantiene modulos en estado pendiente o inconsistente: %s") % module_names
             )
@@ -1966,7 +2087,7 @@ class OcaRepositoryInstaller(models.Model):
                 )
                 return False, summary
 
-            module_record = self.env["ir.module.module"].sudo().search([("name", "=", addon_line.name)], limit=1)
+            module_record = visibility_validation["module_record"]
             if not module_record:
                 summary = _("Odoo todavia no ve el addon %s en Apps.") % addon_line.name
                 resolution = _(
@@ -2001,18 +2122,47 @@ class OcaRepositoryInstaller(models.Model):
                 return True, summary
 
             _logger.info(
-                "Instalador OCA: antes de button_immediate_install() para %s. Estado actual: %s",
+                "Instalador OCA: instalacion aislada solicitada para %s. Estado actual visible: %s",
                 addon_line.name,
                 module_record.state,
             )
-            with self.env.cr.savepoint():
-                with self._capture_odoo_logs() as capture:
-                    module_record.button_immediate_install()
-            install_logs = capture.messages
-            _logger.info(
-                "Instalador OCA: despues de button_immediate_install() para %s",
-                addon_line.name,
-            )
+            isolated_install = self._install_module_in_isolated_cursor(addon_line.name)
+            install_logs = isolated_install["log_messages"]
+            if not isolated_install["ok"]:
+                safe_error = isolated_install.get("exception") or Exception(
+                    isolated_install.get("technical_error") or "Unknown isolated installation failure"
+                )
+                report = self._build_exception_report(
+                    safe_error,
+                    safe=True,
+                    addon_name=addon_line.name,
+                    log_messages=install_logs,
+                    traceback_text=isolated_install.get("traceback") or "",
+                    technical_context={
+                        "last_command": self.last_command,
+                        "last_stderr": self.last_stderr,
+                    },
+                )
+                report["failure_code"] = "isolated_install_failed"
+                self._mark_error(
+                    report["summary"],
+                    resolution=report["resolution"],
+                    detected_cause=report["cause"],
+                    error_details=report["details"],
+                    path_diagnostics=self._build_path_diagnostics(addon_line=addon_line),
+                    odoo_log_highlights=report["log_highlights"],
+                    failure_code=report["failure_code"],
+                )
+                addon_line.write(
+                    {
+                        "install_result": self._format_user_message(
+                            report["summary"],
+                            report["cause"],
+                            report["resolution"],
+                        )
+                    }
+                )
+                return False, report["summary"]
 
             self._refresh_addon_odoo_states()
             post_report = self._post_validate_installation(addon_line, install_logs)
