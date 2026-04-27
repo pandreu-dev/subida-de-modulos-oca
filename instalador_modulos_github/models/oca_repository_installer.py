@@ -7,6 +7,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import tempfile
 import traceback
 from contextlib import contextmanager
 from urllib.parse import urlparse, urlunparse
@@ -192,6 +193,10 @@ class OcaRepositoryInstaller(models.Model):
     def _raise_functional_error(self, summary=None, detected_cause=None, resolution=None):
         raise UserError(self._format_user_message(summary, detected_cause, resolution))
 
+    def _exception_summary(self, error):
+        message = tools.ustr(error).strip()
+        return "%s: %s" % (error.__class__.__name__, message or _("sin detalle adicional"))
+
     def _normalize_repo_url(self, repo_url):
         raw_url = (repo_url or "").strip()
         if not raw_url:
@@ -289,6 +294,7 @@ class OcaRepositoryInstaller(models.Model):
         path_diagnostics=None,
         odoo_log_highlights=None,
         final_module_state=None,
+        failure_code=None,
     ):
         self.write(
             {
@@ -298,7 +304,7 @@ class OcaRepositoryInstaller(models.Model):
                 "resolution_hint": resolution or False,
                 "path_diagnostics": path_diagnostics or False,
                 "odoo_log_highlights": odoo_log_highlights or False,
-                "failure_code": False,
+                "failure_code": failure_code or False,
                 "final_module_state": final_module_state or False,
             }
         )
@@ -352,6 +358,27 @@ class OcaRepositoryInstaller(models.Model):
         except Exception as error:
             result["manifest_error"] = tools.ustr(error)
         return result
+
+    def _read_config_addons_paths(self, settings=None):
+        settings = settings or self._get_settings()
+        config_path = settings.get("odoo_config_path")
+        if not config_path or not os.path.isfile(config_path):
+            return []
+        try:
+            parser = configparser.RawConfigParser()
+            parser.read(config_path, encoding="utf-8")
+            raw_value = parser.get("options", "addons_path", fallback="")
+        except Exception:
+            _logger.exception(
+                "Instalador OCA: no se pudo leer addons_path del fichero %s",
+                config_path,
+            )
+            return []
+        return [
+            os.path.abspath(path.strip())
+            for path in raw_value.split(",")
+            if path and path.strip()
+        ]
 
     def _inspect_addon_path(self, addon_path, expected_name=None):
         normalized_path = os.path.abspath(addon_path) if addon_path else False
@@ -523,6 +550,64 @@ class OcaRepositoryInstaller(models.Model):
         normalized_path = os.path.abspath(addons_path)
         return normalized_path in self._runtime_addons_paths()
 
+    def _addons_path_health_report(self, settings=None):
+        settings = settings or self._get_settings()
+        shared_root = os.path.abspath(
+            self.addons_path_to_use or self.shared_addons_path or settings["shared_root"]
+        )
+        runtime_paths = self._runtime_addons_paths()
+        config_paths = self._read_config_addons_paths(settings)
+        runtime_nested = [
+            path
+            for path in runtime_paths
+            if path != shared_root and self._is_path_within(path, shared_root)
+        ]
+        config_nested = [
+            path
+            for path in config_paths
+            if path != shared_root and self._is_path_within(path, shared_root)
+        ]
+
+        cause_lines = []
+        resolution_lines = []
+        diagnostic_lines = [
+            _("addons_path runtime actual: %s")
+            % (", ".join(runtime_paths) or _("vacio")),
+            _("addons_path detectado en config: %s")
+            % (", ".join(config_paths) or _("no legible o vacio")),
+        ]
+
+        if runtime_nested:
+            cause_lines.append(
+                _(
+                    "He detectado rutas hijas dentro de la carpeta OCA compartida en addons_path runtime: %s"
+                )
+                % ", ".join(runtime_nested[:10])
+            )
+        if config_nested:
+            cause_lines.append(
+                _(
+                    "He detectado rutas hijas dentro de la carpeta OCA compartida en el fichero de configuracion: %s"
+                )
+                % ", ".join(config_nested[:10])
+            )
+        if runtime_nested or config_nested:
+            resolution_lines.extend(
+                [
+                    _("Deja una sola ruta OCA padre en addons_path: %s") % shared_root,
+                    _(
+                        "Elimina rutas especificas de repositorio o de la carpeta repositories, por ejemplo %s"
+                    )
+                    % settings["clone_root"],
+                ]
+            )
+
+        return {
+            "cause_lines": self._unique_lines(cause_lines),
+            "resolution_lines": self._unique_lines(resolution_lines),
+            "diagnostic_lines": diagnostic_lines,
+        }
+
     @contextmanager
     def _capture_odoo_logs(self):
         handler = OdooLogCaptureHandler()
@@ -588,6 +673,32 @@ class OcaRepositoryInstaller(models.Model):
                 self.env["ir.module.module"].sudo().update_list()
         _logger.info("Instalador OCA: despues de update_list() para %s", self.repo_url)
         return capture.messages
+
+    def _safe_update_module_list(self):
+        capture = False
+        try:
+            _logger.info("Instalador OCA: antes de update_list() para %s", self.repo_url)
+            with self.env.cr.savepoint():
+                with self._capture_odoo_logs() as capture:
+                    self.env["ir.module.module"].sudo().update_list()
+            _logger.info("Instalador OCA: despues de update_list() para %s", self.repo_url)
+            messages = capture.messages
+            return {"ok": True, "messages": messages, "report": False}
+        except Exception as error:
+            messages = capture and capture.messages or []
+            report = self._build_exception_report(error, log_messages=messages)
+            report["summary"] = self._error_summary_for_code("update_list_failed")
+            report["failure_code"] = "update_list_failed"
+            report["cause"] = "\n".join(
+                self._unique_lines(
+                    [
+                        _("Excepcion real durante el refresco de Apps: %s")
+                        % self._exception_summary(error),
+                    ]
+                    + self._split_text_lines(report["cause"])
+                )
+            )
+            return {"ok": False, "messages": messages, "report": report}
 
     def _ensure_runtime_addons_path(self, addons_path):
         normalized_path = os.path.abspath(addons_path)
@@ -676,6 +787,73 @@ class OcaRepositoryInstaller(models.Model):
             return False, False, _(
                 "No se pudo escribir en %s. El repo puede funcionar ahora en runtime, pero conviene revisar permisos."
             ) % config_path
+
+    def _assert_directory_writable(self, directory_path, label):
+        try:
+            self._ensure_directory(directory_path)
+        except Exception as error:
+            raise UserError(
+                _("No se pudo preparar %s en %s: %s")
+                % (label, directory_path, tools.ustr(error))
+            )
+
+        probe_path = False
+        try:
+            with tempfile.NamedTemporaryFile(
+                dir=directory_path,
+                prefix=".oca_installer_probe_",
+                delete=False,
+            ) as temp_file:
+                probe_path = temp_file.name
+        except Exception as error:
+            raise UserError(
+                _("Odoo no puede escribir en %s (%s): %s")
+                % (label, directory_path, tools.ustr(error))
+            )
+        finally:
+            if probe_path and os.path.exists(probe_path):
+                os.unlink(probe_path)
+
+    def _run_prepare_prechecks(self, settings, shared_root):
+        if not shutil.which("git"):
+            raise UserError(_("No se ha encontrado el comando git en el servidor."))
+
+        self._assert_directory_writable(settings["clone_root"], _("la carpeta de clonado"))
+        self._assert_directory_writable(shared_root, _("la carpeta OCA compartida"))
+
+        cause_lines = []
+        resolution_lines = []
+        health_report = self._addons_path_health_report(settings)
+        cause_lines.extend(health_report["cause_lines"])
+        resolution_lines.extend(health_report["resolution_lines"])
+
+        config_path = settings.get("odoo_config_path")
+        if settings.get("persist_to_config"):
+            if not config_path or not os.path.isfile(config_path):
+                cause_lines.append(
+                    _("No se ha podido verificar el fichero de configuracion %s antes de persistir addons_path.")
+                    % (config_path or "-")
+                )
+                resolution_lines.append(
+                    _(
+                        "Si quieres persistir addons_path tras reiniciar Odoo, comprueba esa ruta o desactiva la persistencia automatica."
+                    )
+                )
+            elif not os.access(config_path, os.W_OK):
+                cause_lines.append(
+                    _("El servicio Odoo probablemente no puede escribir en %s.")
+                    % config_path
+                )
+                resolution_lines.append(
+                    _(
+                        "Si quieres persistir addons_path tras reiniciar Odoo, concede permisos de escritura o desactiva la persistencia automatica."
+                    )
+                )
+
+        return {
+            "cause_lines": self._unique_lines(cause_lines),
+            "resolution_lines": self._unique_lines(resolution_lines),
+        }
 
     def _is_path_within(self, child_path, parent_path):
         if not child_path or not parent_path:
@@ -989,7 +1167,7 @@ class OcaRepositoryInstaller(models.Model):
         log_info = self._extract_log_signals(log_messages or [])
 
         resolution_lines = []
-        cause_lines = []
+        cause_lines = [_("Excepcion real: %s") % self._exception_summary(error)]
         if addon_line:
             summary = _("La instalacion del addon %s ha fallado.") % addon_line.name
         else:
@@ -1017,6 +1195,11 @@ class OcaRepositoryInstaller(models.Model):
             cause_lines.append(log_info["cause"])
         if log_info["resolution"]:
             resolution_lines.append(log_info["resolution"])
+        if self.last_command:
+            cause_lines.append(_("Ultimo comando externo ejecutado: %s") % self.last_command)
+        stderr_lines = self._split_text_lines(self.last_stderr)
+        if stderr_lines:
+            cause_lines.append(_("Ultimo stderr relevante: %s") % stderr_lines[0])
 
         if not resolution_lines:
             resolution_lines.append(
@@ -1046,6 +1229,7 @@ class OcaRepositoryInstaller(models.Model):
         addons_path = os.path.abspath(
             self.addons_path_to_use or self.shared_addons_path or settings["shared_root"]
         )
+        health_report = self._addons_path_health_report(settings)
         lines = [
             _("URL normalizada: %s") % (self.normalized_repo_url or self.repo_url or "-"),
             _("Rama usada: %s") % (self.branch or settings["branch"]),
@@ -1054,6 +1238,9 @@ class OcaRepositoryInstaller(models.Model):
             _("Ruta registrada en runtime: %s") % self._yesno(self._path_in_runtime(addons_path)),
             _("Ruta persistida en config: %s") % self._yesno(bool(self.config_path_persisted)),
         ]
+        lines.extend(health_report["diagnostic_lines"])
+        if health_report["cause_lines"]:
+            lines.extend(health_report["cause_lines"])
         if direct_shared_addons is not None:
             lines.append(
                 _("Addons detectados directamente bajo la ruta compartida: %s")
@@ -1072,6 +1259,8 @@ class OcaRepositoryInstaller(models.Model):
 
     def _error_summary_for_code(self, code, addon_name=False):
         addon_name = addon_name or _("el addon")
+        if code == "update_list_failed":
+            return _("El repositorio se ha preparado, pero Odoo ha fallado al refrescar Apps.")
         if code == "repo_addon_missing":
             return _("El repositorio se ha clonado correctamente pero el addon no existe en la ruta esperada.")
         if code in {"manifest_missing", "shared_manifest_missing"}:
@@ -1473,8 +1662,9 @@ class OcaRepositoryInstaller(models.Model):
                 normalized_url,
                 branch,
             )
-            self._ensure_directory(settings["clone_root"])
-            self._ensure_directory(shared_root)
+            precheck_report = self._run_prepare_prechecks(settings, shared_root)
+            precheck_cause_lines = list(precheck_report["cause_lines"])
+            precheck_resolution_lines = list(precheck_report["resolution_lines"])
 
             if os.path.isdir(repo_path):
                 if not os.path.isdir(os.path.join(repo_path, ".git")):
@@ -1554,19 +1744,57 @@ class OcaRepositoryInstaller(models.Model):
             if config_note:
                 exposure_notes.append(config_note)
 
-            update_logs = self._update_module_list()
+            update_result = self._safe_update_module_list()
+            update_logs = update_result["messages"]
             log_info = self._extract_log_signals(update_logs)
 
             self._sync_addon_lines(addons)
             self._refresh_addon_path_states()
             self._refresh_addon_odoo_states()
 
-            resolution_lines = exposure_notes + [_("Selecciona un addon del repositorio y pulsa instalar.")]
+            resolution_lines = (
+                precheck_resolution_lines
+                + exposure_notes
+                + [_("Selecciona un addon del repositorio y pulsa instalar.")]
+            )
             if log_info["resolution"]:
                 resolution_lines.append(log_info["resolution"])
-            detected_cause_lines = list(repo_issues)
+            detected_cause_lines = precheck_cause_lines + list(repo_issues)
             if log_info["cause"]:
                 detected_cause_lines.append(log_info["cause"])
+
+            if not update_result["ok"]:
+                report = update_result["report"]
+                resolution_lines.append(
+                    _(
+                        "El repositorio ya esta clonado y los addons ya estan expuestos. El bloqueo esta en el refresco de Apps, no en la descarga del repo."
+                    )
+                )
+                if report["resolution"]:
+                    resolution_lines.append(report["resolution"])
+                if report["cause"]:
+                    detected_cause_lines.append(report["cause"])
+                if report["log_highlights"]:
+                    log_info["raw"] = "\n".join(
+                        self._unique_lines(
+                            self._split_text_lines(log_info["raw"])
+                            + self._split_text_lines(report["log_highlights"])
+                        )
+                    )
+                message = _("Repositorio preparado con advertencias. Addons detectados: %s.") % len(addons)
+                self._mark_success(
+                    "prepared",
+                    message,
+                    resolution="\n".join(self._unique_lines(resolution_lines)) or False,
+                    detected_cause="\n".join(self._unique_lines(detected_cause_lines)) or False,
+                    path_diagnostics=self._build_path_diagnostics(
+                        direct_shared_addons=[addon.name for addon in self.addon_ids]
+                    ),
+                    odoo_log_highlights=log_info["raw"],
+                    failure_code=report["failure_code"],
+                )
+                return True, message
+
             message = _("Repositorio preparado correctamente. Addons detectados: %s.") % len(addons)
             self._mark_success(
                 "prepared",
@@ -1647,7 +1875,32 @@ class OcaRepositoryInstaller(models.Model):
                 )
                 return False, pre_validation["summary"]
 
-            update_logs = self._update_module_list()
+            update_result = self._safe_update_module_list()
+            update_logs = update_result["messages"]
+            if not update_result["ok"]:
+                report = update_result["report"]
+                self._mark_error(
+                    report["summary"],
+                    resolution=report["resolution"],
+                    detected_cause=report["cause"],
+                    error_details=report["details"],
+                    path_diagnostics=self._build_path_diagnostics(addon_line=addon_line),
+                    odoo_log_highlights=report["log_highlights"],
+                    missing_python=report["missing_python"],
+                    missing_binary=report["missing_binary"],
+                    missing_odoo=report["missing_odoo"],
+                    failure_code=report["failure_code"],
+                )
+                addon_line.write(
+                    {
+                        "install_result": self._format_user_message(
+                            report["summary"],
+                            report["cause"],
+                            report["resolution"],
+                        )
+                    }
+                )
+                return False, report["summary"]
             self._refresh_addon_path_states()
             self._refresh_addon_odoo_states()
             visibility_validation = self._validate_selected_addon(
@@ -1839,7 +2092,7 @@ class OcaRepositoryInstaller(models.Model):
                 self.detected_cause,
                 self.resolution_hint,
             )
-        return self._notify(message, "success")
+        return self._notify(message, "warning" if self.failure_code else "success")
 
     def action_refresh_available_modules(self):
         self.ensure_one()
@@ -1849,7 +2102,27 @@ class OcaRepositoryInstaller(models.Model):
             shared_root = self.addons_path_to_use or self.shared_addons_path or self._get_settings()["shared_root"]
             runtime_registered = self._ensure_runtime_addons_path(shared_root)
             self.write({"runtime_path_registered": runtime_registered})
-            update_logs = self._update_module_list()
+            update_result = self._safe_update_module_list()
+            update_logs = update_result["messages"]
+            if not update_result["ok"]:
+                report = update_result["report"]
+                self._mark_error(
+                    report["summary"],
+                    resolution=report["resolution"],
+                    detected_cause=report["cause"],
+                    error_details=report["details"],
+                    path_diagnostics=self._build_path_diagnostics(),
+                    odoo_log_highlights=report["log_highlights"],
+                    missing_python=report["missing_python"],
+                    missing_binary=report["missing_binary"],
+                    missing_odoo=report["missing_odoo"],
+                    failure_code=report["failure_code"],
+                )
+                self._raise_functional_error(
+                    report["summary"],
+                    report["cause"],
+                    report["resolution"],
+                )
             log_info = self._extract_log_signals(update_logs)
             self._refresh_addon_path_states()
             self._refresh_addon_odoo_states()
