@@ -1734,13 +1734,19 @@ class OcaRepositoryInstaller(models.Model):
                     )
 
             runtime_registered = self._ensure_runtime_addons_path(shared_root)
-            config_registered, _, config_note = self._persist_addons_path_to_config(shared_root, settings)
+            config_registered, config_updated, config_note = self._persist_addons_path_to_config(
+                shared_root, settings
+            )
             self.write(
                 {
                     "runtime_path_registered": runtime_registered,
                     "config_path_persisted": config_registered,
                 }
             )
+            if config_updated:
+                _logger.info(
+                    "Instalador OCA: addons_path actualizado en el fichero de configuracion"
+                )
             if config_note:
                 exposure_notes.append(config_note)
 
