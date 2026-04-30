@@ -1,0 +1,79 @@
+<odoo>
+    <record id="res_config_settings_view_form_oca_installer" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.oca.installer</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app string="OCA Installer" name="oca_installer" groups="base.group_system">
+                    <block title="Rutas base">
+                        <setting
+                            string="Rama OCA por defecto"
+                            help="Rama git usada por defecto cuando el usuario crea una instalacion nueva."
+                        >
+                            <field name="oca_git_branch"/>
+                        </setting>
+                        <setting
+                            string="Carpeta donde clonar repositorios"
+                            help="Aqui se guardan los git clone o git pull de cada repo."
+                        >
+                            <field name="oca_clone_root"/>
+                        </setting>
+                        <setting
+                            string="Carpeta OCA visible por Odoo"
+                            help="Esta ruta debe ser la carpeta padre que contiene un subdirectorio por addon con su __manifest__.py. No debe apuntar directamente a un addon suelto."
+                        >
+                            <field name="oca_shared_addons_path"/>
+                        </setting>
+                        <setting
+                            string="Como exponer los addons"
+                            help="Enlace simbolico es mas limpio. Copiar sirve cuando el servidor no permite symlink."
+                        >
+                            <field name="oca_path_strategy"/>
+                        </setting>
+                    </block>
+                    <block title="Persistencia en Odoo">
+                        <setting
+                            string="Persistir addons_path en el fichero de configuracion"
+                            help="Si esta activado, el modulo intentara anadir la ruta compartida al addons_path del fichero de configuracion."
+                        >
+                            <field name="oca_persist_addons_path_to_config"/>
+                        </setting>
+                        <setting
+                            string="Fichero de configuracion de Odoo"
+                            help="Normalmente /etc/odoo19.conf."
+                        >
+                            <field name="oca_odoo_config_path"/>
+                        </setting>
+                    </block>
+                    <block title="Dependencias automaticas">
+                        <setting
+                            string="Instalar automaticamente dependencias Python"
+                            help="Activalo solo si el usuario del servicio Odoo puede ejecutar el comando de instalacion sin pedir password."
+                        >
+                            <field name="oca_auto_install_python_deps"/>
+                        </setting>
+                        <setting
+                            string="Comando para instalar dependencias Python"
+                            help="Ejemplo: sudo -n /opt/odoo19/venv/bin/pip install {packages}"
+                        >
+                            <field name="oca_python_install_command" placeholder="sudo -n /opt/odoo19/venv/bin/pip install {packages}"/>
+                        </setting>
+                        <setting
+                            string="Instalar automaticamente dependencias del sistema"
+                            help="Activalo solo si Odoo puede lanzar apt sin pedir password."
+                        >
+                            <field name="oca_auto_install_binary_deps"/>
+                        </setting>
+                        <setting
+                            string="Comando para instalar dependencias del sistema"
+                            help="Ejemplo: sudo -n apt-get install -y {packages}"
+                        >
+                            <field name="oca_binary_install_command" placeholder="sudo -n apt-get install -y {packages}"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>
