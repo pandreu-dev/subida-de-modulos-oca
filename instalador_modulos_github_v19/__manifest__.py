@@ -1,7 +1,7 @@
 {
     "name": "Instalador OCA para Odoo 19",
     "summary": "Clona, expone e instala addons OCA desde una URL de GitHub",
-    "version": "19.0.1.0.1",
+    "version": "19.0.1.0.2",
     "category": "Administration",
     "author": "OpenAI",
     "maintainer": "OpenAI",
