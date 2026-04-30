@@ -165,7 +165,7 @@
         <field name="name">Configuracion</field>
         <field name="res_model">res.config.settings</field>
         <field name="view_mode">form</field>
-        <field name="target">inline</field>
+        <field name="target">current</field>
         <field name="context">{'module': 'instalador_modulos_github_v19'}</field>
     </record>
 

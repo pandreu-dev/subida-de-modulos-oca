@@ -173,13 +173,13 @@ class OcaRepositoryInstaller(models.Model):
         return _("Si") if value else _("No")
 
     def _split_text_lines(self, text):
-        return [line.strip() for line in tools.ustr(text or "").splitlines() if line and line.strip()]
+        return [line.strip() for line in str(text or "").splitlines() if line and line.strip()]
 
     def _unique_lines(self, lines):
         ordered = []
         seen = set()
         for line in lines or []:
-            text = tools.ustr(line).strip()
+            text = str(line).strip()
             if not text or text in seen:
                 continue
             ordered.append(text)
@@ -194,7 +194,7 @@ class OcaRepositoryInstaller(models.Model):
         raise UserError(self._format_user_message(summary, detected_cause, resolution))
 
     def _exception_summary(self, error):
-        message = tools.ustr(error).strip()
+        message = str(error).strip()
         return "%s: %s" % (error.__class__.__name__, message or _("sin detalle adicional"))
 
     def _normalize_repo_url(self, repo_url):
@@ -356,7 +356,7 @@ class OcaRepositoryInstaller(models.Model):
             manifest = self._read_manifest(manifest_path)
             result.update({"manifest": manifest, "manifest_readable": True})
         except Exception as error:
-            result["manifest_error"] = tools.ustr(error)
+            result["manifest_error"] = str(error)
         return result
 
     def _read_config_addons_paths(self, settings=None):
@@ -795,7 +795,7 @@ class OcaRepositoryInstaller(models.Model):
         except Exception as error:
             raise UserError(
                 _("No se pudo preparar %s en %s: %s")
-                % (label, directory_path, tools.ustr(error))
+                % (label, directory_path, str(error))
             )
 
         probe_path = False
@@ -809,7 +809,7 @@ class OcaRepositoryInstaller(models.Model):
         except Exception as error:
             raise UserError(
                 _("Odoo no puede escribir en %s (%s): %s")
-                % (label, directory_path, tools.ustr(error))
+                % (label, directory_path, str(error))
             )
         finally:
             if probe_path and os.path.exists(probe_path):
@@ -1171,7 +1171,7 @@ class OcaRepositoryInstaller(models.Model):
         technical_context=None,
     ):
         traceback_text = traceback_text if traceback_text is not None else traceback.format_exc()
-        error_text = "%s\n%s" % (tools.ustr(error), traceback_text)
+        error_text = "%s\n%s" % (str(error), traceback_text)
         missing_python = self._extract_missing_python_from_text(error_text)
         missing_odoo = self._extract_missing_odoo_from_text(error_text)
         technical_context = technical_context or {}
@@ -1936,7 +1936,7 @@ class OcaRepositoryInstaller(models.Model):
             )
             return True, message
         except (UserError, ValidationError) as error:
-            message = tools.ustr(error)
+            message = str(error)
             self._mark_error(
                 message,
                 detected_cause=message,
@@ -2206,7 +2206,7 @@ class OcaRepositoryInstaller(models.Model):
             addon_line.write({"install_result": post_report["summary"]})
             return True, post_report["summary"]
         except (UserError, ValidationError) as error:
-            message = tools.ustr(error)
+            message = str(error)
             self._mark_error(
                 message,
                 detected_cause=message,
