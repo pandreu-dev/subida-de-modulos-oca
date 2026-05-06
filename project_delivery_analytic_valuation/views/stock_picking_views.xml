@@ -1,0 +1,22 @@
+<odoo>
+    <record id="view_picking_form_project_delivery_analytic_valuation" model="ir.ui.view">
+        <field name="name">stock.picking.form.project.delivery.analytic.valuation</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <field name="is_manual_project_delivery" invisible="1"/>
+            </xpath>
+            <xpath expr="//header/button[@name='button_validate'][last()]" position="after">
+                <button
+                    name="action_publish_and_open_stock_valuation"
+                    string="Publicar"
+                    type="object"
+                    class="btn-primary"
+                    groups="stock.group_stock_user"
+                    invisible="not is_manual_project_delivery or state in ('draft', 'done', 'cancel')"
+                />
+            </xpath>
+        </field>
+    </record>
+</odoo>
