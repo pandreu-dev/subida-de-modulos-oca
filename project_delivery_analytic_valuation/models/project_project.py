@@ -22,7 +22,7 @@ class ProjectProject(models.Model):
     def _get_project_delivery_stock_moves(self):
         self.ensure_one()
         moves = self.env["stock.move"].sudo().search(self._get_project_delivery_stock_moves_domain())
-        return moves.filtered(lambda move: move.picking_id._is_manual_project_delivery())
+        return moves.filtered(lambda move: move._is_manual_project_delivery_move())
 
     def _get_project_delivery_stock_move_totals(self):
         self.ensure_one()

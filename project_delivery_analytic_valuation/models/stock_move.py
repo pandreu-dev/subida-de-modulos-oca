@@ -7,9 +7,14 @@ class StockMove(models.Model):
     def _get_project_analytic_account(self):
         self.ensure_one()
         picking = self.picking_id
-        if not picking or not picking._is_manual_project_delivery():
+        if not self._is_manual_project_delivery_move():
             return self.env["account.analytic.account"]
         return picking._get_project_analytic_account()
+
+    def _is_manual_project_delivery_move(self):
+        self.ensure_one()
+        picking = self.picking_id
+        return bool(picking and picking._is_manual_project_delivery())
 
     def _get_project_analytic_distribution(self):
         self.ensure_one()
@@ -21,14 +26,14 @@ class StockMove(models.Model):
         if distribution:
             return distribution
         self.ensure_one()
-        if not self.picking_id._is_manual_project_delivery():
+        if not self._is_manual_project_delivery_move():
             return {}
         return self._get_project_analytic_distribution()
 
     def _prepare_analytic_line_values(self, account_field_values, amount, unit_amount):
         vals = super()._prepare_analytic_line_values(account_field_values, amount, unit_amount)
         self.ensure_one()
-        if self.picking_id._is_manual_project_delivery() and self._get_project_analytic_distribution():
+        if self._is_manual_project_delivery_move() and self._get_project_analytic_distribution():
             vals.update(
                 {
                     "name": "%s - %s" % (self.reference, self.product_id.display_name),
