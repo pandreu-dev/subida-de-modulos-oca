@@ -1,0 +1,40 @@
+<odoo>
+    <record id="view_stock_move_project_delivery_cost_list" model="ir.ui.view">
+        <field name="name">stock.move.project.delivery.cost.list</field>
+        <field name="model">stock.move</field>
+        <field name="arch" type="xml">
+            <list string="Delivery Inventory Costs" create="0" edit="0" delete="0">
+                <field name="date"/>
+                <field name="picking_id" string="Delivery"/>
+                <field name="reference"/>
+                <field name="product_id"/>
+                <field name="quantity"/>
+                <field name="product_uom"/>
+                <field name="company_currency_id" column_invisible="True"/>
+                <field
+                    name="value"
+                    string="Cost"
+                    widget="monetary"
+                    options="{'currency_field': 'company_currency_id'}"
+                    sum="Total Cost"
+                />
+                <field name="company_id" groups="base.group_multi_company"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_stock_move_project_delivery_cost_search" model="ir.ui.view">
+        <field name="name">stock.move.project.delivery.cost.search</field>
+        <field name="model">stock.move</field>
+        <field name="arch" type="xml">
+            <search string="Delivery Inventory Costs">
+                <field name="picking_id"/>
+                <field name="product_id"/>
+                <field name="reference"/>
+                <filter string="Done" name="done" domain="[('state', '=', 'done')]"/>
+                <filter string="Group by Delivery" name="group_by_picking" context="{'group_by': 'picking_id'}"/>
+                <filter string="Group by Product" name="group_by_product" context="{'group_by': 'product_id'}"/>
+            </search>
+        </field>
+    </record>
+</odoo>

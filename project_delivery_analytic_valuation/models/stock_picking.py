@@ -1,5 +1,4 @@
-from odoo import _, fields, models
-from odoo.exceptions import UserError
+from odoo import fields, models
 
 
 class StockPicking(models.Model):
@@ -69,22 +68,3 @@ class StockPicking(models.Model):
         except KeyError:
             return False
         return bool(model.sudo().search_count([("name", "in", names)], limit=1))
-
-    def action_publish_and_open_stock_valuation(self):
-        self.ensure_one()
-        if not self._is_manual_project_delivery():
-            raise UserError(
-                _(
-                    "This action is only available on manual deliveries with a project. "
-                    "Deliveries coming from sales or purchases are excluded."
-                )
-            )
-        if self.state != "done":
-            result = self.button_validate()
-            if isinstance(result, dict):
-                return result
-        return {
-            "type": "ir.actions.act_url",
-            "url": "/odoo/stock-valuation-closing",
-            "target": "self",
-        }
