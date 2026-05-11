@@ -1,0 +1,3 @@
+<odoo>
+    <function model="stock.picking" name="_sync_existing_project_delivery_analytic_lines"/>
+</odoo>

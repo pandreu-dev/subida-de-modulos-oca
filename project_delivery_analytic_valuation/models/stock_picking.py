@@ -1,4 +1,4 @@
-from odoo import fields, models
+from odoo import api, fields, models
 
 
 class StockPicking(models.Model):
@@ -12,6 +12,32 @@ class StockPicking(models.Model):
     def _compute_is_manual_project_delivery(self):
         for picking in self:
             picking.is_manual_project_delivery = picking._is_manual_project_delivery()
+
+    def button_validate(self):
+        result = super().button_validate()
+        self._sync_project_delivery_analytic_lines()
+        return result
+
+    def _sync_project_delivery_analytic_lines(self):
+        moves = self.move_ids.filtered(
+            lambda move: move.state == "done" and move._is_manual_project_delivery_move()
+        )
+        if moves:
+            moves.sudo()._sync_project_delivery_analytic_lines()
+
+    @api.model
+    def _sync_existing_project_delivery_analytic_lines(self):
+        if "project_id" not in self._fields:
+            return True
+        pickings = self.sudo().search(
+            [
+                ("state", "=", "done"),
+                ("picking_type_code", "=", "outgoing"),
+                ("project_id", "!=", False),
+            ]
+        )
+        pickings._sync_project_delivery_analytic_lines()
+        return True
 
     def _get_project_analytic_account(self):
         self.ensure_one()

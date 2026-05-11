@@ -22,13 +22,18 @@ class StockMove(models.Model):
         return {str(account.id): 100.0} if account else {}
 
     def _get_analytic_distribution(self):
-        distribution = super()._get_analytic_distribution()
-        if distribution:
-            return distribution
         self.ensure_one()
-        if not self._is_manual_project_delivery_move():
-            return {}
-        return self._get_project_analytic_distribution()
+        project_distribution = self._get_project_analytic_distribution()
+        if project_distribution:
+            return project_distribution
+        return super()._get_analytic_distribution()
+
+    def _sync_project_delivery_analytic_lines(self):
+        for move in self.sudo():
+            if move.state != "done" or not move._is_manual_project_delivery_move():
+                continue
+            if move._get_project_analytic_distribution():
+                move._create_analytic_move()
 
     def _prepare_analytic_line_values(self, account_field_values, amount, unit_amount):
         vals = super()._prepare_analytic_line_values(account_field_values, amount, unit_amount)
