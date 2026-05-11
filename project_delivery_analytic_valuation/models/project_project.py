@@ -1,5 +1,3 @@
-import json
-
 from odoo import _, models
 from odoo.tools import formatLang
 
@@ -57,56 +55,6 @@ class ProjectProject(models.Model):
         if search_view:
             action["search_view_id"] = search_view.id
         return action
-
-    def action_profitability_items(self, section_name, domain=None, res_id=False):
-        if section_name == "delivery_stock_moves":
-            action = self.action_view_delivery_stock_moves()
-            if domain is not None:
-                action["domain"] = domain
-            if res_id:
-                action.update({"views": [(False, "form")], "view_mode": "form", "res_id": res_id})
-            return action
-        return super().action_profitability_items(section_name, domain, res_id)
-
-    def _get_profitability_labels(self):
-        return {
-            **super()._get_profitability_labels(),
-            "delivery_stock_moves": _("Inventory Deliveries"),
-        }
-
-    def _get_profitability_sequence_per_invoice_type(self):
-        return {
-            **super()._get_profitability_sequence_per_invoice_type(),
-            "delivery_stock_moves": 12,
-        }
-
-    def _get_profitability_items(self, with_action=True):
-        profitability_items = super()._get_profitability_items(with_action)
-        moves, billed_amount = self._get_project_delivery_stock_move_totals()
-        if not moves or not billed_amount:
-            return profitability_items
-
-        section_id = "delivery_stock_moves"
-        cost_item = {
-            "id": section_id,
-            "sequence": self._get_profitability_sequence_per_invoice_type()[section_id],
-            "billed": billed_amount,
-            "to_bill": 0.0,
-        }
-        if with_action and self.env.user.has_group("stock.group_stock_user"):
-            args = [section_id, [("id", "in", moves.ids)]]
-            if len(moves) == 1:
-                args.append(moves.id)
-            cost_item["action"] = {
-                "name": "action_profitability_items",
-                "type": "object",
-                "args": json.dumps(args),
-            }
-
-        costs = profitability_items["costs"]
-        costs["data"].append(cost_item)
-        costs["total"]["billed"] += billed_amount
-        return profitability_items
 
     def _get_stat_buttons(self):
         self.ensure_one()
