@@ -6,19 +6,53 @@ class StockMove(models.Model):
 
     def _get_project_analytic_account(self):
         self.ensure_one()
-        picking = self.picking_id
         if not self._is_manual_project_delivery_move():
             return self.env["account.analytic.account"]
-        return picking._get_project_analytic_account()
+        return self._get_project_delivery_analytic_account()
+
+    def _get_project_delivery_analytic_account(self):
+        self.ensure_one()
+        project = self._get_project_for_analytic_valuation()
+        if project:
+            return self._get_project_account(project)
+        picking = self.picking_id
+        return picking._get_project_analytic_account() if picking else self.env["account.analytic.account"]
+
+    def _get_project_for_analytic_valuation(self):
+        self.ensure_one()
+        projects = self.env["project.project"]
+        if "project_id" in self._fields:
+            projects |= self.project_id
+        if "sale_line_id" in self._fields and self.sale_line_id:
+            sale_line = self.sale_line_id
+            if "project_id" in sale_line._fields:
+                projects |= sale_line.project_id
+            if "order_id" in sale_line._fields and "project_id" in sale_line.order_id._fields:
+                projects |= sale_line.order_id.project_id
+        projects = projects.filtered(lambda project: project and project.account_id)
+        return projects if len(projects) == 1 else self.env["project.project"]
+
+    def _get_project_account(self, project):
+        self.ensure_one()
+        if not project or "account_id" not in project._fields:
+            return self.env["account.analytic.account"]
+        account = project.account_id
+        if account and account.company_id and account.company_id != self.company_id:
+            return self.env["account.analytic.account"]
+        return account
 
     def _is_manual_project_delivery_move(self):
         self.ensure_one()
         picking = self.picking_id
-        return bool(picking and picking._is_manual_project_delivery())
+        return bool(
+            picking
+            and picking._is_project_delivery_candidate()
+            and self._get_project_analytic_distribution()
+        )
 
     def _get_project_analytic_distribution(self):
         self.ensure_one()
-        account = self._get_project_analytic_account()
+        account = self._get_project_delivery_analytic_account()
         return {str(account.id): 100.0} if account else {}
 
     def _get_analytic_distribution(self):

@@ -1,4 +1,5 @@
 from odoo import _, models
+from odoo.fields import Domain
 from odoo.tools import formatLang
 
 
@@ -7,15 +8,34 @@ class ProjectProject(models.Model):
 
     def _get_project_delivery_stock_moves_domain(self):
         self.ensure_one()
-        if "project_id" not in self.env["stock.picking"]._fields:
+        project_domains = self._get_project_delivery_source_domains()
+        if not project_domains:
             return [("id", "=", 0)]
         return [
             ("state", "=", "done"),
             ("picking_id.picking_type_code", "=", "outgoing"),
-            ("picking_id.project_id", "=", self.id),
             ("product_id.is_storable", "=", True),
             ("value", "!=", 0),
+            *Domain.OR(project_domains),
         ]
+
+    def _get_project_delivery_source_domains(self):
+        self.ensure_one()
+        domains = []
+        stock_move = self.env["stock.move"]
+        stock_picking = self.env["stock.picking"]
+        if "project_id" in stock_move._fields:
+            domains.append([("project_id", "=", self.id)])
+        if "project_id" in stock_picking._fields:
+            domains.append([("picking_id.project_id", "=", self.id)])
+        if "sale_id" in stock_picking._fields and self._model_has_field("sale.order", "project_id"):
+            domains.append([("picking_id.sale_id.project_id", "=", self.id)])
+        if "sale_line_id" in stock_move._fields:
+            if self._model_has_field("sale.order.line", "project_id"):
+                domains.append([("sale_line_id.project_id", "=", self.id)])
+            if self._model_has_field("sale.order", "project_id"):
+                domains.append([("sale_line_id.order_id.project_id", "=", self.id)])
+        return domains
 
     def _get_project_delivery_stock_moves(self):
         self.ensure_one()
@@ -75,3 +95,10 @@ class ProjectProject(models.Model):
             }
         )
         return buttons
+
+    def _model_has_field(self, model_name, field_name):
+        try:
+            model = self.env[model_name]
+        except KeyError:
+            return False
+        return field_name in model._fields
