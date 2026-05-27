@@ -31,6 +31,8 @@ class ProjectProject(models.Model):
         if "sale_id" in stock_picking._fields and self._model_has_field("sale.order", "project_id"):
             domains.append([("picking_id.sale_id.project_id", "=", self.id)])
         if "sale_line_id" in stock_move._fields:
+            if self.account_id and self._model_has_field("sale.order.line", "analytic_distribution"):
+                domains.append([("sale_line_id.analytic_distribution", "in", self.account_id.ids)])
             if self._model_has_field("sale.order.line", "project_id"):
                 domains.append([("sale_line_id.project_id", "=", self.id)])
             if self._model_has_field("sale.order", "project_id"):

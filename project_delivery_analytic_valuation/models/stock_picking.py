@@ -50,6 +50,7 @@ class StockPicking(models.Model):
             domains.append([("sale_id.project_id", "!=", False)])
         stock_move = self.env["stock.move"]
         if "sale_line_id" in stock_move._fields:
+            domains.append([("move_ids.sale_line_id", "!=", False)])
             if self._model_has_field("sale.order.line", "project_id"):
                 domains.append([("move_ids.sale_line_id.project_id", "!=", False)])
             if self._model_has_field("sale.order", "project_id"):

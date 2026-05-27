@@ -4,6 +4,11 @@ from odoo import models
 class StockMove(models.Model):
     _inherit = "stock.move"
 
+    def _action_done(self, cancel_backorder=False):
+        moves = super()._action_done(cancel_backorder=cancel_backorder)
+        moves.sudo()._sync_project_delivery_analytic_lines()
+        return moves
+
     def _get_project_analytic_account(self):
         self.ensure_one()
         if not self._is_manual_project_delivery_move():
@@ -53,7 +58,18 @@ class StockMove(models.Model):
     def _get_project_analytic_distribution(self):
         self.ensure_one()
         account = self._get_project_delivery_analytic_account()
-        return {str(account.id): 100.0} if account else {}
+        if account:
+            return {str(account.id): 100.0}
+        return self._get_sale_line_analytic_distribution()
+
+    def _get_sale_line_analytic_distribution(self):
+        self.ensure_one()
+        if "sale_line_id" not in self._fields or not self.sale_line_id:
+            return {}
+        sale_line = self.sale_line_id
+        if "analytic_distribution" not in sale_line._fields:
+            return {}
+        return dict(sale_line.analytic_distribution or {})
 
     def _get_analytic_distribution(self):
         self.ensure_one()
@@ -61,6 +77,40 @@ class StockMove(models.Model):
         if project_distribution:
             return project_distribution
         return super()._get_analytic_distribution()
+
+    def _prepare_analytic_lines(self):
+        vals = super()._prepare_analytic_lines()
+        self.ensure_one()
+        if vals or self.analytic_account_line_ids or not self._is_manual_project_delivery_move():
+            return vals
+        amount, unit_amount = self._get_project_delivery_analytic_amounts()
+        if not amount and not unit_amount:
+            return vals
+        return self.env["account.analytic.account"]._perform_analytic_distribution(
+            self._get_project_analytic_distribution(),
+            amount,
+            unit_amount,
+            self.analytic_account_line_ids,
+            self,
+        )
+
+    def _get_project_delivery_analytic_amounts(self):
+        self.ensure_one()
+        unit_amount = self._get_valued_qty()
+        if not unit_amount:
+            unit_amount = self.product_uom._compute_quantity(self.quantity, self.product_id.uom_id)
+        amount = self.value
+        if not amount and unit_amount:
+            amount = unit_amount * self._get_project_delivery_fallback_price_unit()
+        return -abs(amount), unit_amount
+
+    def _get_project_delivery_fallback_price_unit(self):
+        self.ensure_one()
+        if "sale_line_id" in self._fields and self.sale_line_id:
+            sale_line = self.sale_line_id
+            if "purchase_price" in sale_line._fields and sale_line.purchase_price:
+                return sale_line.purchase_price
+        return self.product_id.with_company(self.company_id).standard_price
 
     def _sync_project_delivery_analytic_lines(self):
         for move in self.sudo():
