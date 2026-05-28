@@ -1,0 +1,30 @@
+<odoo>
+    <record id="view_budget_analytic_form_wip_calc" model="ir.ui.view">
+        <field name="name">budget.analytic.form.wip.calc</field>
+        <field name="model">budget.analytic</field>
+        <field name="inherit_id" ref="account_budget.view_budget_analytic_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form/header/field[@name='state']" position="before">
+                <button
+                    name="action_open_wip_calculation_wizard"
+                    string="Calcular WIP"
+                    type="object"
+                    class="oe_highlight"
+                />
+                <button
+                    name="action_view_wip_calculations"
+                    string="Calculos WIP"
+                    type="object"
+                />
+                <button
+                    name="action_reset_wip_recalculation_date"
+                    string="Reset fecha WIP"
+                    type="object"
+                />
+            </xpath>
+            <xpath expr="//field[@name='company_id']" position="before">
+                <field name="wip_recalculation_date"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

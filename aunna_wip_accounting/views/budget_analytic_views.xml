@@ -1,0 +1,26 @@
+<odoo>
+    <record id="view_budget_analytic_form_wip_accounting" model="ir.ui.view">
+        <field name="name">budget.analytic.form.wip.accounting</field>
+        <field name="model">budget.analytic</field>
+        <field name="inherit_id" ref="account_budget.view_budget_analytic_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form/header/field[@name='state']" position="before">
+                <button
+                    name="action_create_wip_account_move"
+                    string="Crear asiento WIP"
+                    type="object"
+                    class="btn-primary"
+                    invisible="not wip_last_calculation_id or wip_auto_accounting"
+                />
+                <button
+                    name="action_view_wip_account_moves"
+                    string="Asientos WIP"
+                    type="object"
+                />
+            </xpath>
+            <xpath expr="//field[@name='company_id']" position="before">
+                <field name="wip_auto_accounting" readonly="state != 'draft'"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,23 @@
+<odoo>
+    <record id="view_aunna_wip_calculate_wizard_form" model="ir.ui.view">
+        <field name="name">aunna.wip.calculate.wizard.form</field>
+        <field name="model">aunna.wip.calculate.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Calcular WIP">
+                <group>
+                    <field name="budget_id" readonly="1"/>
+                    <field name="cutoff_date"/>
+                </group>
+                <footer>
+                    <button
+                        name="action_calculate"
+                        string="Calcular"
+                        type="object"
+                        class="btn-primary"
+                    />
+                    <button string="Cancelar" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

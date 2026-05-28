@@ -1,0 +1,51 @@
+<odoo>
+    <record id="res_config_settings_view_form_wip_accounting" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.wip.accounting</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app string="WIP" name="aunna_wip_accounting" groups="account.group_account_manager">
+                    <block title="Contabilizacion WIP">
+                        <setting
+                            string="Diario WIP"
+                            help="Diario contable usado para generar los asientos WIP."
+                        >
+                            <field name="aunnna_wip_journal_id"/>
+                        </setting>
+                        <setting
+                            string="Cuenta ingreso WIP"
+                            help="Cuenta de haber para el ingreso WIP. Ejemplo funcional: 705001."
+                        >
+                            <field name="aunnna_wip_income_account_id"/>
+                        </setting>
+                        <setting
+                            string="Cuenta ingresos anticipados"
+                            help="Cuenta de contrapartida. Ejemplo funcional: 485000."
+                        >
+                            <field name="aunnna_wip_deferred_account_id"/>
+                        </setting>
+                        <setting
+                            string="Publicar automaticamente"
+                            help="Si esta activo, el asiento WIP y su reversion se publican al crearse."
+                        >
+                            <field name="aunnna_wip_auto_post_moves"/>
+                        </setting>
+                        <setting
+                            string="Permitir WIP negativo"
+                            help="Si no esta activo, un WIP negativo no generara asiento automatico."
+                        >
+                            <field name="aunnna_wip_allow_negative_amounts"/>
+                        </setting>
+                        <setting
+                            string="Dias hasta reversion manual"
+                            help="Numero de dias para fechar la reversion cuando el asiento se crea manualmente."
+                        >
+                            <field name="aunnna_wip_manual_reversal_days"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>
