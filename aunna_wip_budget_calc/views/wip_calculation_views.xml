@@ -88,16 +88,15 @@
 
     <menuitem
         id="menu_aunna_wip_root"
-        name="WIP"
-        groups="account.group_account_user"
-        sequence="40"
-    />
-    <menuitem
-        id="menu_aunna_wip_calculations"
         name="Calculos WIP"
-        parent="menu_aunna_wip_root"
+        parent="account.menu_finance_entries"
         action="action_aunna_wip_calculation"
         groups="account.group_account_user"
-        sequence="10"
+        sequence="80"
     />
+    <record id="menu_aunna_wip_calculations" model="ir.ui.menu">
+        <field name="name">Calculos WIP</field>
+        <field name="parent_id" ref="menu_aunna_wip_root"/>
+        <field name="active">False</field>
+    </record>
 </odoo>
