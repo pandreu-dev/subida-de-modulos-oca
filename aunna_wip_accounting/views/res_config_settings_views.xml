@@ -48,4 +48,21 @@
             </xpath>
         </field>
     </record>
+
+    <record id="action_aunna_wip_accounting_settings" model="ir.actions.act_window">
+        <field name="name">Configuracion WIP</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+        <field name="context">{'module': 'aunna_wip_accounting'}</field>
+    </record>
+
+    <menuitem
+        id="menu_aunna_wip_accounting_settings"
+        name="Configuracion WIP"
+        parent="account.menu_finance_entries"
+        action="action_aunna_wip_accounting_settings"
+        groups="account.group_account_manager"
+        sequence="81"
+    />
 </odoo>

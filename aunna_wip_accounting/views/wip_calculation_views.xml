@@ -18,6 +18,9 @@
         <field name="inherit_id" ref="aunna_wip_budget_calc.view_aunna_wip_calculation_form"/>
         <field name="arch" type="xml">
             <xpath expr="//header/field[@name='state']" position="before">
+                <field name="move_id" invisible="1"/>
+                <field name="reversal_move_id" invisible="1"/>
+                <field name="budget_wip_auto_accounting" invisible="1"/>
                 <button
                     name="action_create_wip_move"
                     string="Crear asiento WIP"
