@@ -13,13 +13,11 @@ class ResConfigSettings(models.TransientModel):
     aunnna_wip_income_account_id = fields.Many2one(
         "account.account",
         string="Cuenta ingreso WIP",
-        domain="[('deprecated', '=', False)]",
         config_parameter="aunna_wip_accounting.income_account_id",
     )
     aunnna_wip_deferred_account_id = fields.Many2one(
         "account.account",
         string="Cuenta ingresos anticipados",
-        domain="[('deprecated', '=', False)]",
         config_parameter="aunna_wip_accounting.deferred_account_id",
     )
     aunnna_wip_auto_post_moves = fields.Boolean(
