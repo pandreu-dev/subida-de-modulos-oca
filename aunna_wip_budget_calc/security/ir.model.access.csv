@@ -2,3 +2,6 @@ id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_aunna_wip_calculation_user,aunna.wip.calculation.user,model_aunna_wip_calculation,account.group_account_user,1,1,1,0
 access_aunna_wip_calculation_line_user,aunna.wip.calculation.line.user,model_aunna_wip_calculation_line,account.group_account_user,1,0,1,0
 access_aunna_wip_calculate_wizard_user,aunna.wip.calculate.wizard.user,model_aunna_wip_calculate_wizard,account.group_account_user,1,1,1,1
+access_aunna_wip_calculation_project_manager,aunna.wip.calculation.project.manager,model_aunna_wip_calculation,project.group_project_manager,1,1,1,0
+access_aunna_wip_calculation_line_project_manager,aunna.wip.calculation.line.project.manager,model_aunna_wip_calculation_line,project.group_project_manager,1,1,1,0
+access_aunna_wip_calculate_wizard_project_manager,aunna.wip.calculate.wizard.project.manager,model_aunna_wip_calculate_wizard,project.group_project_manager,1,1,1,1

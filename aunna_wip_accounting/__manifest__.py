@@ -1,7 +1,7 @@
 {
     "name": "Aunnna WIP - Contabilizacion",
     "summary": "Crea y revierte asientos contables WIP desde calculos WIP",
-    "version": "19.0.1.0.0",
+    "version": "19.0.2.0.0",
     "category": "Accounting/Accounting",
     "author": "Aunnna",
     "license": "LGPL-3",
@@ -13,6 +13,7 @@
         "views/res_config_settings_views.xml",
         "views/wip_calculation_views.xml",
         "views/budget_analytic_views.xml",
+        "wizard/wip_auto_test_wizard_views.xml",
         "data/ir_cron.xml",
     ],
     "installable": True,

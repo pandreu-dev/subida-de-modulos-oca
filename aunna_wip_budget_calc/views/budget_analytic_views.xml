@@ -16,14 +16,6 @@
                     string="Calculos WIP"
                     type="object"
                 />
-                <button
-                    name="action_reset_wip_recalculation_date"
-                    string="Reset fecha WIP"
-                    type="object"
-                />
-            </xpath>
-            <xpath expr="//field[@name='company_id']" position="before">
-                <field name="wip_recalculation_date"/>
             </xpath>
         </field>
     </record>

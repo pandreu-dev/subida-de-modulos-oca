@@ -8,7 +8,7 @@ class BudgetAnalytic(models.Model):
     wip_auto_accounting = fields.Boolean(
         string="Contabilizacion WIP automatica",
         copy=False,
-        help="Si esta marcado, el cron mensual calculara y contabilizara el WIP.",
+        help="Si esta marcado, el proceso diario calculara y contabilizara el WIP cuando corresponda.",
     )
     wip_account_move_count = fields.Integer(
         string="Asientos WIP",
@@ -30,13 +30,6 @@ class BudgetAnalytic(models.Model):
 
     def action_create_wip_account_move(self):
         self.ensure_one()
-        if self.wip_auto_accounting:
-            raise UserError(
-                _(
-                    "Este presupuesto tiene contabilizacion WIP automatica. "
-                    "El asiento se generara por el proceso automatico mensual."
-                )
-            )
         calculation = self.wip_last_calculation_id
         if not calculation:
             if not self.wip_recalculation_date:

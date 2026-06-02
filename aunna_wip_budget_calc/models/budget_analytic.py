@@ -97,14 +97,10 @@ class BudgetAnalytic(models.Model):
 
         company = self._aunna_wip_get_company()
         line_commands = []
-        total_theoretical = total_achieved = total_wip = 0.0
         notes = []
 
         for budget_line in budget_lines:
             vals = self._aunna_wip_prepare_line_values(budget_line, cutoff_date, company)
-            total_theoretical += vals["theoretical_amount"]
-            total_achieved += vals["achieved_amount"]
-            total_wip += vals["wip_amount"]
             if vals.get("calculation_note"):
                 notes.append(vals["calculation_note"])
             line_commands.append((0, 0, vals))
@@ -115,9 +111,6 @@ class BudgetAnalytic(models.Model):
                 "company_id": company.id,
                 "cutoff_date": cutoff_date,
                 "source": source,
-                "theoretical_amount": total_theoretical,
-                "achieved_amount": total_achieved,
-                "wip_amount": total_wip,
                 "note": "\n".join(dict.fromkeys(notes)) or False,
                 "line_ids": line_commands,
             }
@@ -241,17 +234,31 @@ class BudgetAnalytic(models.Model):
             return 0.0, _("Sin cuenta analitica detectada; alcanzado calculado como 0.")
 
         AnalyticLine = self.env["account.analytic.line"].sudo()
-        required_fields = {"account_id", "date", "amount"}
+        required_fields = {"date", "amount"}
         if not required_fields.issubset(set(AnalyticLine._fields)):
             return 0.0, _("No se han encontrado los campos esperados en account.analytic.line.")
 
+        account_fields = [
+            field_name
+            for field_name, field in AnalyticLine._fields.items()
+            if field.type == "many2one"
+            and field.store
+            and getattr(field, "comodel_name", False) == "account.analytic.account"
+        ]
+        if not account_fields:
+            return 0.0, _("No se han encontrado campos analiticos en account.analytic.line.")
+
         domain = [
-            ("account_id", "in", analytic_accounts.ids),
             ("date", ">=", date_from),
             ("date", "<=", cutoff_date),
         ]
         if "company_id" in AnalyticLine._fields and company:
             domain.append(("company_id", "in", [company.id, False]))
+        domain += ["|"] * (len(account_fields) - 1)
+        domain += [
+            (field_name, "in", analytic_accounts.ids)
+            for field_name in account_fields
+        ]
         lines = AnalyticLine.search(domain)
 
         if "move_line_id" in AnalyticLine._fields:
@@ -292,8 +299,10 @@ class BudgetAnalytic(models.Model):
             "date_from": date_from,
             "date_to": date_to,
             "budgeted_amount": budgeted_amount,
+            "calculated_theoretical_amount": theoretical_amount,
             "theoretical_amount": theoretical_amount,
             "achieved_amount": achieved_amount,
+            "calculated_wip_amount": theoretical_amount - achieved_amount,
             "wip_amount": theoretical_amount - achieved_amount,
             "calculation_note": note,
         }

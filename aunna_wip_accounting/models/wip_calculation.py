@@ -1,9 +1,12 @@
-from datetime import timedelta
+import logging
+from datetime import datetime, timedelta
 
 from dateutil.relativedelta import relativedelta
 
 from odoo import _, fields, models
 from odoo.exceptions import UserError
+
+_logger = logging.getLogger(__name__)
 
 
 class AunnaWipCalculation(models.Model):
@@ -48,7 +51,10 @@ class AunnaWipCalculation(models.Model):
 
     def _get_param_int(self, key):
         value = self.env["ir.config_parameter"].sudo().get_param(key)
-        return int(value or 0)
+        try:
+            return int(value or 0)
+        except (TypeError, ValueError):
+            return 0
 
     def _get_param_bool(self, key, default=False):
         value = self.env["ir.config_parameter"].sudo().get_param(key)
@@ -58,9 +64,10 @@ class AunnaWipCalculation(models.Model):
 
     def _aunna_wip_accounting_settings(self):
         get_param = self.env["ir.config_parameter"].sudo().get_param
-        journal_id = int(get_param("aunna_wip_accounting.journal_id") or 0)
-        income_account_id = int(get_param("aunna_wip_accounting.income_account_id") or 0)
-        deferred_account_id = int(get_param("aunna_wip_accounting.deferred_account_id") or 0)
+        journal_id = self._get_param_int("aunna_wip_accounting.journal_id")
+        income_account_id = self._get_param_int("aunna_wip_accounting.income_account_id")
+        deferred_account_id = self._get_param_int("aunna_wip_accounting.deferred_account_id")
+        grace_days = self._get_param_int("aunna_wip_accounting.auto_accounting_grace_days") or 5
         return {
             "journal": self.env["account.journal"].browse(journal_id).exists(),
             "income_account": self.env["account.account"].browse(income_account_id).exists(),
@@ -73,13 +80,15 @@ class AunnaWipCalculation(models.Model):
                 "aunna_wip_accounting.allow_negative_amounts",
                 default=False,
             ),
-            "manual_reversal_days": self._get_param_int(
-                "aunna_wip_accounting.manual_reversal_days"
-            )
-            or 1,
+            "auto_accounting_enabled": self._get_param_bool(
+                "aunna_wip_accounting.auto_accounting_enabled",
+                default=False,
+            ),
+            "auto_accounting_grace_days": max(1, min(grace_days, 28)),
         }
 
     def _aunna_wip_check_accounting_settings(self, settings):
+        self.ensure_one()
         missing = []
         if not settings["journal"]:
             missing.append(_("Diario WIP"))
@@ -92,8 +101,33 @@ class AunnaWipCalculation(models.Model):
                 _("Configura antes los siguientes valores WIP: %s.")
                 % ", ".join(missing)
             )
+        company = self.company_id
+        if settings["journal"].company_id != company:
+            raise UserError(
+                _("El diario WIP configurado no pertenece a la compania %s.")
+                % company.display_name
+            )
+        if settings["journal"].type != "general":
+            raise UserError(_("El diario WIP configurado debe ser de tipo Miscelanea."))
+        for account, label in [
+            (settings["income_account"], _("Cuenta ingreso WIP")),
+            (settings["deferred_account"], _("Cuenta ingresos anticipados")),
+        ]:
+            account_companies = account.sudo().company_ids
+            company_is_allowed = self.env["res.company"].sudo().search_count(
+                [
+                    ("id", "=", company.id),
+                    ("id", "child_of", account_companies.ids),
+                ],
+                limit=1,
+            )
+            if not company_is_allowed:
+                raise UserError(
+                    _("%s no esta disponible para la compania %s.")
+                    % (label, company.display_name)
+                )
 
-    def _aunna_wip_existing_posted_move(self):
+    def _aunna_wip_existing_move(self):
         self.ensure_one()
         return self.search(
             [
@@ -102,7 +136,36 @@ class AunnaWipCalculation(models.Model):
                 ("cutoff_date", "=", self.cutoff_date),
                 ("company_id", "=", self.company_id.id),
                 ("move_id", "!=", False),
-                ("accounting_state", "=", "posted"),
+            ],
+            limit=1,
+        )
+
+    def _aunna_wip_manual_move_since_month_start(
+        self,
+        budget,
+        first_day,
+        execution_date,
+    ):
+        start_datetime = datetime.combine(first_day, datetime.min.time())
+        end_datetime = datetime.combine(
+            execution_date + timedelta(days=1),
+            datetime.min.time(),
+        )
+        return self.search(
+            [
+                ("budget_id", "=", budget.id),
+                ("source", "=", "manual"),
+                ("move_id", "!=", False),
+                (
+                    "move_id.create_date",
+                    ">=",
+                    fields.Datetime.to_string(start_datetime),
+                ),
+                (
+                    "move_id.create_date",
+                    "<",
+                    fields.Datetime.to_string(end_datetime),
+                ),
             ],
             limit=1,
         )
@@ -111,6 +174,13 @@ class AunnaWipCalculation(models.Model):
         if not line.analytic_account_id:
             return False
         return {str(line.analytic_account_id.id): 100.0}
+
+    def _aunna_wip_lock_budget(self):
+        self.ensure_one()
+        self.env.cr.execute(
+            f"SELECT id FROM {self.budget_id._table} WHERE id = %s FOR UPDATE",
+            [self.budget_id.id],
+        )
 
     def _aunna_wip_move_line_vals(self, account, debit, credit, name, analytic_distribution=False):
         vals = {
@@ -131,7 +201,17 @@ class AunnaWipCalculation(models.Model):
             if not amount:
                 continue
             if amount < 0 and not settings["allow_negative"]:
-                continue
+                raise UserError(
+                    _(
+                        "La linea %s tiene WIP negativo. Activa la opcion correspondiente o revisa el calculo."
+                    )
+                    % (calc_line.budget_line_name or calc_line.display_name)
+                )
+            if not calc_line.analytic_account_id:
+                raise UserError(
+                    _("La linea %s no tiene cuenta analitica. No se crea un asiento sin imputacion.")
+                    % (calc_line.budget_line_name or calc_line.display_name)
+                )
             abs_amount = abs(amount)
             analytic_distribution = self._aunna_wip_line_analytic_distribution(calc_line)
             line_name = _("WIP %s") % (calc_line.budget_line_name or self.name)
@@ -201,42 +281,33 @@ class AunnaWipCalculation(models.Model):
             "line_ids": lines,
         }
 
-    def _aunna_wip_prepare_reversal_vals(self, move, reversal_date):
-        line_commands = []
-        for line in move.line_ids:
-            vals = {
-                "name": _("Reversion %s") % (line.name or move.name),
-                "account_id": line.account_id.id,
-                "debit": line.credit,
-                "credit": line.debit,
-            }
-            if "analytic_distribution" in line._fields and line.analytic_distribution:
-                vals["analytic_distribution"] = line.analytic_distribution
-            line_commands.append((0, 0, vals))
-        return {
-            "move_type": "entry",
-            "journal_id": move.journal_id.id,
-            "date": reversal_date,
-            "ref": _("Reversion %s") % (move.name or move.ref or self.name),
-            "company_id": move.company_id.id,
-            "line_ids": line_commands,
-        }
+    def _aunna_wip_create_native_reversal(self, move, reversal_date, settings):
+        reversal_move = move._reverse_moves(
+            default_values_list=[
+                {
+                    "date": reversal_date,
+                    "ref": _("Reversion de: %s") % (move.name or move.ref or self.name),
+                }
+            ],
+            cancel=False,
+        )
+        if settings["auto_post"]:
+            today = fields.Date.context_today(self)
+            if reversal_date <= today:
+                reversal_move.action_post()
+            else:
+                reversal_move.write({"auto_post": "at_date"})
+        return reversal_move
 
     def action_create_wip_move(self, reversal_date=False):
         self.ensure_one()
-        if self.budget_wip_auto_accounting and not reversal_date:
-            raise UserError(
-                _(
-                    "Este presupuesto tiene contabilizacion WIP automatica. "
-                    "El asiento se generara por el proceso automatico mensual."
-                )
-            )
         if self.state == "cancelled":
             raise UserError(_("No se puede contabilizar un calculo WIP cancelado."))
+        self._aunna_wip_lock_budget()
+        self.invalidate_recordset(["move_id"])
         if self.move_id:
             return self.action_open_wip_move()
-
-        duplicate = self._aunna_wip_existing_posted_move()
+        duplicate = self._aunna_wip_existing_move()
         if duplicate:
             raise UserError(
                 _(
@@ -261,14 +332,12 @@ class AunnaWipCalculation(models.Model):
             move.action_post()
 
         if not reversal_date:
-            reversal_date = fields.Date.to_date(self.cutoff_date) + timedelta(
-                days=settings["manual_reversal_days"]
-            )
-        reversal_move = self.env["account.move"].create(
-            self._aunna_wip_prepare_reversal_vals(move, reversal_date)
+            reversal_date = fields.Date.to_date(self.cutoff_date) + timedelta(days=1)
+        reversal_move = self._aunna_wip_create_native_reversal(
+            move,
+            fields.Date.to_date(reversal_date),
+            settings,
         )
-        if settings["auto_post"]:
-            reversal_move.action_post()
 
         self.write(
             {
@@ -276,7 +345,7 @@ class AunnaWipCalculation(models.Model):
                 "move_id": move.id,
                 "reversal_move_id": reversal_move.id,
                 "reversal_date": reversal_date,
-                "accounting_state": "posted" if settings["auto_post"] else "pending",
+                "accounting_state": "posted" if move.state == "posted" else "pending",
             }
         )
         return self.action_open_wip_move()
@@ -301,11 +370,37 @@ class AunnaWipCalculation(models.Model):
             "res_id": self.reversal_move_id.id,
         }
 
-    def _cron_monthly_auto_accounting(self):
-        today = fields.Date.context_today(self)
-        if today.day != 1:
-            return True
-        cutoff_date = today - relativedelta(days=1)
+    def _run_monthly_auto_accounting(
+        self,
+        execution_date=False,
+        budget=False,
+        create_moves=True,
+        enforce_schedule=True,
+    ):
+        execution_date = fields.Date.to_date(
+            execution_date or fields.Date.context_today(self)
+        )
+        settings = self._aunna_wip_accounting_settings()
+        if not settings["auto_accounting_enabled"]:
+            return {
+                "calculations": self.browse(),
+                "message": _(
+                    "La contabilizacion automatica WIP esta desactivada en Configuracion WIP."
+                ),
+            }
+        first_day = execution_date.replace(day=1)
+        trigger_date = first_day + timedelta(
+            days=settings["auto_accounting_grace_days"] - 1
+        )
+        if enforce_schedule and execution_date < trigger_date:
+            return {
+                "calculations": self.browse(),
+                "message": _(
+                    "El automatico WIP esperara hasta el %s. Mientras tanto puede generarse manualmente."
+                )
+                % trigger_date,
+            }
+        cutoff_date = first_day - relativedelta(days=1)
         Budget = self.env["budget.analytic"].sudo()
         domain = [("wip_auto_accounting", "=", True)]
         if "state" in Budget._fields:
@@ -313,28 +408,85 @@ class AunnaWipCalculation(models.Model):
                 (
                     "state",
                     "in",
-                    ["open", "opened", "confirmed", "validate", "validated", "done"],
+                    ["open", "opened", "confirmed", "validate", "validated"],
                 )
             )
+        if budget and not budget.wip_auto_accounting:
+            return {
+                "calculations": self.browse(),
+                "message": _(
+                    "El presupuesto seleccionado no tiene marcada la contabilizacion WIP automatica."
+                ),
+            }
+        if budget:
+            domain.append(("id", "=", budget.id))
         budgets = Budget.search(domain)
-        for budget in budgets:
+
+        calculations = self.browse()
+        messages = []
+        for current_budget in budgets:
+            manual_calculation = self._aunna_wip_manual_move_since_month_start(
+                current_budget,
+                first_day,
+                execution_date,
+            )
+            if manual_calculation and create_moves:
+                messages.append(
+                    _(
+                        "No se genera el automatico para %s: ya se creo manualmente un asiento WIP durante el plazo de espera."
+                    )
+                    % current_budget.display_name
+                )
+                continue
             existing = self.search(
                 [
-                    ("budget_id", "=", budget.id),
+                    ("budget_id", "=", current_budget.id),
                     ("cutoff_date", "=", cutoff_date),
-                    ("company_id", "=", budget._aunna_wip_get_company().id),
+                    ("company_id", "=", current_budget._aunna_wip_get_company().id),
                     ("move_id", "!=", False),
                 ],
                 limit=1,
             )
-            if existing:
+            if existing and create_moves:
+                messages.append(
+                    _("Ya existe un asiento WIP para %s a fecha %s.")
+                    % (current_budget.display_name, cutoff_date)
+                )
                 continue
-            calculation = budget._aunna_wip_calculate_to_date(
-                cutoff_date,
-                source="auto",
-            )
             try:
-                calculation.action_create_wip_move(reversal_date=today)
-            except UserError:
-                continue
+                with self.env.cr.savepoint():
+                    calculation = current_budget._aunna_wip_calculate_to_date(
+                        cutoff_date,
+                        source="auto",
+                    )
+                    if create_moves:
+                        calculation.action_create_wip_move(reversal_date=first_day)
+                calculations |= calculation
+            except UserError as error:
+                _logger.warning(
+                    "No se pudo contabilizar automaticamente el WIP de %s: %s",
+                    current_budget.display_name,
+                    error,
+                )
+                messages.append(
+                    _("%s: %s") % (current_budget.display_name, str(error))
+                )
+            except Exception as error:
+                _logger.exception(
+                    "Fallo inesperado al contabilizar automaticamente el WIP de %s",
+                    current_budget.display_name,
+                )
+                messages.append(
+                    _("%s: error inesperado: %s")
+                    % (current_budget.display_name, str(error))
+                )
+        return {
+            "calculations": calculations,
+            "message": "\n".join(messages),
+        }
+
+    def _cron_monthly_auto_accounting(self):
+        result = self._run_monthly_auto_accounting()
+        if result["message"]:
+            _logger.info("Resultado de contabilizacion automatica WIP:\n%s", result["message"])
         return True

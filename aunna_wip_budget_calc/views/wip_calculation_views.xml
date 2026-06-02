@@ -20,7 +20,7 @@
         <field name="name">aunna.wip.calculation.form</field>
         <field name="model">aunna.wip.calculation</field>
         <field name="arch" type="xml">
-            <form string="Calculo WIP" create="0" edit="0">
+            <form string="Calculo WIP" create="0">
                 <header>
                     <button
                         name="action_open_budget"
@@ -49,24 +49,30 @@
                             <field name="company_id" groups="base.group_multi_company"/>
                         </group>
                         <group>
+                            <field name="calculated_theoretical_amount"/>
                             <field name="theoretical_amount"/>
                             <field name="achieved_amount"/>
+                            <field name="calculated_wip_amount"/>
                             <field name="wip_amount"/>
                         </group>
                     </group>
                     <notebook>
                         <page string="Lineas">
                             <field name="line_ids" nolabel="1">
-                                <list create="0" edit="0">
+                                <list editable="bottom" create="0" delete="0">
                                     <field name="budget_line_name"/>
                                     <field name="analytic_account_id"/>
                                     <field name="project_id"/>
                                     <field name="date_from"/>
                                     <field name="date_to"/>
                                     <field name="budgeted_amount"/>
+                                    <field name="calculated_theoretical_amount"/>
                                     <field name="theoretical_amount"/>
                                     <field name="achieved_amount"/>
+                                    <field name="calculated_wip_amount"/>
                                     <field name="wip_amount"/>
+                                    <field name="manually_adjusted"/>
+                                    <field name="adjustment_note" optional="hide"/>
                                     <field name="calculation_note" optional="hide"/>
                                 </list>
                             </field>

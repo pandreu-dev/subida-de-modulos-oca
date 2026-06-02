@@ -20,13 +20,12 @@
             <xpath expr="//header/field[@name='state']" position="before">
                 <field name="move_id" invisible="1"/>
                 <field name="reversal_move_id" invisible="1"/>
-                <field name="budget_wip_auto_accounting" invisible="1"/>
                 <button
                     name="action_create_wip_move"
                     string="Crear asiento WIP"
                     type="object"
                     class="btn-primary"
-                    invisible="move_id or state == 'cancelled' or budget_wip_auto_accounting"
+                    invisible="move_id or state == 'cancelled'"
                 />
                 <button
                     name="action_open_wip_move"
@@ -41,10 +40,12 @@
                     invisible="not reversal_move_id"
                 />
             </xpath>
+            <xpath expr="//header/button[@name='action_cancel']" position="attributes">
+                <attribute name="invisible">state == 'cancelled' or move_id</attribute>
+            </xpath>
             <xpath expr="//group[@name='main_info']" position="after">
                 <group string="Contabilizacion WIP" name="accounting_info">
                     <group>
-                        <field name="budget_wip_auto_accounting" invisible="1"/>
                         <field name="accounting_state"/>
                         <field name="journal_id"/>
                         <field name="move_id"/>

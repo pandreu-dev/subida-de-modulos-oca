@@ -32,16 +32,34 @@
                             <field name="aunnna_wip_auto_post_moves"/>
                         </setting>
                         <setting
+                            string="Habilitar contabilizacion automatica del WIP"
+                            help="Activa el proceso diario que contabiliza el cierre mensual si no se ha generado manualmente durante el plazo de espera."
+                        >
+                            <field name="aunnna_wip_auto_accounting_enabled"/>
+                        </setting>
+                        <setting
+                            string="Dias de espera para contabilizacion automatica"
+                            help="Dia del mes siguiente en el que se genera el asiento automatico si nadie lo ha creado manualmente. Si el proceso falla, se reintentara los dias posteriores."
+                            invisible="not aunnna_wip_auto_accounting_enabled"
+                        >
+                            <field name="aunnna_wip_auto_accounting_grace_days"/>
+                        </setting>
+                        <setting
                             string="Permitir WIP negativo"
                             help="Si no esta activo, un WIP negativo no generara asiento automatico."
                         >
                             <field name="aunnna_wip_allow_negative_amounts"/>
                         </setting>
                         <setting
-                            string="Dias hasta reversion manual"
-                            help="Numero de dias para fechar la reversion cuando el asiento se crea manualmente."
+                            string="Prueba controlada del automatico"
+                            help="Simula la ejecucion mensual para una fecha elegida sin cambiar la fecha del servidor."
                         >
-                            <field name="aunnna_wip_manual_reversal_days"/>
+                            <button
+                                name="action_open_aunnna_wip_auto_test_wizard"
+                                string="Probar automatico WIP"
+                                type="object"
+                                class="btn-secondary"
+                            />
                         </setting>
                     </block>
                 </app>
