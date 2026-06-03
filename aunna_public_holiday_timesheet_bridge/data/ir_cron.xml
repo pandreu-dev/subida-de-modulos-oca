@@ -1,0 +1,11 @@
+<odoo>
+    <record id="ir_cron_aunna_public_holiday_timesheet_bridge" model="ir.cron">
+        <field name="name">Festivos publicos - generar partes de horas</field>
+        <field name="model_id" ref="model_aunna_public_holiday_timesheet_bridge"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_generate_public_holiday_timesheets()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active">True</field>
+    </record>
+</odoo>

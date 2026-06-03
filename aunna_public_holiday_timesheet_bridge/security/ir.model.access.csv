@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_aunna_public_holiday_timesheet_wizard,aunna.public.holiday.timesheet.wizard,model_aunna_public_holiday_timesheet_wizard,hr_timesheet.group_hr_timesheet_approver,1,1,1,1
+access_aunna_public_holiday_timesheet_wizard_line,aunna.public.holiday.timesheet.wizard.line,model_aunna_public_holiday_timesheet_wizard_line,hr_timesheet.group_hr_timesheet_approver,1,1,1,1
