@@ -56,11 +56,20 @@
     </record>
 
     <menuitem
+        id="menu_aunna_public_holiday_timesheet_settings"
+        name="Ajustes"
+        parent="hr_timesheet.hr_timesheet_menu_configuration"
+        action="hr_timesheet.hr_timesheet_config_settings_action"
+        sequence="10"
+        groups="base.group_system"
+    />
+
+    <menuitem
         id="menu_aunna_public_holiday_timesheet_wizard"
         name="Generar partes de festivos"
         parent="hr_timesheet.hr_timesheet_menu_configuration"
         action="action_aunna_public_holiday_timesheet_wizard"
-        sequence="80"
+        sequence="20"
         groups="hr_timesheet.group_hr_timesheet_approver"
     />
 </odoo>
