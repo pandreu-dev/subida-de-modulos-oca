@@ -18,7 +18,7 @@ class PublicHolidayTimesheetBridge(models.Model):
     @api.model
     def _cron_generate_public_holiday_timesheets(self):
         date_from, date_to = self._get_default_range()
-        return self.run_generation(date_from=date_from, date_to=date_to)
+        return self.run_generation(date_from=date_from, date_to=date_to, origin="automatic")
 
     @api.model
     def _get_default_range(self):
@@ -33,6 +33,7 @@ class PublicHolidayTimesheetBridge(models.Model):
         employee_ids=False,
         force_update=False,
         dry_run=False,
+        origin="manual",
     ):
         date_from, date_to = self._normalize_range(date_from, date_to)
         employees = self._get_employees(employee_ids)
@@ -45,6 +46,7 @@ class PublicHolidayTimesheetBridge(models.Model):
                 date_to=date_to,
                 force_update=force_update,
                 dry_run=dry_run,
+                origin=origin,
             )
             results.extend(employee_results)
 
@@ -79,7 +81,15 @@ class PublicHolidayTimesheetBridge(models.Model):
         return Employee.search(domain)
 
     @api.model
-    def _process_employee(self, employee, date_from, date_to, force_update=False, dry_run=False):
+    def _process_employee(
+        self,
+        employee,
+        date_from,
+        date_to,
+        force_update=False,
+        dry_run=False,
+        origin="manual",
+    ):
         results = []
 
         if not employee.user_id:
@@ -104,6 +114,19 @@ class PublicHolidayTimesheetBridge(models.Model):
 
         desired_keys = set()
         holidays = self._get_public_holiday_lines(employee, date_from, date_to)
+        if not holidays:
+            partner = self._get_employee_partner(employee)
+            message = _("No se han encontrado festivos OCA aplicables en el rango indicado.")
+            if not partner:
+                message = _("No se ha encontrado direccion/partner del empleado para calcular festivos OCA.")
+            results.append(
+                self._make_result(
+                    employee=employee,
+                    action="skip_no_holidays",
+                    message=message,
+                )
+            )
+
         for holiday in holidays:
             holiday_date = self._get_holiday_date(holiday)
             if not holiday_date:
@@ -127,6 +150,7 @@ class PublicHolidayTimesheetBridge(models.Model):
                     holiday_date=holiday_date,
                     force_update=force_update,
                     dry_run=dry_run,
+                    origin=origin,
                 )
             )
 
@@ -159,6 +183,7 @@ class PublicHolidayTimesheetBridge(models.Model):
         holiday_date,
         force_update=False,
         dry_run=False,
+        origin="manual",
     ):
         hours = self._compute_employee_hours(employee, holiday_date)
         holiday_name = self._get_record_name(holiday)
@@ -195,6 +220,7 @@ class PublicHolidayTimesheetBridge(models.Model):
             holiday_date=holiday_date,
             hours=hours,
             holiday_name=holiday_name,
+            origin=origin,
         )
 
         if existing:
@@ -256,6 +282,7 @@ class PublicHolidayTimesheetBridge(models.Model):
         holiday_date,
         hours,
         holiday_name,
+        origin="manual",
     ):
         name = _("Time Off - %s") % holiday_name
         vals = {
@@ -270,7 +297,7 @@ class PublicHolidayTimesheetBridge(models.Model):
             "x_is_public_holiday_timesheet": True,
             "x_generated_by_public_holiday_bridge": True,
             "x_public_holiday_line_id": holiday.id,
-            "x_public_holiday_source": "calendar.public.holiday.line:%s" % holiday.id,
+            "x_public_holiday_source": "%s:calendar.public.holiday.line:%s" % (origin, holiday.id),
         }
         vals["x_public_holiday_hash"] = self._make_hash(vals)
         return vals
@@ -294,6 +321,17 @@ class PublicHolidayTimesheetBridge(models.Model):
             HolidayLine = self.env[model_name].sudo()
         except KeyError:
             raise UserError(_("No existe el modelo calendar.public.holiday.line. Revisa hr_holidays_public."))
+
+        partner = self._get_employee_partner(employee)
+        PublicHoliday = self.env["calendar.public.holiday"].sudo()
+        get_holidays_list = getattr(PublicHoliday, "get_holidays_list", False)
+        if get_holidays_list:
+            return get_holidays_list(
+                start_dt=date_from,
+                end_dt=date_to,
+                partner_id=partner.id if partner else None,
+            )
+
         date_field = self._get_holiday_date_field(HolidayLine)
         if not date_field:
             raise UserError(_("No se ha encontrado un campo de fecha en calendar.public.holiday.line."))
@@ -326,29 +364,33 @@ class PublicHolidayTimesheetBridge(models.Model):
 
     @api.model
     def _get_employee_location(self, employee):
+        partner = self._get_employee_partner(employee)
         country = employee.country_id if "country_id" in employee._fields else False
         state = employee.state_id if "state_id" in employee._fields else False
-        partner = False
 
-        for field_name in (
-            "private_contact_id",
-            "address_home_id",
-            "home_address_id",
-            "address_id",
-            "work_contact_id",
-        ):
-            if field_name not in employee._fields or not employee[field_name]:
-                continue
-            partner = employee[field_name]
+        if partner:
             country = country or (partner.country_id if "country_id" in partner._fields else False)
             state = state or (partner.state_id if "state_id" in partner._fields else False)
-            if country and state:
-                break
 
         if state and not country and "country_id" in state._fields:
             country = state.country_id
 
         return country, state, partner
+
+    @api.model
+    def _get_employee_partner(self, employee):
+        for field_name in (
+            "address_id",
+            "private_contact_id",
+            "address_home_id",
+            "home_address_id",
+            "work_contact_id",
+        ):
+            if field_name in employee._fields and employee[field_name]:
+                return employee[field_name]
+        if employee.user_id and employee.user_id.partner_id:
+            return employee.user_id.partner_id
+        return self.env["res.partner"].browse()
 
     @api.model
     def _holiday_applies_to_employee(self, holiday, employee_country, employee_state, employee_partner):

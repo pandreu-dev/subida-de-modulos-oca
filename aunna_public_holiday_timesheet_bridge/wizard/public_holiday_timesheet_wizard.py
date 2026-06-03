@@ -6,7 +6,12 @@ from odoo import fields, models
 class PublicHolidayTimesheetWizard(models.TransientModel):
     _name = "aunna.public.holiday.timesheet.wizard"
     _description = "Generar partes de horas desde festivos publicos"
+    _rec_name = "name"
 
+    name = fields.Char(
+        string="Nombre",
+        default="Generar partes de festivos",
+    )
     date_from = fields.Date(
         string="Fecha desde",
         required=True,
@@ -20,7 +25,17 @@ class PublicHolidayTimesheetWizard(models.TransientModel):
     employee_ids = fields.Many2many(
         "hr.employee",
         string="Empleados",
-        help="Dejalo vacio para procesar todos los empleados activos.",
+        required=True,
+        help="Selecciona los empleados que quieres procesar desde este asistente.",
+    )
+    execution_mode = fields.Selection(
+        [
+            ("manual", "Manual"),
+            ("automatic", "Automatico"),
+        ],
+        string="Modo",
+        required=True,
+        default="manual",
     )
     force_update = fields.Boolean(
         string="Forzar actualizacion",
@@ -48,6 +63,7 @@ class PublicHolidayTimesheetWizard(models.TransientModel):
             employee_ids=self.employee_ids,
             force_update=self.force_update,
             dry_run=dry_run,
+            origin=self.execution_mode,
         )
         self.write(
             {
@@ -114,6 +130,7 @@ class PublicHolidayTimesheetWizardLine(models.TransientModel):
             ("skip_locked", "Omitir bloqueada"),
             ("skip_locked_stale", "Obsoleta bloqueada"),
             ("skip_no_user", "Sin usuario"),
+            ("skip_no_holidays", "Sin festivos"),
             ("skip_no_hours", "Sin horas"),
             ("skip_config", "Sin configuracion"),
             ("error", "Error"),
