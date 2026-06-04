@@ -26,6 +26,76 @@ class PublicHolidayTimesheetBridge(models.Model):
         return pydate(today.year, 1, 1), pydate(today.year + 1, 12, 31)
 
     @api.model
+    def sync_generated_timesheets(
+        self,
+        date_from=False,
+        date_to=False,
+        employee_ids=False,
+        origin="automatic",
+    ):
+        date_from, date_to = self._get_sync_range(date_from, date_to, employee_ids)
+        return self.with_context(aunna_public_holiday_timesheet_sync=True).run_generation(
+            date_from=date_from,
+            date_to=date_to,
+            employee_ids=employee_ids,
+            force_update=True,
+            dry_run=False,
+            origin=origin,
+        )
+
+    @api.model
+    def _get_sync_range(self, date_from=False, date_to=False, employee_ids=False):
+        default_from, default_to = self._get_default_range()
+        date_from = fields.Date.to_date(date_from or default_from)
+        date_to = fields.Date.to_date(date_to or default_to)
+
+        domain = [("x_generated_by_public_holiday_bridge", "=", True)]
+        if employee_ids:
+            if hasattr(employee_ids, "_name"):
+                employee_ids = employee_ids.ids
+            domain.append(("employee_id", "in", employee_ids))
+
+        AnalyticLine = self.env["account.analytic.line"].sudo()
+        first_line = AnalyticLine.search(domain, order="date asc", limit=1)
+        last_line = AnalyticLine.search(domain, order="date desc", limit=1)
+        if first_line and first_line.date:
+            date_from = min(date_from, fields.Date.to_date(first_line.date))
+        if last_line and last_line.date:
+            date_to = max(date_to, fields.Date.to_date(last_line.date))
+        return date_from, date_to
+
+    @api.model
+    def delete_generated_lines_for_holidays(self, holiday_lines):
+        if not holiday_lines:
+            return []
+
+        results = []
+        lines = self.env["account.analytic.line"].sudo().search(
+            [
+                ("x_generated_by_public_holiday_bridge", "=", True),
+                ("x_public_holiday_line_id", "in", holiday_lines.ids),
+            ]
+        )
+        for line in lines:
+            editable = self._is_line_editable(line)
+            results.append(
+                self._make_result(
+                    employee=line.employee_id,
+                    holiday=line.x_public_holiday_line_id,
+                    holiday_date=line.date,
+                    hours=line.unit_amount,
+                    analytic_line=line,
+                    action="delete_stale" if editable else "skip_locked_stale",
+                    message=_("Linea generada eliminada porque el festivo se ha borrado.")
+                    if editable
+                    else _("Linea generada obsoleta, pero validada o bloqueada."),
+                )
+            )
+            if editable:
+                line.unlink()
+        return results
+
+    @api.model
     def run_generation(
         self,
         date_from=False,

@@ -1,7 +1,7 @@
 {
     "name": "Aunnna Public Holiday Timesheet Bridge",
     "summary": "Genera partes de horas desde festivos publicos OCA aplicables al empleado",
-    "version": "19.0.1.1.1",
+    "version": "19.0.1.2.0",
     "category": "Human Resources/Timesheets",
     "author": "Aunnna",
     "license": "LGPL-3",
