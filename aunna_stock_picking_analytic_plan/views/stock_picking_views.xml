@@ -1,0 +1,12 @@
+<odoo>
+    <record id="view_picking_form_inherit_aunna_analytic_plan" model="ir.ui.view">
+        <field name="name">stock.picking.form.inherit.aunna.analytic.plan</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='extra']//group[@name='other_infos']" position="inside">
+                <field name="aunna_analytic_plan_id"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
