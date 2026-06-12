@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_aunna_stock_negative_rule_list" model="ir.ui.view">
+        <field name="name">aunna.stock.negative.rule.list</field>
+        <field name="model">aunna.stock.negative.rule</field>
+        <field name="arch" type="xml">
+            <list string="Reglas de stock negativo">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="active"/>
+                <field name="action"/>
+                <field name="scope"/>
+                <field name="product_tmpl_id"/>
+                <field name="categ_id"/>
+                <field name="location_id"/>
+                <field name="warehouse_id"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_aunna_stock_negative_rule_form" model="ir.ui.view">
+        <field name="name">aunna.stock.negative.rule.form</field>
+        <field name="model">aunna.stock.negative.rule</field>
+        <field name="arch" type="xml">
+            <form string="Regla de stock negativo">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="active"/>
+                            <field name="sequence"/>
+                            <field name="action"/>
+                            <field name="scope"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                        <group>
+                            <field name="product_tmpl_id" invisible="scope != 'product'" required="scope == 'product'"/>
+                            <field name="categ_id" invisible="scope != 'category'" required="scope == 'category'"/>
+                            <field name="include_child_categories" invisible="scope != 'category'"/>
+                            <field name="location_id" invisible="scope != 'location'" required="scope == 'location'"/>
+                            <field name="include_child_locations" invisible="scope != 'location'"/>
+                            <field name="warehouse_id" invisible="scope != 'warehouse'" required="scope == 'warehouse'"/>
+                        </group>
+                    </group>
+                    <group string="Mensaje">
+                        <field name="message" placeholder="Mensaje adicional opcional para el usuario"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_aunna_stock_negative_rule_search" model="ir.ui.view">
+        <field name="name">aunna.stock.negative.rule.search</field>
+        <field name="model">aunna.stock.negative.rule</field>
+        <field name="arch" type="xml">
+            <search string="Reglas de stock negativo">
+                <field name="name"/>
+                <field name="product_tmpl_id"/>
+                <field name="categ_id"/>
+                <field name="location_id"/>
+                <field name="warehouse_id"/>
+                <filter name="block" string="Bloqueo" domain="[('action', '=', 'block')]"/>
+                <filter name="allow" string="Excepciones" domain="[('action', '=', 'allow')]"/>
+                <filter name="active" string="Activas" domain="[('active', '=', True)]"/>
+                <group expand="0" string="Agrupar por">
+                    <filter name="group_action" string="Accion" context="{'group_by': 'action'}"/>
+                    <filter name="group_scope" string="Aplicar por" context="{'group_by': 'scope'}"/>
+                    <filter name="group_company" string="Compania" context="{'group_by': 'company_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_aunna_stock_negative_rule" model="ir.actions.act_window">
+        <field name="name">Reglas de stock negativo</field>
+        <field name="res_model">aunna.stock.negative.rule</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_aunna_stock_negative_rule_search"/>
+    </record>
+
+    <menuitem
+        id="menu_aunna_stock_negative_root"
+        name="Control stock negativo"
+        parent="stock.menu_stock_config_settings"
+        sequence="92"/>
+
+    <menuitem
+        id="menu_aunna_stock_negative_rule"
+        name="Reglas de stock negativo"
+        parent="menu_aunna_stock_negative_root"
+        action="action_aunna_stock_negative_rule"
+        sequence="10"/>
+</odoo>

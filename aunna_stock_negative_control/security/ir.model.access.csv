@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_aunna_stock_negative_rule_manager,aunna.stock.negative.rule manager,model_aunna_stock_negative_rule,stock.group_stock_manager,1,1,1,1
+access_aunna_stock_negative_rule_user,aunna.stock.negative.rule user,model_aunna_stock_negative_rule,stock.group_stock_user,1,0,0,0
