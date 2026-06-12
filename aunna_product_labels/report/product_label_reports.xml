@@ -80,20 +80,26 @@
 
     <template id="label_content_common">
         <div t-att-class="label_class">
-            <div class="aunna-label-name" t-esc="label['name']"/>
-            <div class="aunna-label-ref">
-                <span>REF: </span>
-                <span t-esc="label['reference'] or '-'"/>
-            </div>
             <t t-if="label['barcode']">
-                <img class="aunna-label-barcode"
-                     t-att-src="'/report/barcode/?barcode_type=Code128&amp;value=%s&amp;width=900&amp;height=220&amp;humanreadable=0' % label['barcode']"
-                     alt="Barcode"/>
-                <div class="aunna-label-barcode-text" t-esc="label['barcode']"/>
+                <div class="aunna-label-barcode-side">
+                    <img class="aunna-label-barcode"
+                         t-att-src="label['barcode_url']"
+                         alt="Barcode"/>
+                </div>
             </t>
             <t t-else="">
-                <div class="aunna-label-no-barcode">SIN CODIGO DE BARRAS</div>
+                <div class="aunna-label-barcode-side aunna-label-no-barcode-side">
+                    <span>SIN CODIGO</span>
+                </div>
             </t>
+            <div class="aunna-label-info">
+                <div class="aunna-label-name" t-esc="label['name']"/>
+                <div class="aunna-label-ref">
+                    <span>REF: </span>
+                    <span t-esc="label['reference'] or '-'"/>
+                </div>
+                <div class="aunna-label-barcode-text" t-esc="label['barcode'] or 'SIN CODIGO DE BARRAS'"/>
+            </div>
         </div>
     </template>
 
@@ -104,44 +110,62 @@
                 html, body { margin: 0; padding: 0; }
                 .page { page-break-after: always; }
                 .aunna-label-17x54 {
+                    position: relative;
                     width: 54mm;
                     height: 17mm;
                     box-sizing: border-box;
-                    padding: 0.9mm 1.3mm;
+                    padding: 0.8mm 1mm 0.8mm 11.5mm;
                     overflow: hidden;
                     font-family: Arial, Helvetica, sans-serif;
-                    text-align: center;
                     color: #000;
                 }
-                .aunna-label-17x54 .aunna-label-name {
-                    max-height: 5.2mm;
+                .aunna-label-17x54 .aunna-label-barcode-side {
+                    position: absolute;
+                    left: 1mm;
+                    top: 1mm;
+                    width: 9mm;
+                    height: 15mm;
                     overflow: hidden;
-                    font-size: 8pt;
-                    font-weight: 700;
-                    line-height: 2.6mm;
-                }
-                .aunna-label-17x54 .aunna-label-ref {
-                    font-size: 5.7pt;
-                    font-weight: 700;
-                    line-height: 2.1mm;
                 }
                 .aunna-label-17x54 .aunna-label-barcode {
-                    display: block;
-                    width: 44mm;
-                    height: 6.3mm;
-                    margin: 0 auto;
+                    position: absolute;
+                    left: 50%;
+                    top: 50%;
+                    width: 15mm;
+                    height: 8mm;
+                    transform: translate(-50%, -50%) rotate(-90deg);
+                    transform-origin: center center;
+                }
+                .aunna-label-17x54 .aunna-label-info {
+                    width: 41.5mm;
+                    height: 15.4mm;
+                    overflow: hidden;
+                    text-align: center;
+                }
+                .aunna-label-17x54 .aunna-label-name {
+                    max-height: 8.4mm;
+                    overflow: hidden;
+                    font-size: 9.5pt;
+                    font-weight: 700;
+                    line-height: 4.2mm;
+                }
+                .aunna-label-17x54 .aunna-label-ref {
+                    font-size: 6.4pt;
+                    font-weight: 700;
+                    line-height: 2.7mm;
                 }
                 .aunna-label-17x54 .aunna-label-barcode-text {
-                    font-size: 5.5pt;
+                    font-size: 7.4pt;
                     font-weight: 700;
-                    line-height: 1.8mm;
+                    line-height: 3.1mm;
                 }
-                .aunna-label-17x54 .aunna-label-no-barcode {
-                    margin-top: 2mm;
-                    font-size: 7pt;
-                    font-weight: 700;
+                .aunna-label-17x54 .aunna-label-no-barcode-side {
                     border: 0.25mm solid #000;
-                    padding: 1mm;
+                    box-sizing: border-box;
+                    font-size: 5pt;
+                    font-weight: 700;
+                    text-align: center;
+                    line-height: 14.4mm;
                 }
             </style>
             <t t-foreach="labels" t-as="label">
@@ -160,44 +184,62 @@
                 html, body { margin: 0; padding: 0; }
                 .page { page-break-after: always; }
                 .aunna-label-29x90 {
+                    position: relative;
                     width: 90mm;
                     height: 29mm;
                     box-sizing: border-box;
-                    padding: 2mm 3mm;
+                    padding: 1.7mm 2.5mm 1.7mm 18mm;
                     overflow: hidden;
                     font-family: Arial, Helvetica, sans-serif;
-                    text-align: center;
                     color: #000;
                 }
-                .aunna-label-29x90 .aunna-label-name {
-                    max-height: 8.2mm;
+                .aunna-label-29x90 .aunna-label-barcode-side {
+                    position: absolute;
+                    left: 2mm;
+                    top: 2mm;
+                    width: 14mm;
+                    height: 25mm;
                     overflow: hidden;
-                    font-size: 13pt;
-                    font-weight: 700;
-                    line-height: 4.1mm;
-                }
-                .aunna-label-29x90 .aunna-label-ref {
-                    font-size: 8pt;
-                    font-weight: 700;
-                    line-height: 3.4mm;
                 }
                 .aunna-label-29x90 .aunna-label-barcode {
-                    display: block;
-                    width: 68mm;
-                    height: 10.4mm;
-                    margin: 0.4mm auto 0;
+                    position: absolute;
+                    left: 50%;
+                    top: 50%;
+                    width: 25mm;
+                    height: 12.5mm;
+                    transform: translate(-50%, -50%) rotate(-90deg);
+                    transform-origin: center center;
                 }
-                .aunna-label-29x90 .aunna-label-barcode-text {
-                    font-size: 7.5pt;
+                .aunna-label-29x90 .aunna-label-info {
+                    width: 69mm;
+                    height: 25.6mm;
+                    overflow: hidden;
+                    text-align: center;
+                }
+                .aunna-label-29x90 .aunna-label-name {
+                    max-height: 14.2mm;
+                    overflow: hidden;
+                    font-size: 17pt;
                     font-weight: 700;
-                    line-height: 2.6mm;
+                    line-height: 7.1mm;
                 }
-                .aunna-label-29x90 .aunna-label-no-barcode {
-                    margin-top: 3mm;
+                .aunna-label-29x90 .aunna-label-ref {
                     font-size: 10pt;
                     font-weight: 700;
+                    line-height: 4mm;
+                }
+                .aunna-label-29x90 .aunna-label-barcode-text {
+                    font-size: 13pt;
+                    font-weight: 700;
+                    line-height: 5.4mm;
+                }
+                .aunna-label-29x90 .aunna-label-no-barcode-side {
                     border: 0.3mm solid #000;
-                    padding: 2mm;
+                    box-sizing: border-box;
+                    font-size: 7pt;
+                    font-weight: 700;
+                    text-align: center;
+                    line-height: 24.4mm;
                 }
             </style>
             <t t-foreach="labels" t-as="label">
@@ -216,44 +258,62 @@
                 html, body { margin: 0; padding: 0; }
                 .page { page-break-after: always; }
                 .aunna-label-30x30 {
+                    position: relative;
                     width: 30mm;
                     height: 30mm;
                     box-sizing: border-box;
-                    padding: 1.4mm;
+                    padding: 1.4mm 1.2mm 1.4mm 9.5mm;
                     overflow: hidden;
                     font-family: Arial, Helvetica, sans-serif;
-                    text-align: center;
                     color: #000;
                 }
-                .aunna-label-30x30 .aunna-label-name {
-                    max-height: 9mm;
+                .aunna-label-30x30 .aunna-label-barcode-side {
+                    position: absolute;
+                    left: 1mm;
+                    top: 2mm;
+                    width: 7.5mm;
+                    height: 26mm;
                     overflow: hidden;
-                    font-size: 7.6pt;
+                }
+                .aunna-label-30x30 .aunna-label-barcode {
+                    position: absolute;
+                    left: 50%;
+                    top: 50%;
+                    width: 26mm;
+                    height: 7mm;
+                    transform: translate(-50%, -50%) rotate(-90deg);
+                    transform-origin: center center;
+                }
+                .aunna-label-30x30 .aunna-label-info {
+                    width: 19.3mm;
+                    height: 27.2mm;
+                    overflow: hidden;
+                    text-align: center;
+                }
+                .aunna-label-30x30 .aunna-label-name {
+                    max-height: 15.6mm;
+                    overflow: hidden;
+                    font-size: 7.7pt;
                     font-weight: 700;
-                    line-height: 3mm;
+                    line-height: 3.9mm;
                 }
                 .aunna-label-30x30 .aunna-label-ref {
-                    font-size: 5.8pt;
+                    font-size: 5.7pt;
                     font-weight: 700;
                     line-height: 2.8mm;
                 }
-                .aunna-label-30x30 .aunna-label-barcode {
-                    display: block;
-                    width: 25mm;
-                    height: 8.2mm;
-                    margin: 1mm auto 0;
-                }
                 .aunna-label-30x30 .aunna-label-barcode-text {
-                    font-size: 5.7pt;
+                    font-size: 6.2pt;
                     font-weight: 700;
-                    line-height: 2.2mm;
+                    line-height: 3.2mm;
                 }
-                .aunna-label-30x30 .aunna-label-no-barcode {
-                    margin-top: 3mm;
-                    font-size: 7pt;
-                    font-weight: 700;
+                .aunna-label-30x30 .aunna-label-no-barcode-side {
                     border: 0.25mm solid #000;
-                    padding: 1.2mm;
+                    box-sizing: border-box;
+                    font-size: 4.6pt;
+                    font-weight: 700;
+                    text-align: center;
+                    line-height: 25.4mm;
                 }
             </style>
             <t t-foreach="labels" t-as="label">
