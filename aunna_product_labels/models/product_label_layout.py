@@ -21,9 +21,9 @@ class ProductLabelLayout(models.TransientModel):
     def _prepare_report_data(self):
         self.ensure_one()
         custom_reports = {
-            "label_17_54_custom": "aunna_product_labels.report_product_label_17x54",
-            "label_29_90_custom": "aunna_product_labels.report_product_label_29x90",
-            "label_30_30_custom": "aunna_product_labels.report_product_label_30x30",
+            "label_17_54_custom": "aunna_product_labels.action_report_product_label_17x54",
+            "label_29_90_custom": "aunna_product_labels.action_report_product_label_29x90",
+            "label_30_30_custom": "aunna_product_labels.action_report_product_label_30x30",
         }
         if self.print_format not in custom_reports:
             return super()._prepare_report_data()

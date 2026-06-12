@@ -60,31 +60,10 @@
         </field>
     </record>
 
-    <record id="view_aunna_dynamic_standard_cost_log_search" model="ir.ui.view">
-        <field name="name">aunna.dynamic.standard.cost.log.search</field>
-        <field name="model">aunna.dynamic.standard.cost.log</field>
-        <field name="arch" type="xml">
-            <search string="Historico coste estandar dinamico">
-                <field name="product_id"/>
-                <field name="purchase_order_id"/>
-                <field name="picking_id"/>
-                <field name="vendor_bill_id"/>
-                <filter name="receipt" string="Recepciones" domain="[('source', '=', 'receipt')]"/>
-                <filter name="vendor_bill" string="Facturas proveedor" domain="[('source', '=', 'vendor_bill')]"/>
-                <group expand="0" string="Agrupar por">
-                    <filter name="group_product" string="Producto" context="{'group_by': 'product_id'}"/>
-                    <filter name="group_source" string="Origen" context="{'group_by': 'source'}"/>
-                    <filter name="group_company" string="Compania" context="{'group_by': 'company_id'}"/>
-                </group>
-            </search>
-        </field>
-    </record>
-
     <record id="action_aunna_dynamic_standard_cost_log" model="ir.actions.act_window">
         <field name="name">Historico coste estandar dinamico</field>
         <field name="res_model">aunna.dynamic.standard.cost.log</field>
         <field name="view_mode">list,form</field>
-        <field name="search_view_id" ref="view_aunna_dynamic_standard_cost_log_search"/>
     </record>
 
     <menuitem

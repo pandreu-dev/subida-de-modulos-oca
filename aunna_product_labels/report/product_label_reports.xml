@@ -48,7 +48,7 @@
         <field name="dpi">300</field>
     </record>
 
-    <record id="report_product_label_17x54" model="ir.actions.report">
+    <record id="action_report_product_label_17x54" model="ir.actions.report">
         <field name="name">Etiqueta producto 17 x 54 mm</field>
         <field name="model">product.template</field>
         <field name="report_type">qweb-pdf</field>
@@ -58,7 +58,7 @@
         <field name="print_report_name">'Etiquetas producto 17x54'</field>
     </record>
 
-    <record id="report_product_label_29x90" model="ir.actions.report">
+    <record id="action_report_product_label_29x90" model="ir.actions.report">
         <field name="name">Etiqueta producto 29 x 90 mm</field>
         <field name="model">product.template</field>
         <field name="report_type">qweb-pdf</field>
@@ -68,7 +68,7 @@
         <field name="print_report_name">'Etiquetas producto 29x90'</field>
     </record>
 
-    <record id="report_product_label_30x30" model="ir.actions.report">
+    <record id="action_report_product_label_30x30" model="ir.actions.report">
         <field name="name">Etiqueta producto 30 x 30 mm</field>
         <field name="model">product.template</field>
         <field name="report_type">qweb-pdf</field>

@@ -51,33 +51,10 @@
         </field>
     </record>
 
-    <record id="view_aunna_stock_negative_rule_search" model="ir.ui.view">
-        <field name="name">aunna.stock.negative.rule.search</field>
-        <field name="model">aunna.stock.negative.rule</field>
-        <field name="arch" type="xml">
-            <search string="Reglas de stock negativo">
-                <field name="name"/>
-                <field name="product_tmpl_id"/>
-                <field name="categ_id"/>
-                <field name="location_id"/>
-                <field name="warehouse_id"/>
-                <filter name="block" string="Bloqueo" domain="[('action', '=', 'block')]"/>
-                <filter name="allow" string="Excepciones" domain="[('action', '=', 'allow')]"/>
-                <filter name="active" string="Activas" domain="[('active', '=', True)]"/>
-                <group expand="0" string="Agrupar por">
-                    <filter name="group_action" string="Accion" context="{'group_by': 'action'}"/>
-                    <filter name="group_scope" string="Aplicar por" context="{'group_by': 'scope'}"/>
-                    <filter name="group_company" string="Compania" context="{'group_by': 'company_id'}"/>
-                </group>
-            </search>
-        </field>
-    </record>
-
     <record id="action_aunna_stock_negative_rule" model="ir.actions.act_window">
         <field name="name">Reglas de stock negativo</field>
         <field name="res_model">aunna.stock.negative.rule</field>
         <field name="view_mode">list,form</field>
-        <field name="search_view_id" ref="view_aunna_stock_negative_rule_search"/>
     </record>
 
     <menuitem

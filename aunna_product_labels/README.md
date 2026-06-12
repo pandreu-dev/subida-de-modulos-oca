@@ -121,9 +121,15 @@ El modulo define tres `report.paperformat`, uno por tamano.
 - Header spacing: 0.
 - DPI: 300.
 
-## Informes QWeb creados
+## Informes creados
 
-El modulo crea tres informes:
+El modulo crea tres acciones de informe que llama el wizard:
+
+- `aunna_product_labels.action_report_product_label_17x54`
+- `aunna_product_labels.action_report_product_label_29x90`
+- `aunna_product_labels.action_report_product_label_30x30`
+
+Y tres plantillas QWeb:
 
 - `aunna_product_labels.report_product_label_17x54`
 - `aunna_product_labels.report_product_label_29x90`
