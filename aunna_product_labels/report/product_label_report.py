@@ -1,4 +1,4 @@
-from urllib.parse import quote
+from base64 import b64encode
 
 from odoo import _, models
 from odoo.exceptions import UserError
@@ -20,18 +20,25 @@ def _get_quantity(quantity_by_product, product_id):
 def _build_label_values(product, barcode=None):
     label_barcode = barcode or product.barcode or ""
     reference = product.default_code or ""
-    barcode_url = ""
+    barcode_src = ""
     if label_barcode:
-        barcode_url = (
-            "/report/barcode/Code128/%s?width=900&height=220&humanreadable=0"
-            % quote(str(label_barcode), safe="")
-        )
+        try:
+            barcode_png = product.env["ir.actions.report"].barcode(
+                "Code128",
+                str(label_barcode),
+                width=900,
+                height=220,
+                humanreadable=0,
+            )
+            barcode_src = "data:image/png;base64,%s" % b64encode(barcode_png).decode()
+        except (AttributeError, ValueError):
+            barcode_src = ""
     return {
         "product": product,
         "name": (product.with_context(display_default_code=False).display_name or "").upper(),
         "reference": reference,
         "barcode": label_barcode,
-        "barcode_url": barcode_url,
+        "barcode_src": barcode_src,
     }
 
 

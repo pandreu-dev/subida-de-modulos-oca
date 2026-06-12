@@ -80,10 +80,10 @@
 
     <template id="label_content_common">
         <div t-att-class="label_class">
-            <t t-if="label['barcode']">
+            <t t-if="label['barcode_src']">
                 <div class="aunna-label-barcode-side">
                     <img class="aunna-label-barcode"
-                         t-att-src="label['barcode_url']"
+                         t-att-src="label['barcode_src']"
                          alt="Barcode"/>
                 </div>
             </t>

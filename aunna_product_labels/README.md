@@ -75,9 +75,9 @@ Esto es importante porque Odoo detecta productos al escanear usando el campo `ba
 
 ## Tipo de codigo de barras
 
-El modulo usa Code128 mediante la ruta estandar de Odoo:
+El modulo usa Code128 mediante la API nativa de informes de Odoo.
 
-`/report/barcode/?barcode_type=Code128&value=<barcode>`
+El PNG del codigo de barras se genera en Python y se incrusta en el PDF como imagen base64. Esto evita que el PDF tenga que cargar una URL externa y reduce el riesgo de que aparezca un icono roto en lugar del codigo de barras.
 
 Se usa Code128 porque las referencias internas pueden no tener 13 digitos. No se usa EAN13 y no se usa QR.
 
