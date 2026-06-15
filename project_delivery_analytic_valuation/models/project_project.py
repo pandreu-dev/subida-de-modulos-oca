@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from odoo import _, models
 from odoo.fields import Domain
 from odoo.tools import formatLang
@@ -47,6 +49,63 @@ class ProjectProject(models.Model):
         self.ensure_one()
         moves = self._get_project_delivery_stock_moves()
         return moves, sum(moves.mapped("project_delivery_analytic_cost"))
+
+    def _get_items_from_aal_picking(self, with_action=True):
+        self.ensure_one()
+        analytic_lines = self._get_project_delivery_material_analytic_lines()
+        if not analytic_lines:
+            return super()._get_items_from_aal_picking(with_action)
+        return self._prepare_project_delivery_material_costs(analytic_lines, with_action)
+
+    def _get_project_delivery_material_analytic_lines(self):
+        self.ensure_one()
+        if not self.account_id:
+            return self.env["account.analytic.line"]
+
+        standard_domain = Domain.AND(
+            [
+                self._get_domain_aal_with_no_move_line(),
+                Domain("category", "=", "picking_entry"),
+            ]
+        )
+        analytic_lines = self.env["account.analytic.line"].sudo().search(standard_domain)
+        delivery_lines = self._get_project_delivery_stock_moves().mapped("analytic_account_line_ids")
+        delivery_lines = delivery_lines.sudo().filtered(
+            lambda line: line.account_id == self.account_id
+            and line.category == "picking_entry"
+            and (not line.move_line_id if "move_line_id" in line._fields else True)
+        )
+        return analytic_lines | delivery_lines
+
+    def _prepare_project_delivery_material_costs(self, analytic_lines, with_action=True):
+        self.ensure_one()
+        amounts_by_currency = defaultdict(float)
+        cost_ids = []
+        for line in analytic_lines:
+            currency = line.currency_id or line.company_id.currency_id or self.currency_id
+            amounts_by_currency[currency.id] += line.amount
+            cost_ids.append(line.id)
+
+        total_costs = 0.0
+        for currency_id, amount in amounts_by_currency.items():
+            currency = self.env["res.currency"].browse(currency_id).with_prefetch(amounts_by_currency)
+            total_costs += currency._convert(amount, self.currency_id, self.company_id)
+
+        sequence_by_section = self._get_profitability_sequence_per_invoice_type()
+        costs = [
+            {
+                "id": "other_costs",
+                "sequence": sequence_by_section.get(
+                    "other_costs",
+                    sequence_by_section.get("other_costs_aal", 12),
+                ),
+                "billed": total_costs,
+                "to_bill": 0.0,
+            }
+        ]
+        if with_action and self.env.user.has_group("account.group_account_readonly"):
+            costs[0]["action"] = self._get_action_for_profitability_section(cost_ids, "other_costs")
+        return costs
 
     def action_view_delivery_stock_moves(self):
         self.ensure_one()

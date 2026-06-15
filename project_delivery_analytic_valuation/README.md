@@ -142,6 +142,12 @@ En el proyecto se anade un boton estadistico:
 - Muestra numero de movimientos y coste total.
 - Abre la lista de movimientos de stock de entrega relacionados con el proyecto.
 
+## Rentabilidad del proyecto
+
+Los costes analiticos generados por entregas y traspasos internos se integran en la rentabilidad estandar del proyecto dentro de la linea `Materiales`.
+
+El modulo reutiliza las lineas analiticas de categoria `picking_entry`, que son las que `project_stock_account` muestra como materiales, y anade las lineas vinculadas a los movimientos controlados por este modulo sin duplicarlas.
+
 ## Sincronizacion inicial
 
 Al instalar el modulo se ejecuta una funcion de datos:
