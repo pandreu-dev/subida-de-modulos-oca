@@ -12,7 +12,7 @@
                 <field name="product_uom"/>
                 <field name="company_currency_id" column_invisible="True"/>
                 <field
-                    name="value"
+                    name="project_delivery_analytic_cost"
                     string="Cost"
                     widget="monetary"
                     options="{'currency_field': 'company_currency_id'}"

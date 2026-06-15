@@ -1,8 +1,15 @@
-from odoo import models
+from odoo import fields, models
 
 
 class StockMove(models.Model):
     _inherit = "stock.move"
+
+    project_delivery_analytic_cost = fields.Monetary(
+        string="Project Delivery Cost",
+        currency_field="company_currency_id",
+        readonly=True,
+        copy=False,
+    )
 
     def _action_done(self, cancel_backorder=False):
         moves = super()._action_done(cancel_backorder=cancel_backorder)
@@ -116,6 +123,8 @@ class StockMove(models.Model):
         for move in self.sudo():
             if move.state != "done" or not move._is_manual_project_delivery_move():
                 continue
+            amount, _unit_amount = move._get_project_delivery_analytic_amounts()
+            move.project_delivery_analytic_cost = amount
             if move._get_project_analytic_distribution():
                 move._create_analytic_move()
 

@@ -34,7 +34,7 @@ class StockPicking(models.Model):
         pickings = self.sudo().search(
             [
                 ("state", "=", "done"),
-                ("picking_type_code", "=", "outgoing"),
+                ("picking_type_code", "in", self._get_project_delivery_picking_type_codes()),
                 *Domain.OR(project_domains),
             ]
         )
@@ -49,6 +49,8 @@ class StockPicking(models.Model):
         if "sale_id" in self._fields and self._model_has_field("sale.order", "project_id"):
             domains.append([("sale_id.project_id", "!=", False)])
         stock_move = self.env["stock.move"]
+        if "project_id" in stock_move._fields:
+            domains.append([("move_ids.project_id", "!=", False)])
         if "sale_line_id" in stock_move._fields:
             domains.append([("move_ids.sale_line_id", "!=", False)])
             if self._model_has_field("sale.order.line", "project_id"):
@@ -67,6 +69,8 @@ class StockPicking(models.Model):
         projects = self.env["project.project"]
         if "project_id" in self._fields:
             projects |= self.project_id
+        if self._move_model_has_field("project_id"):
+            projects |= self.move_ids.mapped("project_id")
         if "sale_id" in self._fields and self.sale_id and "project_id" in self.sale_id._fields:
             projects |= self.sale_id.project_id
         if self._move_model_has_field("sale_line_id"):
@@ -97,7 +101,14 @@ class StockPicking(models.Model):
 
     def _is_project_delivery_candidate(self):
         self.ensure_one()
-        return self.picking_type_code == "outgoing" and not self._has_purchase_source()
+        return (
+            self.picking_type_code in self._get_project_delivery_picking_type_codes()
+            and not self._has_purchase_source()
+        )
+
+    @api.model
+    def _get_project_delivery_picking_type_codes(self):
+        return ("outgoing", "internal")
 
     def _has_purchase_source(self):
         self.ensure_one()

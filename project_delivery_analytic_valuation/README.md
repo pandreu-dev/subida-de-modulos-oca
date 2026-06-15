@@ -2,9 +2,9 @@
 
 ## Objetivo
 
-Este modulo imputa costes de inventario de entregas manuales a proyectos mediante analitica.
+Este modulo imputa costes de inventario de entregas manuales y traspasos internos a proyectos mediante analitica.
 
-El objetivo es que, cuando una entrega saliente relacionada con un proyecto consume productos almacenables, el coste de esos productos se refleje en la cuenta analitica del proyecto y pueda verse desde el propio proyecto.
+El objetivo es que, cuando una entrega saliente o un traspaso interno relacionado con un proyecto consume productos almacenables, el coste de esos productos se refleje en la cuenta analitica del proyecto y pueda verse desde el propio proyecto.
 
 ## Para que se usa
 
@@ -13,7 +13,7 @@ Se usa para controlar el coste real de entregas de inventario asociadas a proyec
 Caso funcional:
 
 1. Existe un proyecto con cuenta analitica.
-2. Se valida una entrega saliente relacionada con ese proyecto.
+2. Se valida una entrega saliente o un traspaso interno relacionado con ese proyecto.
 3. Los movimientos de stock terminados generan o sincronizan lineas analiticas con el coste del producto.
 4. El proyecto muestra un boton de entregas de inventario con recuento e importe.
 5. Desde el proyecto se pueden revisar los movimientos de stock que han generado coste.
@@ -41,7 +41,7 @@ El modulo hereda los movimientos de stock.
 Responsabilidades principales:
 
 - Sincronizar lineas analiticas cuando el movimiento queda hecho.
-- Detectar si el movimiento pertenece a una entrega manual de proyecto.
+- Detectar si el movimiento pertenece a una entrega manual o traspaso interno de proyecto.
 - Obtener la cuenta analitica del proyecto.
 - Preparar distribucion analitica al 100 por ciento sobre la cuenta del proyecto.
 - Calcular el importe de coste a imputar.
@@ -54,7 +54,7 @@ El modulo hereda traslados.
 Responsabilidades:
 
 - Sincronizar lineas analiticas al validar una entrega.
-- Detectar si una entrega es candidata a imputacion de proyecto.
+- Detectar si una entrega o traspaso interno es candidato a imputacion de proyecto.
 - Excluir origenes de compra.
 - Buscar proyecto desde distintos origenes disponibles.
 
@@ -81,18 +81,18 @@ El modulo intenta encontrar el proyecto desde varias fuentes:
 
 Solo se usa un proyecto si tiene cuenta analitica y si la cuenta pertenece a la compania correcta.
 
-## Que entregas procesa
+## Que operaciones procesa
 
-Procesa movimientos de entregas:
+Procesa movimientos de entregas y traspasos internos:
 
 - Con estado `done`.
-- De tipo saliente.
+- De tipo saliente o interno.
 - De productos almacenables.
-- Con valor de stock.
+- Con valor de stock o con coste estandar disponible como respaldo.
 - Relacionados con un proyecto o cuenta analitica.
 - Que no proceden de compras.
 
-No procesa entregas que el modulo identifica como originadas por compra.
+No procesa operaciones que el modulo identifica como originadas por compra.
 
 ## Calculo del importe
 
@@ -156,7 +156,7 @@ Esto intenta sincronizar entregas existentes que ya estaban hechas antes de inst
 
 1. Configurar proyecto con cuenta analitica.
 2. Crear o tener una venta/proyecto que genere entrega.
-3. Validar la entrega saliente.
+3. Validar la entrega saliente o el traspaso interno.
 4. El modulo detecta movimientos candidatos.
 5. Se crean o sincronizan lineas analiticas de coste.
 6. Entrar en el proyecto.

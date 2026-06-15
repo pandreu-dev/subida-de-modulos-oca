@@ -13,9 +13,8 @@ class ProjectProject(models.Model):
             return [("id", "=", 0)]
         return [
             ("state", "=", "done"),
-            ("picking_id.picking_type_code", "=", "outgoing"),
+            ("picking_id.picking_type_code", "in", self._get_project_delivery_picking_type_codes()),
             ("product_id.is_storable", "=", True),
-            ("value", "!=", 0),
             *Domain.OR(project_domains),
         ]
 
@@ -47,7 +46,7 @@ class ProjectProject(models.Model):
     def _get_project_delivery_stock_move_totals(self):
         self.ensure_one()
         moves = self._get_project_delivery_stock_moves()
-        return moves, -sum(abs(move.value) for move in moves)
+        return moves, sum(moves.mapped("project_delivery_analytic_cost"))
 
     def action_view_delivery_stock_moves(self):
         self.ensure_one()
@@ -104,3 +103,6 @@ class ProjectProject(models.Model):
         except KeyError:
             return False
         return field_name in model._fields
+
+    def _get_project_delivery_picking_type_codes(self):
+        return ("outgoing", "internal")
