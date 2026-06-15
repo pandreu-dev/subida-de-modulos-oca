@@ -137,12 +137,5 @@ class AunnaStockNegativeRule(models.Model):
         if allow_rules:
             return False, allow_rules[:1]
 
-        block_all = params.get_param("aunna_stock_negative_control.block_all", "False") in (
-            "True",
-            "1",
-            True,
-        )
         block_rules = matching_rules.filtered(lambda rule: rule.action == "block")
-        if block_all or block_rules:
-            return True, block_rules[:1]
-        return False, self.browse()
+        return True, block_rules[:1]

@@ -24,6 +24,7 @@ Cada etiqueta debe imprimir la informacion minima necesaria para identificar y e
 - Referencia interna.
 - Codigo de barras lineal Code128 en vertical, situado a la izquierda.
 - Codigo de barras en texto.
+- Bloque de informacion centrado en el espacio libre de la etiqueta.
 
 No se imprime precio.
 
@@ -67,7 +68,7 @@ Campos usados:
 - Nombre: `display_name`, ocultando el codigo interno en el contexto y convirtiendo a mayusculas.
 - Referencia interna: `default_code`.
 - Codigo de barras: `barcode`.
-- Diseno: codigo de barras en columna izquierda y datos de producto a la derecha.
+- Diseno: codigo de barras en columna izquierda, ampliado para facilitar el escaneo, y datos de producto centrados a la derecha.
 
 El codigo de barras se genera siempre desde `barcode`, no desde `default_code`.
 

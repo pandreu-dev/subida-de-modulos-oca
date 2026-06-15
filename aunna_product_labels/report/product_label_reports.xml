@@ -114,7 +114,7 @@
                     width: 54mm;
                     height: 17mm;
                     box-sizing: border-box;
-                    padding: 0.8mm 1mm 0.8mm 11.5mm;
+                    padding: 0.8mm 1.2mm 0.8mm 13mm;
                     overflow: hidden;
                     font-family: Arial, Helvetica, sans-serif;
                     color: #000;
@@ -123,7 +123,7 @@
                     position: absolute;
                     left: 1mm;
                     top: 1mm;
-                    width: 9mm;
+                    width: 11mm;
                     height: 15mm;
                     overflow: hidden;
                 }
@@ -131,16 +131,20 @@
                     position: absolute;
                     left: 50%;
                     top: 50%;
-                    width: 15mm;
-                    height: 8mm;
+                    width: 16.5mm;
+                    height: 9.5mm;
                     transform: translate(-50%, -50%) rotate(-90deg);
                     transform-origin: center center;
                 }
                 .aunna-label-17x54 .aunna-label-info {
-                    width: 41.5mm;
+                    width: 39.8mm;
                     height: 15.4mm;
                     overflow: hidden;
                     text-align: center;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    align-items: stretch;
                 }
                 .aunna-label-17x54 .aunna-label-name {
                     max-height: 8.4mm;
@@ -188,7 +192,7 @@
                     width: 90mm;
                     height: 29mm;
                     box-sizing: border-box;
-                    padding: 1.7mm 2.5mm 1.7mm 18mm;
+                    padding: 1.7mm 3.2mm 1.7mm 21mm;
                     overflow: hidden;
                     font-family: Arial, Helvetica, sans-serif;
                     color: #000;
@@ -197,7 +201,7 @@
                     position: absolute;
                     left: 2mm;
                     top: 2mm;
-                    width: 14mm;
+                    width: 17mm;
                     height: 25mm;
                     overflow: hidden;
                 }
@@ -205,16 +209,20 @@
                     position: absolute;
                     left: 50%;
                     top: 50%;
-                    width: 25mm;
-                    height: 12.5mm;
+                    width: 27.5mm;
+                    height: 15.5mm;
                     transform: translate(-50%, -50%) rotate(-90deg);
                     transform-origin: center center;
                 }
                 .aunna-label-29x90 .aunna-label-info {
-                    width: 69mm;
+                    width: 65.8mm;
                     height: 25.6mm;
                     overflow: hidden;
                     text-align: center;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    align-items: stretch;
                 }
                 .aunna-label-29x90 .aunna-label-name {
                     max-height: 14.2mm;
@@ -262,7 +270,7 @@
                     width: 30mm;
                     height: 30mm;
                     box-sizing: border-box;
-                    padding: 1.4mm 1.2mm 1.4mm 9.5mm;
+                    padding: 1.4mm 1.2mm 1.4mm 11.5mm;
                     overflow: hidden;
                     font-family: Arial, Helvetica, sans-serif;
                     color: #000;
@@ -271,7 +279,7 @@
                     position: absolute;
                     left: 1mm;
                     top: 2mm;
-                    width: 7.5mm;
+                    width: 9.2mm;
                     height: 26mm;
                     overflow: hidden;
                 }
@@ -279,16 +287,20 @@
                     position: absolute;
                     left: 50%;
                     top: 50%;
-                    width: 26mm;
-                    height: 7mm;
+                    width: 27mm;
+                    height: 8.8mm;
                     transform: translate(-50%, -50%) rotate(-90deg);
                     transform-origin: center center;
                 }
                 .aunna-label-30x30 .aunna-label-info {
-                    width: 19.3mm;
+                    width: 17.3mm;
                     height: 27.2mm;
                     overflow: hidden;
                     text-align: center;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    align-items: stretch;
                 }
                 .aunna-label-30x30 .aunna-label-name {
                     max-height: 15.6mm;

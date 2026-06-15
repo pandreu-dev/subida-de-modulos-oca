@@ -36,27 +36,14 @@ El modulo anade una seccion en ajustes:
 Campos disponibles:
 
 - `Activar control de stock negativo`
-- `Bloquear stock negativo por defecto`
 
 ## Activar control de stock negativo
 
-Si esta desactivado, el modulo no bloquea nada.
+Es el unico interruptor global del modulo.
 
-Esto permite instalar el modulo sin afectar a la operativa hasta que se active funcionalmente.
+Si esta desactivado, el modulo no bloquea nada. Esto permite instalar el modulo sin afectar a la operativa hasta que se active funcionalmente.
 
-## Bloquear stock negativo por defecto
-
-Este campo define la estrategia general.
-
-Si esta activado:
-
-- Todo stock negativo queda bloqueado.
-- Solo se permite stock negativo si existe una regla de excepcion.
-
-Si esta desactivado:
-
-- No se bloquea todo por defecto.
-- Solo se bloquean los casos cubiertos por reglas de tipo `Bloquear`.
+Si esta activado, todo stock negativo queda bloqueado. Solo se permite stock negativo si existe una regla de tipo `Permitir excepcion`.
 
 ## Menu de reglas
 
@@ -73,7 +60,9 @@ Hay dos acciones:
 - `Bloquear`
 - `Permitir excepcion`
 
-Las reglas de `Permitir excepcion` tienen prioridad sobre las reglas de `Bloquear`.
+Con la configuracion simplificada, al activar el control ya se bloquea todo stock negativo. Por tanto, las reglas que se usan normalmente son las de `Permitir excepcion`.
+
+La accion `Bloquear` se mantiene por compatibilidad con reglas existentes, pero no es necesaria para aplicar el bloqueo general.
 
 Esto permite configurar una politica general estricta y abrir excepciones concretas.
 
@@ -212,8 +201,7 @@ Y debajo se detallan:
 1. Ir a Ajustes.
 2. Abrir la seccion `Inventario - Stock negativo`.
 3. Marcar `Activar control de stock negativo`.
-4. Marcar `Bloquear stock negativo por defecto`.
-5. Guardar.
+4. Guardar.
 
 Resultado:
 
@@ -232,30 +220,29 @@ Resultado:
 
 Aunque el bloqueo general este activo, esa ubicacion permite negativo.
 
-### Bloquear solo una categoria
+### Permitir excepcion para una categoria
 
 1. En ajustes, activar el control.
-2. Dejar desmarcado `Bloquear stock negativo por defecto`.
-3. Crear regla.
-4. Accion: `Bloquear`.
-5. Aplicar por: `Categoria`.
-6. Seleccionar categoria.
-7. Marcar `Incluir subcategorias` si procede.
+2. Crear regla.
+3. Accion: `Permitir excepcion`.
+4. Aplicar por: `Categoria`.
+5. Seleccionar categoria.
+6. Marcar `Incluir subcategorias` si procede.
 
 Resultado:
 
-Solo se bloquean negativos de esa categoria.
+Aunque el bloqueo general este activo, esa categoria permite negativo.
 
-### Bloquear un almacen completo
+### Permitir excepcion para un almacen completo
 
 1. Crear regla.
-2. Accion: `Bloquear`.
+2. Accion: `Permitir excepcion`.
 3. Aplicar por: `Almacen`.
 4. Seleccionar almacen.
 
 Resultado:
 
-Se bloquean negativos en ubicaciones pertenecientes a ese almacen.
+Aunque el bloqueo general este activo, las ubicaciones pertenecientes a ese almacen permiten negativo.
 
 ## Seguridad
 
@@ -291,9 +278,8 @@ Archivo:
 ### Prueba 2: bloqueo global
 
 1. Activar el control.
-2. Marcar `Bloquear stock negativo por defecto`.
-3. Intentar entregar mas unidades de las disponibles.
-4. Confirmar que Odoo bloquea la validacion con mensaje claro.
+2. Intentar entregar mas unidades de las disponibles.
+3. Confirmar que Odoo bloquea la validacion con mensaje claro.
 
 ### Prueba 3: excepcion por producto
 
@@ -303,13 +289,13 @@ Archivo:
 4. Confirmar que permite la operacion.
 5. Probar otro producto sin excepcion y confirmar que bloquea.
 
-### Prueba 4: bloqueo por categoria
+### Prueba 4: excepcion por categoria
 
-1. Desactivar bloqueo global.
-2. Crear regla `Bloquear` por categoria.
+1. Mantener el control activo.
+2. Crear regla `Permitir excepcion` por categoria.
 3. Intentar dejar negativo un producto de esa categoria.
-4. Confirmar que bloquea.
-5. Probar un producto de otra categoria y confirmar que no bloquea.
+4. Confirmar que permite la operacion.
+5. Probar un producto de otra categoria y confirmar que bloquea.
 
 ### Prueba 5: ubicaciones hijas
 

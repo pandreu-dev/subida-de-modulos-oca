@@ -9,12 +9,8 @@
                 <app string="Inventario - Stock negativo" name="aunna_stock_negative_control">
                     <block title="Control de stock negativo" name="aunna_stock_negative_control_settings">
                         <setting id="aunna_negative_stock_control_enabled_setting"
-                                 help="Bloquea validaciones que dejarian stock negativo segun reglas configuradas.">
+                                 help="Bloquea cualquier validacion que dejaria stock negativo salvo reglas de permiso.">
                             <field name="aunna_negative_stock_control_enabled"/>
-                        </setting>
-                        <setting id="aunna_negative_stock_block_all_setting"
-                                 help="Si se activa, se bloquea todo stock negativo salvo reglas de permiso.">
-                            <field name="aunna_negative_stock_block_all"/>
                         </setting>
                     </block>
                 </app>
