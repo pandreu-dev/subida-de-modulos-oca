@@ -31,7 +31,7 @@ No depende de contabilidad ni compras, porque el control se realiza directamente
 
 El modulo anade una seccion en ajustes:
 
-`Ajustes > Inventario - Stock negativo`
+`Ajustes > Inventario > Control de stock negativo`
 
 Campos disponibles:
 
@@ -199,7 +199,7 @@ Y debajo se detallan:
 ### Bloquear todo stock negativo
 
 1. Ir a Ajustes.
-2. Abrir la seccion `Inventario - Stock negativo`.
+2. Abrir `Inventario > Control de stock negativo`.
 3. Marcar `Activar control de stock negativo`.
 4. Guardar.
 

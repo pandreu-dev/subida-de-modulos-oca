@@ -1,7 +1,7 @@
 {
     "name": "Aunnna Stock Negative Control",
     "summary": "Bloquea stock negativo con reglas configurables por producto, categoria, ubicacion o almacen",
-    "version": "19.0.1.1.0",
+    "version": "19.0.1.2.0",
     "category": "Inventory/Inventory",
     "author": "Aunnna",
     "license": "LGPL-3",

@@ -3,17 +3,15 @@
     <record id="res_config_settings_view_form_stock_negative_control" model="ir.ui.view">
         <field name="name">res.config.settings.view.form.stock.negative.control</field>
         <field name="model">res.config.settings</field>
-        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="inherit_id" ref="stock.res_config_settings_view_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//form" position="inside">
-                <app string="Inventario - Stock negativo" name="aunna_stock_negative_control">
-                    <block title="Control de stock negativo" name="aunna_stock_negative_control_settings">
-                        <setting id="aunna_negative_stock_control_enabled_setting"
-                                 help="Bloquea cualquier validacion que dejaria stock negativo salvo reglas de permiso.">
-                            <field name="aunna_negative_stock_control_enabled"/>
-                        </setting>
-                    </block>
-                </app>
+            <xpath expr="//app[@name='stock']" position="inside">
+                <block title="Control de stock negativo" name="aunna_stock_negative_control_settings">
+                    <setting id="aunna_negative_stock_control_enabled_setting"
+                             help="Bloquea cualquier validacion que dejaria stock negativo salvo reglas de permiso.">
+                        <field name="aunna_negative_stock_control_enabled"/>
+                    </setting>
+                </block>
             </xpath>
         </field>
     </record>
