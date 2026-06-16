@@ -27,8 +27,12 @@ class ProjectProject(models.Model):
         stock_picking = self.env["stock.picking"]
         if "project_id" in stock_move._fields:
             domains.append([("project_id", "=", self.id)])
+        if self.account_id and "analytic_distribution" in stock_move._fields:
+            domains.append([("analytic_distribution", "in", self.account_id.ids)])
         if "project_id" in stock_picking._fields:
             domains.append([("picking_id.project_id", "=", self.id)])
+        if self.account_id and "analytic_distribution" in stock_picking._fields:
+            domains.append([("picking_id.analytic_distribution", "in", self.account_id.ids)])
         if "sale_id" in stock_picking._fields and self._model_has_field("sale.order", "project_id"):
             domains.append([("picking_id.sale_id.project_id", "=", self.id)])
         if "sale_line_id" in stock_move._fields:

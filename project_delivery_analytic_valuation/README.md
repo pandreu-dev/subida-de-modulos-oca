@@ -43,7 +43,8 @@ Responsabilidades principales:
 - Sincronizar lineas analiticas cuando el movimiento queda hecho.
 - Detectar si el movimiento pertenece a una entrega manual o traspaso interno de proyecto.
 - Obtener la cuenta analitica del proyecto.
-- Preparar distribucion analitica al 100 por ciento sobre la cuenta del proyecto.
+- Usar la distribucion analitica indicada en el movimiento o en el albaran.
+- Preparar distribucion analitica al 100 por ciento sobre la cuenta del proyecto cuando no se indique una distribucion manual.
 - Calcular el importe de coste a imputar.
 - Preparar lineas analiticas con referencia a la entrega y producto.
 
@@ -55,6 +56,8 @@ Responsabilidades:
 
 - Sincronizar lineas analiticas al validar una entrega.
 - Detectar si una entrega o traspaso interno es candidato a imputacion de proyecto.
+- Permitir informar distribucion analitica en el albaran.
+- Propagar la distribucion analitica del albaran a sus movimientos.
 - Excluir origenes de compra.
 - Buscar proyecto desde distintos origenes disponibles.
 
@@ -111,13 +114,24 @@ La cantidad se obtiene de la cantidad valorada o de la cantidad del movimiento c
 
 ## Distribucion analitica
 
-Si se encuentra cuenta analitica del proyecto, la distribucion es:
+El usuario puede informar una distribucion analitica en el albaran.
+
+Esa distribucion se copia a los movimientos de stock del albaran. Tambien puede ajustarse en cada movimiento si una linea necesita una distribucion distinta.
+
+Al generar la linea analitica de coste, la prioridad es:
+
+1. Distribucion analitica del movimiento.
+2. Distribucion analitica del albaran.
+3. Cuenta analitica del proyecto al 100 por ciento.
+4. Distribucion analitica de la linea de venta, si existe.
+
+Si se encuentra cuenta analitica del proyecto y no se ha informado distribucion manual, la distribucion es:
 
 ```text
 cuenta analitica del proyecto: 100%
 ```
 
-Si no se encuentra cuenta del proyecto, puede usar la distribucion analitica de la linea de venta si esta disponible.
+Esto permite que el coste de una entrega directa desde stock interno pueda ir al presupuesto analitico correcto, por ejemplo combinando proyecto y linea de coste de materiales o subcontrata.
 
 ## Vistas
 
@@ -161,13 +175,14 @@ Esto intenta sincronizar entregas existentes que ya estaban hechas antes de inst
 ## Flujo funcional
 
 1. Configurar proyecto con cuenta analitica.
-2. Crear o tener una venta/proyecto que genere entrega.
-3. Validar la entrega saliente o el traspaso interno.
-4. El modulo detecta movimientos candidatos.
-5. Se crean o sincronizan lineas analiticas de coste.
-6. Entrar en el proyecto.
-7. Revisar el boton `Inventory Deliveries`.
-8. Abrir el detalle para ver movimientos y coste.
+2. Crear una entrega saliente o un traspaso interno relacionado con el proyecto.
+3. Informar la distribucion analitica en el albaran o en sus movimientos si debe impactar en un presupuesto analitico concreto.
+4. Validar la entrega saliente o el traspaso interno.
+5. El modulo detecta movimientos candidatos.
+6. Se crean o sincronizan lineas analiticas de coste.
+7. Entrar en el proyecto.
+8. Revisar el boton `Inventory Deliveries`.
+9. Abrir el detalle para ver movimientos y coste.
 
 ## Alcance
 
@@ -184,9 +199,9 @@ Su alcance es la imputacion analitica y la visibilidad del coste de entregas en 
 
 ## Archivos relevantes
 
-- `models/stock_move.py`: logica de imputacion analitica por movimiento.
-- `models/stock_picking.py`: deteccion y sincronizacion desde entregas.
+- `models/stock_move.py`: distribucion e imputacion analitica por movimiento.
+- `models/stock_picking.py`: distribucion, deteccion y sincronizacion desde entregas.
 - `models/project_project.py`: boton y consulta desde proyecto.
 - `views/project_delivery_stock_move_views.xml`: vistas de movimientos de coste.
-- `views/stock_picking_views.xml`: campo tecnico invisible usado por la vista.
+- `views/stock_picking_views.xml`: distribucion analitica en albaran y movimientos.
 - `data/project_delivery_analytic_sync.xml`: sincronizacion inicial.

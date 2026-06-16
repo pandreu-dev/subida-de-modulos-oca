@@ -1,23 +1,41 @@
-from odoo import api, fields, models
-from odoo.fields import Domain
+from odoo import api, models
 
 
 class StockPicking(models.Model):
-    _inherit = "stock.picking"
+    _inherit = ["stock.picking", "analytic.mixin"]
 
-    is_manual_project_delivery = fields.Boolean(
-        string="Manual Project Delivery",
-        compute="_compute_is_manual_project_delivery",
-    )
+    @api.model_create_multi
+    def create(self, vals_list):
+        pickings = super().create(vals_list)
+        pickings._propagate_project_delivery_analytic_distribution()
+        return pickings
 
-    def _compute_is_manual_project_delivery(self):
-        for picking in self:
-            picking.is_manual_project_delivery = picking._is_manual_project_delivery()
+    def write(self, vals):
+        result = super().write(vals)
+        if "analytic_distribution" in vals or "move_ids" in vals or "move_ids_without_package" in vals:
+            self._propagate_project_delivery_analytic_distribution(
+                force="analytic_distribution" in vals,
+            )
+        if "analytic_distribution" in vals:
+            self.filtered(lambda picking: picking.state == "done")._sync_project_delivery_analytic_lines()
+        return result
+
+    @api.onchange("analytic_distribution")
+    def _onchange_project_delivery_analytic_distribution(self):
+        self._propagate_project_delivery_analytic_distribution(force=True)
 
     def button_validate(self):
         result = super().button_validate()
         self._sync_project_delivery_analytic_lines()
         return result
+
+    def _propagate_project_delivery_analytic_distribution(self, force=False):
+        for picking in self:
+            if not picking.analytic_distribution and not force:
+                continue
+            distribution = dict(picking.analytic_distribution or {})
+            for move in picking.move_ids:
+                move.with_context(skip_project_delivery_analytic_sync=True).analytic_distribution = distribution
 
     def _sync_project_delivery_analytic_lines(self):
         moves = self.move_ids.filtered(
@@ -28,36 +46,12 @@ class StockPicking(models.Model):
 
     @api.model
     def _sync_existing_project_delivery_analytic_lines(self):
-        project_domains = self._get_existing_project_delivery_domains()
-        if not project_domains:
-            return True
-        pickings = self.sudo().search(
-            [
-                ("state", "=", "done"),
-                ("picking_type_code", "in", self._get_project_delivery_picking_type_codes()),
-                *Domain.OR(project_domains),
-            ]
-        )
+        pickings = self.sudo().search([
+            ("state", "=", "done"),
+            ("picking_type_code", "in", self._get_project_delivery_picking_type_codes()),
+        ])
         pickings._sync_project_delivery_analytic_lines()
         return True
-
-    @api.model
-    def _get_existing_project_delivery_domains(self):
-        domains = []
-        if "project_id" in self._fields:
-            domains.append([("project_id", "!=", False)])
-        if "sale_id" in self._fields and self._model_has_field("sale.order", "project_id"):
-            domains.append([("sale_id.project_id", "!=", False)])
-        stock_move = self.env["stock.move"]
-        if "project_id" in stock_move._fields:
-            domains.append([("move_ids.project_id", "!=", False)])
-        if "sale_line_id" in stock_move._fields:
-            domains.append([("move_ids.sale_line_id", "!=", False)])
-            if self._model_has_field("sale.order.line", "project_id"):
-                domains.append([("move_ids.sale_line_id.project_id", "!=", False)])
-            if self._model_has_field("sale.order", "project_id"):
-                domains.append([("move_ids.sale_line_id.order_id.project_id", "!=", False)])
-        return domains
 
     def _get_project_analytic_account(self):
         self.ensure_one()
@@ -91,13 +85,6 @@ class StockPicking(models.Model):
         if account and account.company_id and account.company_id != self.company_id:
             return self.env["account.analytic.account"]
         return account
-
-    def _is_manual_project_delivery(self):
-        self.ensure_one()
-        return (
-            self._is_project_delivery_candidate()
-            and bool(self._get_project_analytic_account())
-        )
 
     def _is_project_delivery_candidate(self):
         self.ensure_one()
