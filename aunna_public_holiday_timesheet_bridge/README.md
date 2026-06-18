@@ -155,7 +155,7 @@ El modulo incluye una accion planificada:
 - Frecuencia: diaria.
 - Rango por defecto: desde el 1 de enero del anio actual hasta el 31 de diciembre del anio siguiente.
 
-El cron ejecuta el proceso en modo automatico para empleados activos.
+El cron queda instalado inactivo por defecto para evitar revisiones masivas de empleados en bases con mucha plantilla. La generacion debe lanzarse desde el asistente o por los hooks acotados a cambios de festivos, ubicacion u horarios.
 
 ## Uso manual
 

@@ -30,7 +30,7 @@ class PublicHolidayTimesheetBridge(models.Model):
         self,
         date_from=False,
         date_to=False,
-        employee_ids=False,
+        employee_ids=None,
         origin="automatic",
     ):
         date_from, date_to = self._get_sync_range(date_from, date_to, employee_ids)
@@ -44,15 +44,17 @@ class PublicHolidayTimesheetBridge(models.Model):
         )
 
     @api.model
-    def _get_sync_range(self, date_from=False, date_to=False, employee_ids=False):
+    def _get_sync_range(self, date_from=False, date_to=False, employee_ids=None):
         default_from, default_to = self._get_default_range()
         date_from = fields.Date.to_date(date_from or default_from)
         date_to = fields.Date.to_date(date_to or default_to)
 
         domain = [("x_generated_by_public_holiday_bridge", "=", True)]
-        if employee_ids:
+        if employee_ids is not None:
             if hasattr(employee_ids, "_name"):
                 employee_ids = employee_ids.ids
+            if not employee_ids:
+                return date_from, date_to
             domain.append(("employee_id", "in", employee_ids))
 
         AnalyticLine = self.env["account.analytic.line"].sudo()
@@ -100,7 +102,7 @@ class PublicHolidayTimesheetBridge(models.Model):
         self,
         date_from=False,
         date_to=False,
-        employee_ids=False,
+        employee_ids=None,
         force_update=False,
         dry_run=False,
         origin="manual",
@@ -136,9 +138,9 @@ class PublicHolidayTimesheetBridge(models.Model):
         return date_from, date_to
 
     @api.model
-    def _get_employees(self, employee_ids=False):
+    def _get_employees(self, employee_ids=None):
         Employee = self.env["hr.employee"].sudo()
-        if employee_ids:
+        if employee_ids is not None:
             if hasattr(employee_ids, "_name"):
                 employees = employee_ids.sudo()
             else:
@@ -665,7 +667,7 @@ class PublicHolidayTimesheetBridge(models.Model):
         analytic_line=False,
     ):
         if message and action not in ("no_change", "create", "update", "delete_stale"):
-            _logger.info(
+            _logger.debug(
                 "Public holiday timesheet bridge: %s - %s - %s",
                 employee.display_name,
                 action,

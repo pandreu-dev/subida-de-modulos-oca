@@ -19,15 +19,21 @@ def _date_max(values):
     return max(values) if values else False
 
 
-def _sync_range(record, date_from=False, date_to=False, employees=False):
+def _sync_range(record, date_from=False, date_to=False, employees=None):
     if record.env.context.get(SYNC_CONTEXT_KEY):
-        return
+        return []
+
+    if employees is not None:
+        employees = employees.exists() if hasattr(employees, "_name") else employees
+        if not employees:
+            return []
+
     bridge = _bridge(record.env)
     if not date_from or not date_to:
         default_from, default_to = bridge._get_default_range()
         date_from = date_from or default_from
         date_to = date_to or default_to
-    bridge.sync_generated_timesheets(
+    return bridge.sync_generated_timesheets(
         date_from=date_from,
         date_to=date_to,
         employee_ids=employees,
@@ -108,12 +114,6 @@ class HrEmployee(models.Model):
     def _aunna_sync_employee_public_holiday_timesheets(self):
         _sync_range(self, employees=self)
 
-    @api.model_create_multi
-    def create(self, vals_list):
-        employees = super().create(vals_list)
-        employees._aunna_sync_employee_public_holiday_timesheets()
-        return employees
-
     def write(self, vals):
         res = super().write(vals)
         sync_fields = {
@@ -122,8 +122,10 @@ class HrEmployee(models.Model):
             "address_home_id",
             "home_address_id",
             "work_contact_id",
-            "user_id",
             "company_id",
+            "country_id",
+            "state_id",
+            "city_id",
             "resource_calendar_id",
             "calendar_ids",
         }
@@ -260,8 +262,19 @@ class ResourceCalendarAttendance(models.Model):
     def write(self, vals):
         employees = self._aunna_attendance_employees()
         res = super().write(vals)
-        employees |= self._aunna_attendance_employees()
-        _sync_range(self, employees=employees)
+        sync_fields = {
+            "calendar_id",
+            "dayofweek",
+            "hour_from",
+            "hour_to",
+            "date_from",
+            "date_to",
+            "week_type",
+            "display_type",
+        }
+        if sync_fields.intersection(vals):
+            employees |= self._aunna_attendance_employees()
+            _sync_range(self, employees=employees)
         return res
 
     def unlink(self):

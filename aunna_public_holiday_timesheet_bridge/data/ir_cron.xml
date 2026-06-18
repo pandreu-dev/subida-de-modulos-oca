@@ -6,6 +6,6 @@
         <field name="code">model._cron_generate_public_holiday_timesheets()</field>
         <field name="interval_number">1</field>
         <field name="interval_type">days</field>
-        <field name="active">True</field>
+        <field name="active">False</field>
     </record>
 </odoo>
