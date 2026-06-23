@@ -2,20 +2,43 @@
 <odoo>
     <template id="portal_my_home_iframe_example" inherit_id="portal.portal_my_home" name="Portal home iframe example">
         <xpath expr="//t[@t-call='portal.portal_layout']" position="inside">
-            <section class="container mt-4 mb-5 aunna_portal_iframe_example">
-                <h2 class="h4 mb-3">Mapa de ejemplo</h2>
+            <section class="container mt-4 mb-5 aunna_portal_iframe_example_entry">
+                <div class="row g-3">
+                    <div class="col-md-6 col-lg-5">
+                        <a href="/my/iframe-example" class="text-decoration-none text-reset">
+                            <div class="d-flex align-items-center gap-3 rounded bg-light p-4 h-100">
+                                <i class="fa fa-map-marker fa-3x text-primary" aria-hidden="true"/>
+                                <div>
+                                    <h2 class="h4 mb-1">Ejemplo iframe</h2>
+                                    <p class="text-muted mb-0">Ver mapa de ejemplo</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </section>
+        </xpath>
+    </template>
+
+    <template id="portal_iframe_example_page" name="Portal iframe example page">
+        <t t-call="portal.portal_layout">
+            <div class="container mt-4 mb-5 aunna_portal_iframe_example_page">
+                <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+                    <h1 class="h3 mb-0">Ejemplo iframe</h1>
+                    <a href="/my" class="btn btn-secondary">Volver</a>
+                </div>
                 <div class="ratio ratio-16x9 rounded overflow-hidden border bg-light">
                     <iframe
                         title="Mapa de ejemplo"
                         src="https://www.google.com/maps?q=Murcia,+Spain&amp;output=embed"
                         width="100%"
-                        height="360"
+                        height="420"
                         style="border:0;"
                         loading="lazy"
                         referrerpolicy="no-referrer-when-downgrade"
                         allowfullscreen="allowfullscreen"/>
                 </div>
-            </section>
-        </xpath>
+            </div>
+        </t>
     </template>
 </odoo>

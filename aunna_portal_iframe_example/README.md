@@ -1,11 +1,12 @@
 # AUNNA Portal Iframe Example
 
-Modulo de prueba que anade una seccion con un iframe en la pagina principal del portal de usuario (`/my`).
+Modulo de prueba que anade una entrada en la pagina principal del portal de usuario (`/my`) y abre una pagina propia con un iframe.
 
 ## Funcionamiento
 
 - Hereda la plantilla `portal.portal_my_home`.
-- Inserta un bloque visible en el portal del usuario.
+- Inserta una entrada clicable en el portal del usuario.
+- Crea la ruta `/my/iframe-example`.
 - El iframe usa Google Maps como ejemplo, sin clave API.
 
 ## Prueba
@@ -14,5 +15,5 @@ Modulo de prueba que anade una seccion con un iframe en la pagina principal del 
 2. Instalar `AUNNA Portal Iframe Example`.
 3. Entrar con un usuario de portal.
 4. Abrir `/my`.
-5. Comprobar que aparece la seccion `Mapa de ejemplo` con el iframe cargado.
-
+5. Comprobar que aparece la entrada `Ejemplo iframe`.
+6. Hacer clic en la entrada y comprobar que se abre la pagina con el iframe cargado.
