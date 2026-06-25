@@ -1,5 +1,11 @@
+import logging
+
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
+from odoo.osv import expression
+
+
+_logger = logging.getLogger(__name__)
 
 
 class BudgetAnalytic(models.Model):
@@ -215,6 +221,216 @@ class BudgetAnalytic(models.Model):
                     accounts |= record[field_name]
         return accounts
 
+    def _aunna_wip_get_analytic_dimensions(self, budget_line):
+        dimensions_by_field = {}
+        for record in [budget_line, self]:
+            for field_name, field in record._fields.items():
+                if getattr(field, "comodel_name", False) != "account.analytic.account":
+                    continue
+                if field.type not in ("many2one", "many2many"):
+                    continue
+                accounts = record[field_name]
+                if not accounts:
+                    continue
+                dimensions_by_field.setdefault(
+                    field_name,
+                    {
+                        "source_field": field_name,
+                        "source_label": field.string or field_name,
+                        "accounts": self.env["account.analytic.account"].browse(),
+                    },
+                )
+                dimensions_by_field[field_name]["accounts"] |= accounts
+        return list(dimensions_by_field.values())
+
+    def _aunna_wip_get_account_plan(self, account):
+        if "plan_id" in account._fields and account.plan_id:
+            return account.plan_id
+        if "root_plan_id" in account._fields and account.root_plan_id:
+            return account.root_plan_id
+        return self.env["account.analytic.plan"].browse()
+
+    def _aunna_wip_get_dimension_plans(self, accounts):
+        if "account.analytic.plan" not in self.env.registry:
+            return self.env["account.analytic.account"].browse()
+        plans = self.env["account.analytic.plan"].browse()
+        for account in accounts:
+            plan = self._aunna_wip_get_account_plan(account)
+            if plan:
+                plans |= plan
+                if "root_id" in plan._fields and plan.root_id:
+                    plans |= plan.root_id
+                if "parent_id" in plan._fields and plan.parent_id:
+                    plans |= plan.parent_id
+        return plans
+
+    def _aunna_wip_get_analytic_line_account_fields(self, AnalyticLine):
+        return [
+            field_name
+            for field_name, field in AnalyticLine._fields.items()
+            if field.type == "many2one"
+            and field.store
+            and getattr(field, "comodel_name", False) == "account.analytic.account"
+        ]
+
+    def _aunna_wip_find_analytic_line_field(self, AnalyticLine, dimension, account_fields):
+        source_field = dimension["source_field"]
+        if source_field in account_fields:
+            return source_field
+
+        accounts = dimension["accounts"]
+        plans = self._aunna_wip_get_dimension_plans(accounts)
+        plan_names = {plan.name.strip().lower() for plan in plans if plan.name}
+        plan_field_names = set()
+        for plan in plans:
+            plan_field_names.update(
+                {
+                    "x_plan%s_id" % plan.id,
+                    "x_plan_%s_id" % plan.id,
+                    "x_plan%s" % plan.id,
+                    "x_plan_%s" % plan.id,
+                }
+            )
+
+        for field_name in account_fields:
+            if field_name in plan_field_names:
+                return field_name
+            field = AnalyticLine._fields[field_name]
+            field_label = (field.string or "").strip().lower()
+            if field_label and field_label in plan_names:
+                return field_name
+            field_domain = str(getattr(field, "domain", "") or "")
+            if plans and any(str(plan.id) in field_domain for plan in plans):
+                return field_name
+        return False
+
+    def _aunna_wip_get_dimension_domain(self, AnalyticLine, dimension, account_fields):
+        accounts = dimension["accounts"]
+        field_name = self._aunna_wip_find_analytic_line_field(
+            AnalyticLine,
+            dimension,
+            account_fields,
+        )
+        if field_name:
+            return [(field_name, "in", accounts.ids)]
+        return expression.OR(
+            [[(field_name, "in", accounts.ids)] for field_name in account_fields]
+        )
+
+    def _aunna_wip_get_wip_journal(self):
+        journal_id = self.env["ir.config_parameter"].sudo().get_param(
+            "aunna_wip_accounting.journal_id"
+        )
+        try:
+            journal_id = int(journal_id or 0)
+        except (TypeError, ValueError):
+            journal_id = 0
+        return self.env["account.journal"].sudo().browse(journal_id).exists()
+
+    def _aunna_wip_get_wip_exclusion_domain(self, AnalyticLine, wip_journal):
+        if "move_line_id" not in AnalyticLine._fields:
+            return []
+
+        move_line_field = AnalyticLine._fields["move_line_id"]
+        MoveLine = self.env[move_line_field.comodel_name]
+        domain = []
+        if wip_journal and "journal_id" in MoveLine._fields:
+            domain = expression.AND(
+                [
+                    domain,
+                    expression.OR(
+                        [
+                            [("move_line_id", "=", False)],
+                            [("move_line_id.journal_id", "!=", wip_journal.id)],
+                        ]
+                    ),
+                ]
+            )
+        if "name" in MoveLine._fields:
+            domain = expression.AND(
+                [
+                    domain,
+                    expression.OR(
+                        [
+                            [("move_line_id", "=", False)],
+                            [("move_line_id.name", "not ilike", "WIP")],
+                        ]
+                    ),
+                ]
+            )
+        if "move_id" in MoveLine._fields:
+            Move = self.env[MoveLine._fields["move_id"].comodel_name]
+            if "ref" in Move._fields:
+                domain = expression.AND(
+                    [
+                        domain,
+                        expression.OR(
+                            [
+                                [("move_line_id", "=", False)],
+                                [("move_line_id.move_id.ref", "not ilike", "WIP")],
+                            ]
+                        ),
+                    ]
+                )
+        return domain
+
+    def _aunna_wip_keep_achieved_line(self, line, wip_journal):
+        if "move_line_id" not in line._fields or not line.move_line_id:
+            return True
+
+        move_line = line.move_line_id
+        if "parent_state" in move_line._fields and move_line.parent_state != "posted":
+            return False
+        if (
+            wip_journal
+            and "journal_id" in move_line._fields
+            and move_line.journal_id == wip_journal
+        ):
+            return False
+
+        wip_markers = []
+        if "name" in move_line._fields and move_line.name:
+            wip_markers.append(move_line.name)
+        if "move_id" in move_line._fields and move_line.move_id:
+            move = move_line.move_id
+            if (
+                wip_journal
+                and "journal_id" in move._fields
+                and move.journal_id == wip_journal
+            ):
+                return False
+            if "ref" in move._fields and move.ref:
+                wip_markers.append(move.ref)
+            if "name" in move._fields and move.name:
+                wip_markers.append(move.name)
+        return not any("WIP" in marker.upper() for marker in wip_markers)
+
+    def _aunna_wip_log_achieved_lines(self, domain, lines, account_fields):
+        amount = sum(lines.mapped("amount"))
+        _logger.info("WIP achieved domain: %s", domain)
+        _logger.info("WIP achieved analytic line IDs: %s", lines.ids)
+        _logger.info("WIP achieved amount: %s", amount)
+        for line in lines:
+            move_line = line.move_line_id if "move_line_id" in line._fields else False
+            journal = False
+            if move_line and "journal_id" in move_line._fields:
+                journal = move_line.journal_id
+            dimension_values = {
+                field_name: line[field_name].display_name
+                for field_name in account_fields
+                if field_name in line._fields and line[field_name]
+            }
+            _logger.info(
+                "WIP achieved line: date=%s name=%s amount=%s dimensions=%s "
+                "move_line_id=%s journal_id=%s",
+                line.date,
+                line.name if "name" in line._fields else False,
+                line.amount,
+                dimension_values,
+                move_line.id if move_line else False,
+                journal.id if journal else False,
+            )
+
     def _aunna_wip_get_project(self, analytic_accounts):
         if not analytic_accounts or "project.project" not in self.env.registry:
             return False
@@ -229,8 +445,8 @@ class BudgetAnalytic(models.Model):
                     return project
         return False
 
-    def _aunna_wip_get_achieved_amount(self, analytic_accounts, date_from, cutoff_date, company):
-        if not analytic_accounts:
+    def _aunna_wip_get_achieved_amount(self, analytic_dimensions, date_from, cutoff_date, company):
+        if not analytic_dimensions:
             return 0.0, _("Sin cuenta analitica detectada; alcanzado calculado como 0.")
 
         AnalyticLine = self.env["account.analytic.line"].sudo()
@@ -238,35 +454,39 @@ class BudgetAnalytic(models.Model):
         if not required_fields.issubset(set(AnalyticLine._fields)):
             return 0.0, _("No se han encontrado los campos esperados en account.analytic.line.")
 
-        account_fields = [
-            field_name
-            for field_name, field in AnalyticLine._fields.items()
-            if field.type == "many2one"
-            and field.store
-            and getattr(field, "comodel_name", False) == "account.analytic.account"
-        ]
+        account_fields = self._aunna_wip_get_analytic_line_account_fields(AnalyticLine)
         if not account_fields:
             return 0.0, _("No se han encontrado campos analiticos en account.analytic.line.")
 
         domain = [
             ("date", ">=", date_from),
             ("date", "<=", cutoff_date),
+            ("company_id", "in", [company.id, False]),
         ]
-        if "company_id" in AnalyticLine._fields and company:
-            domain.append(("company_id", "in", [company.id, False]))
-        domain += ["|"] * (len(account_fields) - 1)
-        domain += [
-            (field_name, "in", analytic_accounts.ids)
-            for field_name in account_fields
-        ]
+        for dimension in analytic_dimensions:
+            domain = expression.AND(
+                [
+                    domain,
+                    self._aunna_wip_get_dimension_domain(
+                        AnalyticLine,
+                        dimension,
+                        account_fields,
+                    ),
+                ]
+            )
+        wip_journal = self._aunna_wip_get_wip_journal()
+        domain = expression.AND(
+            [
+                domain,
+                self._aunna_wip_get_wip_exclusion_domain(AnalyticLine, wip_journal),
+            ]
+        )
         lines = AnalyticLine.search(domain)
 
-        if "move_line_id" in AnalyticLine._fields:
-            lines = lines.filtered(
-                lambda line: not line.move_line_id
-                or "parent_state" not in line.move_line_id._fields
-                or line.move_line_id.parent_state == "posted"
-            )
+        lines = lines.filtered(
+            lambda line: self._aunna_wip_keep_achieved_line(line, wip_journal)
+        )
+        self._aunna_wip_log_achieved_lines(domain, lines, account_fields)
         return sum(lines.mapped("amount")), False
 
     def _aunna_wip_prepare_line_values(self, budget_line, cutoff_date, company):
@@ -282,8 +502,9 @@ class BudgetAnalytic(models.Model):
             cutoff_date,
         )
         analytic_accounts = self._aunna_wip_get_analytic_accounts(budget_line)
+        analytic_dimensions = self._aunna_wip_get_analytic_dimensions(budget_line)
         achieved_amount, note = self._aunna_wip_get_achieved_amount(
-            analytic_accounts,
+            analytic_dimensions,
             date_from,
             cutoff_date,
             company,
