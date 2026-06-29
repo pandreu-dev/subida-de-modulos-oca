@@ -90,7 +90,6 @@ class StockPicking(models.Model):
         "move_ids.product_uom",
         "move_ids.product_id",
         "move_ids.product_id.standard_price",
-        "move_ids.stock_valuation_layer_ids.value",
     )
     def _compute_aunna_goods_value(self):
         for picking in self:
