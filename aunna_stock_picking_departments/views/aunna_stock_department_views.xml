@@ -35,11 +35,19 @@
     </record>
 
     <menuitem
+        id="menu_aunna_stock_department_root"
+        name="Departamento BR"
+        parent="stock.menu_stock_config_settings"
+        groups="stock.group_stock_manager"
+        sequence="90"
+    />
+
+    <menuitem
         id="menu_aunna_stock_department"
         name="Departamentos BR"
-        parent="stock.menu_stock_config_settings"
+        parent="menu_aunna_stock_department_root"
         action="action_aunna_stock_department"
         groups="stock.group_stock_manager"
-        sequence="91"
+        sequence="10"
     />
 </odoo>
