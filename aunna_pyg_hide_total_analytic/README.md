@@ -1,4 +1,4 @@
-# AUNNA Account Report Hide Total Analytic - Analisis
+# AUNNA PyG Hide Total Analytic
 
 ## Objetivo
 
@@ -6,11 +6,11 @@ Ocultar la columna `Total` del informe de Perdidas y Ganancias cuando el usuario
 
 ## Decision tras revision
 
-No se deja codigo activo en esta version.
+El modulo queda instalable para poder desplegarlo, versionarlo y dejar documentada la necesidad funcional, pero no aplica codigo visual activo en esta version.
 
 El motivo es que el motor de `account_reports` de Odoo Enterprise cambia bastante entre versiones y un override generico de `account.report` podria afectar a pantalla, PDF, XLSX u otros informes.
 
-La carpeta queda como documentacion para no romper produccion. Si se confirma que no hay opcion estandar, el desarrollo debe hacerse revisando el codigo real de `account_reports` instalado en la BD objetivo.
+Si se confirma que no hay opcion estandar, el desarrollo debe hacerse revisando el codigo real de `account_reports` instalado en la BD objetivo.
 
 ## Pruebas
 
@@ -18,4 +18,3 @@ La carpeta queda como documentacion para no romper produccion. Si se confirma qu
 2. Abrir PyG con filtro analitico/proyecto: no debe verse columna `Total`.
 3. Probar comparacion de periodos.
 4. Probar PDF/XLSX y confirmar si debe ocultarse tambien fuera de pantalla.
-
