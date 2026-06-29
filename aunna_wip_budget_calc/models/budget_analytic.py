@@ -317,6 +317,166 @@ class BudgetAnalytic(models.Model):
             [[(field_name, "in", accounts.ids)] for field_name in account_fields]
         )
 
+    def _aunna_wip_get_budget_accounts(self, budget_line):
+        accounts = self.env["account.account"].browse()
+        holder_fields = [
+            "general_budget_id",
+            "budget_post_id",
+            "budgetary_position_id",
+            "account_budget_post_id",
+        ]
+        for record in [budget_line, self]:
+            for field_name, field in record._fields.items():
+                if getattr(field, "comodel_name", False) != "account.account":
+                    continue
+                if field.type == "many2one" and record[field_name]:
+                    accounts |= record[field_name]
+                elif field.type == "many2many" and record[field_name]:
+                    accounts |= record[field_name]
+            for field_name in holder_fields:
+                if field_name not in record._fields or not record[field_name]:
+                    continue
+                holder = record[field_name]
+                for account_field_name, account_field in holder._fields.items():
+                    if getattr(account_field, "comodel_name", False) != "account.account":
+                        continue
+                    if account_field.type == "many2one" and holder[account_field_name]:
+                        accounts |= holder[account_field_name]
+                    elif account_field.type == "many2many" and holder[account_field_name]:
+                        accounts |= holder[account_field_name]
+        return accounts
+
+    def _aunna_wip_get_budget_nature(self, budget_line):
+        candidate_fields = [
+            "budget_type",
+            "type_budget",
+            "budget_kind",
+            "budget_nature",
+            "nature",
+            "type",
+        ]
+        for record in [budget_line, self]:
+            for field_name in candidate_fields:
+                if field_name not in record._fields:
+                    continue
+                nature = self._aunna_wip_budget_nature_from_field(record, field_name)
+                if nature:
+                    return nature
+            for field_name, field in record._fields.items():
+                if field.type not in ("selection", "char", "many2one"):
+                    continue
+                label = "%s %s" % (field_name, field.string or "")
+                label = label.lower()
+                if not (
+                    "tipo de presupuesto" in label
+                    or "budget type" in label
+                    or "type_budget" in label
+                    or "budget_type" in label
+                ):
+                    continue
+                nature = self._aunna_wip_budget_nature_from_field(record, field_name)
+                if nature:
+                    return nature
+
+        budget_accounts = self._aunna_wip_get_budget_accounts(budget_line)
+        if budget_accounts:
+            if any(self._aunna_wip_account_is_income(account) for account in budget_accounts):
+                return "income"
+            if any(self._aunna_wip_account_is_expense(account) for account in budget_accounts):
+                return "expense"
+        return False
+
+    def _aunna_wip_budget_nature_from_field(self, record, field_name):
+        field = record._fields[field_name]
+        value = record[field_name]
+        if not value:
+            return False
+        texts = [str(value)]
+        if field.type == "selection" and isinstance(field.selection, list):
+            selection_by_key = dict(field.selection)
+            if value in selection_by_key:
+                texts.append(str(selection_by_key[value]))
+        elif field.type == "many2one":
+            texts.append(value.display_name)
+        text = " ".join(texts).lower()
+        if any(token in text for token in ("ingreso", "ingresos", "income", "revenue", "venta", "sales")):
+            return "income"
+        if any(token in text for token in ("gasto", "gastos", "expense", "coste", "cost", "compra", "purchase")):
+            return "expense"
+        return False
+
+    def _aunna_wip_account_is_income(self, account):
+        if "account_type" in account._fields and account.account_type:
+            return account.account_type in ("income", "income_other")
+        if "user_type_id" in account._fields and account.user_type_id:
+            user_type = account.user_type_id
+            if "type" in user_type._fields and user_type.type:
+                return user_type.type in ("income", "other_income")
+        if "code" in account._fields and account.code:
+            return account.code.startswith("7")
+        return False
+
+    def _aunna_wip_account_is_expense(self, account):
+        if "account_type" in account._fields and account.account_type:
+            return account.account_type.startswith("expense")
+        if "user_type_id" in account._fields and account.user_type_id:
+            user_type = account.user_type_id
+            if "type" in user_type._fields and user_type.type:
+                return user_type.type in ("expense", "other_expense")
+        if "code" in account._fields and account.code:
+            return account.code.startswith("6")
+        return False
+
+    def _aunna_wip_is_income_budget_line(self, budget_line):
+        return self._aunna_wip_get_budget_nature(budget_line) == "income"
+
+    def _aunna_wip_get_income_account_domain(self, budget_line):
+        budget_accounts = self._aunna_wip_get_budget_accounts(budget_line)
+        if budget_accounts:
+            return [("account_id", "in", budget_accounts.ids)]
+
+        Account = self.env["account.account"]
+        domains = []
+        if "account_type" in Account._fields:
+            domains.append([("account_id.account_type", "in", ["income", "income_other"])])
+        if "code" in Account._fields:
+            domains.append([("account_id.code", "=like", "7%")])
+        return expression.OR(domains) if domains else []
+
+    def _aunna_wip_parse_distribution_account_ids(self, distribution_key):
+        return {
+            int(item)
+            for item in str(distribution_key).split(",")
+            if item and item.isdigit()
+        }
+
+    def _aunna_wip_distribution_ratio(self, distribution, analytic_dimensions):
+        if not distribution or not analytic_dimensions:
+            return 0.0
+        dimension_account_ids = [
+            set(dimension["accounts"].ids)
+            for dimension in analytic_dimensions
+            if dimension["accounts"]
+        ]
+        if not dimension_account_ids:
+            return 0.0
+
+        percentage = 0.0
+        for key, value in distribution.items():
+            key_account_ids = self._aunna_wip_parse_distribution_account_ids(key)
+            if not key_account_ids:
+                continue
+            if all(key_account_ids.intersection(account_ids) for account_ids in dimension_account_ids):
+                percentage += float(value or 0.0)
+        return percentage / 100.0
+
+    def _aunna_wip_move_line_income_amount(self, move_line):
+        if "balance" in move_line._fields:
+            return -move_line.balance
+        debit = move_line.debit if "debit" in move_line._fields else 0.0
+        credit = move_line.credit if "credit" in move_line._fields else 0.0
+        return credit - debit
+
     def _aunna_wip_get_wip_journal(self):
         journal_id = self.env["ir.config_parameter"].sudo().get_param(
             "aunna_wip_accounting.journal_id"
@@ -405,6 +565,40 @@ class BudgetAnalytic(models.Model):
                 wip_markers.append(move.name)
         return not any("WIP" in marker.upper() for marker in wip_markers)
 
+    def _aunna_wip_keep_achieved_move_line(self, move_line, wip_journal):
+        if "parent_state" in move_line._fields and move_line.parent_state != "posted":
+            return False
+        if (
+            "move_id" in move_line._fields
+            and move_line.move_id
+            and "state" in move_line.move_id._fields
+            and move_line.move_id.state != "posted"
+        ):
+            return False
+        if (
+            wip_journal
+            and "journal_id" in move_line._fields
+            and move_line.journal_id == wip_journal
+        ):
+            return False
+
+        markers = []
+        if "name" in move_line._fields and move_line.name:
+            markers.append(move_line.name)
+        if "move_id" in move_line._fields and move_line.move_id:
+            move = move_line.move_id
+            if (
+                wip_journal
+                and "journal_id" in move._fields
+                and move.journal_id == wip_journal
+            ):
+                return False
+            if "ref" in move._fields and move.ref:
+                markers.append(move.ref)
+            if "name" in move._fields and move.name:
+                markers.append(move.name)
+        return not any("WIP" in marker.upper() for marker in markers)
+
     def _aunna_wip_log_achieved_lines(self, domain, lines, account_fields):
         amount = sum(lines.mapped("amount"))
         _logger.info("WIP achieved domain: %s", domain)
@@ -431,6 +625,26 @@ class BudgetAnalytic(models.Model):
                 journal.id if journal else False,
             )
 
+    def _aunna_wip_log_achieved_move_lines(self, domain, move_lines, amount):
+        _logger.info("WIP income achieved move line domain: %s", domain)
+        _logger.info("WIP income achieved move line IDs: %s", move_lines.ids)
+        _logger.info("WIP income achieved amount: %s", amount)
+        for move_line in move_lines:
+            _logger.info(
+                "WIP income achieved move line: date=%s name=%s account=%s "
+                "balance=%s analytic_distribution=%s move=%s",
+                move_line.date,
+                move_line.name if "name" in move_line._fields else False,
+                move_line.account_id.display_name if "account_id" in move_line._fields else False,
+                move_line.balance if "balance" in move_line._fields else False,
+                move_line.analytic_distribution
+                if "analytic_distribution" in move_line._fields
+                else False,
+                move_line.move_id.display_name
+                if "move_id" in move_line._fields and move_line.move_id
+                else False,
+            )
+
     def _aunna_wip_get_project(self, analytic_accounts):
         if not analytic_accounts or "project.project" not in self.env.registry:
             return False
@@ -445,9 +659,79 @@ class BudgetAnalytic(models.Model):
                     return project
         return False
 
-    def _aunna_wip_get_achieved_amount(self, analytic_dimensions, date_from, cutoff_date, company):
+    def _aunna_wip_get_income_achieved_amount(self, analytic_dimensions, date_from, cutoff_date, company, budget_line):
         if not analytic_dimensions:
             return 0.0, _("Sin cuenta analitica detectada; alcanzado calculado como 0.")
+
+        MoveLine = self.env["account.move.line"].sudo()
+        required_fields = {"date", "account_id", "analytic_distribution"}
+        if not required_fields.issubset(set(MoveLine._fields)):
+            return 0.0, _("No se han encontrado los campos esperados en account.move.line.")
+
+        domain = [
+            ("date", ">=", date_from),
+            ("date", "<=", cutoff_date),
+            ("company_id", "=", company.id),
+            ("analytic_distribution", "!=", False),
+        ]
+        if "parent_state" in MoveLine._fields:
+            domain.append(("parent_state", "=", "posted"))
+        elif "move_id" in MoveLine._fields:
+            domain.append(("move_id.state", "=", "posted"))
+        if "display_type" in MoveLine._fields:
+            domain = expression.AND(
+                [
+                    domain,
+                    expression.OR(
+                        [
+                            [("display_type", "=", False)],
+                            [("display_type", "not in", ["line_section", "line_note"])],
+                        ]
+                    ),
+                ]
+            )
+
+        income_account_domain = self._aunna_wip_get_income_account_domain(budget_line)
+        if income_account_domain:
+            domain = expression.AND([domain, income_account_domain])
+        for dimension in analytic_dimensions:
+            domain = expression.AND(
+                [
+                    domain,
+                    [("analytic_distribution", "in", dimension["accounts"].ids)],
+                ]
+            )
+
+        wip_journal = self._aunna_wip_get_wip_journal()
+        move_lines = MoveLine.search(domain)
+        move_lines = move_lines.filtered(
+            lambda line: self._aunna_wip_keep_achieved_move_line(line, wip_journal)
+        )
+
+        amount = 0.0
+        for move_line in move_lines:
+            ratio = self._aunna_wip_distribution_ratio(
+                move_line.analytic_distribution,
+                analytic_dimensions,
+            )
+            if not ratio:
+                continue
+            amount += self._aunna_wip_move_line_income_amount(move_line) * ratio
+        self._aunna_wip_log_achieved_move_lines(domain, move_lines, amount)
+        return amount, False
+
+    def _aunna_wip_get_achieved_amount(self, analytic_dimensions, date_from, cutoff_date, company, budget_line=False):
+        if not analytic_dimensions:
+            return 0.0, _("Sin cuenta analitica detectada; alcanzado calculado como 0.")
+
+        if budget_line and self._aunna_wip_is_income_budget_line(budget_line):
+            return self._aunna_wip_get_income_achieved_amount(
+                analytic_dimensions,
+                date_from,
+                cutoff_date,
+                company,
+                budget_line,
+            )
 
         AnalyticLine = self.env["account.analytic.line"].sudo()
         required_fields = {"date", "amount"}
@@ -508,6 +792,7 @@ class BudgetAnalytic(models.Model):
             date_from,
             cutoff_date,
             company,
+            budget_line,
         )
         main_account = analytic_accounts[:1]
         project = self._aunna_wip_get_project(main_account)

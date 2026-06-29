@@ -104,7 +104,11 @@ El calculo incluye tanto el dia de inicio como el dia de corte.
 
 ## Calculo del alcanzado
 
-El alcanzado se calcula buscando lineas en `account.analytic.line`:
+El alcanzado tiene dos caminos:
+
+### Presupuestos de gasto o no identificados como ingreso
+
+Se mantiene el comportamiento original y se calcula buscando lineas en `account.analytic.line`:
 
 - Fecha mayor o igual que el inicio de la linea presupuestaria.
 - Fecha menor o igual que la fecha de corte.
@@ -114,6 +118,22 @@ El alcanzado se calcula buscando lineas en `account.analytic.line`:
 Si la linea analitica esta vinculada a un apunte contable, solo se tiene en cuenta si el asiento esta publicado cuando el campo de estado existe.
 
 El importe alcanzado se obtiene sumando el campo `amount`.
+
+### Presupuestos de ingreso
+
+Si la linea/presupuesto se identifica como ingreso, el alcanzado se calcula desde `account.move.line`, porque la fuente correcta son los apuntes contables publicados de facturas de cliente.
+
+El dominio exige:
+
+- asiento publicado,
+- fecha dentro del periodo,
+- compania del presupuesto,
+- cuenta contable de ingreso o cuenta contable definida en la linea de presupuesto,
+- `analytic_distribution` que contenga las dimensiones definidas en el presupuesto.
+
+Si el presupuesto solo tiene proyecto, no se exige P&L, departamento ni division.
+
+El signo se normaliza para que las facturas de cliente en cuentas 7xx sumen como alcanzado positivo.
 
 ## Deteccion de lineas de presupuesto
 
