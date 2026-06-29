@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_aunna_project_cost_move_link_account_user,aunna.project.cost.move.link.account.user,model_aunna_project_cost_move_link,account.group_account_user,1,1,1,0
+access_aunna_project_cost_move_link_account_manager,aunna.project.cost.move.link.account.manager,model_aunna_project_cost_move_link,account.group_account_manager,1,1,1,1

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="aunna_stock_department_common" model="aunna.stock.department">
+        <field name="name">Común</field>
+        <field name="sequence">10</field>
+    </record>
+    <record id="aunna_stock_department_deployment" model="aunna.stock.department">
+        <field name="name">Despliegue</field>
+        <field name="sequence">20</field>
+    </record>
+    <record id="aunna_stock_department_radio" model="aunna.stock.department">
+        <field name="name">Radio</field>
+        <field name="sequence">30</field>
+    </record>
+    <record id="aunna_stock_department_photovoltaic" model="aunna.stock.department">
+        <field name="name">Fotovoltaica</field>
+        <field name="sequence">40</field>
+    </record>
+</odoo>

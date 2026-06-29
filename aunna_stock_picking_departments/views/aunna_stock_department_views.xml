@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_aunna_stock_department_list" model="ir.ui.view">
+        <field name="name">aunna.stock.department.list</field>
+        <field name="model">aunna.stock.department</field>
+        <field name="arch" type="xml">
+            <list string="Departamentos BR">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_aunna_stock_department_form" model="ir.ui.view">
+        <field name="name">aunna.stock.department.form</field>
+        <field name="model">aunna.stock.department</field>
+        <field name="arch" type="xml">
+            <form string="Departamento BR">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="sequence"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_aunna_stock_department" model="ir.actions.act_window">
+        <field name="name">Departamentos BR</field>
+        <field name="res_model">aunna.stock.department</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem
+        id="menu_aunna_stock_department"
+        name="Departamentos BR"
+        parent="stock.menu_stock_config_settings"
+        action="action_aunna_stock_department"
+        groups="stock.group_stock_manager"
+        sequence="91"
+    />
+</odoo>

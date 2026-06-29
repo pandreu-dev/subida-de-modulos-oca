@@ -1,0 +1,75 @@
+<odoo>
+    <record id="view_aunna_project_cost_move_link_list" model="ir.ui.view">
+        <field name="name">aunna.project.cost.move.link.list</field>
+        <field name="model">aunna.project.cost.move.link</field>
+        <field name="arch" type="xml">
+            <list create="false">
+                <field name="date"/>
+                <field name="cost_type"/>
+                <field name="source_display_name"/>
+                <field name="analytic_summary"/>
+                <field name="amount"/>
+                <field name="move_id"/>
+                <field name="state"/>
+                <field name="company_id"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_aunna_project_cost_move_link_form" model="ir.ui.view">
+        <field name="name">aunna.project.cost.move.link.form</field>
+        <field name="model">aunna.project.cost.move.link</field>
+        <field name="arch" type="xml">
+            <form create="false" edit="false">
+                <header>
+                    <button name="action_open_source" type="object" string="Abrir origen" class="btn-secondary"/>
+                    <button name="action_open_move" type="object" string="Abrir asiento" class="btn-secondary" invisible="not move_id"/>
+                    <button name="action_recalculate_technical_move" type="object" string="Recalcular" class="btn-secondary"/>
+                    <button name="action_reverse_technical_move" type="object" string="Revertir" class="btn-primary" invisible="state != 'active'"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="cost_type"/>
+                            <field name="state"/>
+                            <field name="date"/>
+                            <field name="amount"/>
+                            <field name="company_id"/>
+                        </group>
+                        <group>
+                            <field name="source_model"/>
+                            <field name="source_res_id"/>
+                            <field name="source_display_name"/>
+                            <field name="move_id"/>
+                            <field name="reversed_move_id"/>
+                            <field name="analytic_summary"/>
+                            <field name="source_hash"/>
+                        </group>
+                    </group>
+                    <group string="Analitica">
+                        <field name="analytic_distribution_snapshot" nolabel="1"/>
+                    </group>
+                    <group string="Error" invisible="not error_message">
+                        <field name="error_message" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_aunna_project_cost_move_link" model="ir.actions.act_window">
+        <field name="name">Costes tecnicos de proyecto</field>
+        <field name="res_model">aunna.project.cost.move.link</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem
+        id="menu_aunna_project_cost_move_link"
+        name="Costes tecnicos de proyecto"
+        parent="account.menu_finance_entries"
+        action="action_aunna_project_cost_move_link"
+        groups="account.group_account_user"
+        sequence="82"
+    />
+</odoo>
