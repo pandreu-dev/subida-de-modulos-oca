@@ -1,3 +1,5 @@
+import html
+import re
 import unicodedata
 from collections.abc import Mapping
 
@@ -117,6 +119,8 @@ class AccountReport(models.Model):
         )
 
     def _aunna_normalize_text(self, value):
+        value = html.unescape(str(value or "")).replace("\xa0", " ")
+        value = re.sub(r"<[^>]*>", " ", value)
         value = unicodedata.normalize("NFKD", str(value or ""))
         value = "".join(char for char in value if not unicodedata.combining(char))
         return " ".join(value.lower().split())
@@ -124,14 +128,34 @@ class AccountReport(models.Model):
     def _aunna_is_total_label(self, value):
         return self._aunna_normalize_text(value) == "total"
 
+    def _aunna_cell_values(self, cell):
+        if not isinstance(cell, Mapping):
+            return [cell]
+        return [
+            cell.get(key)
+            for key in (
+                "name",
+                "label",
+                "title",
+                "string",
+                "display_name",
+                "value",
+            )
+            if cell.get(key) not in (None, False)
+        ]
+
+    def _aunna_is_total_cell(self, cell):
+        return any(
+            self._aunna_is_total_label(value)
+            for value in self._aunna_cell_values(cell)
+        )
+
     def _aunna_total_column_indices(self, options, result=False):
         indices = set()
         columns = options.get("columns") if isinstance(options, Mapping) else []
         if isinstance(columns, list):
             for index, column in enumerate(columns):
-                if isinstance(column, Mapping) and self._aunna_is_total_label(
-                    column.get("name")
-                ):
+                if self._aunna_is_total_cell(column):
                     indices.add(index)
 
         headers = []
@@ -152,11 +176,34 @@ class AccountReport(models.Model):
             position = 0
             for cell in row:
                 colspan = self._aunna_cell_colspan(cell)
-                if isinstance(cell, Mapping) and self._aunna_is_total_label(
-                    cell.get("name")
-                ):
+                if self._aunna_is_total_cell(cell):
                     indices.update(range(position, position + colspan))
                 position += colspan
+        if not indices:
+            indices.update(self._aunna_total_indices_from_even_header_groups(headers))
+        return indices
+
+    def _aunna_total_indices_from_even_header_groups(self, headers):
+        indices = set()
+        for row in headers:
+            if not isinstance(row, list):
+                continue
+            spans = [
+                self._aunna_cell_colspan(cell)
+                for cell in row
+                if self._aunna_cell_colspan(cell) > 1
+            ]
+            if not spans or any(span != 2 for span in spans):
+                continue
+
+            position = 0
+            for cell in row:
+                colspan = self._aunna_cell_colspan(cell)
+                if colspan == 2:
+                    indices.add(position + 1)
+                position += colspan
+            if indices:
+                return indices
         return indices
 
     def _aunna_cell_colspan(self, cell):
@@ -184,9 +231,7 @@ class AccountReport(models.Model):
                 position += colspan
                 if removed_count >= colspan:
                     continue
-                if isinstance(cell, Mapping) and self._aunna_is_total_label(
-                    cell.get("name")
-                ):
+                if self._aunna_is_total_cell(cell):
                     continue
                 new_cell = dict(cell) if isinstance(cell, Mapping) else cell
                 if isinstance(new_cell, dict) and colspan != colspan - removed_count:
@@ -238,8 +283,6 @@ class AccountReport(models.Model):
     ):
         if not removed_indices:
             return False
-        if source_column_count:
-            return len(columns) == source_column_count
         return len(columns) > max(removed_indices)
 
     def _aunna_remove_indices(self, values, removed_indices):
