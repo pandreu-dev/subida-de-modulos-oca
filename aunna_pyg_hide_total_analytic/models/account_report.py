@@ -4,6 +4,7 @@ import unicodedata
 from collections.abc import Mapping
 
 from odoo import models
+from lxml import html as lxml_html
 
 
 class AccountReport(models.Model):
@@ -45,33 +46,35 @@ class AccountReport(models.Model):
 
         options = result.get("options") or self._aunna_options_from_args(args, kwargs)
         if not isinstance(options, Mapping):
-            return result
+            filtered_result = dict(result)
+            self._aunna_filter_total_from_html_result(filtered_result)
+            return filtered_result
 
         removed_indices = self._aunna_total_column_indices(options, result)
-        if not removed_indices:
-            return result
 
         filtered_result = dict(result)
-        source_column_count = self._aunna_column_count(options)
+        if removed_indices:
+            source_column_count = self._aunna_column_count(options)
 
-        result_options = result.get("options")
-        if isinstance(result_options, Mapping):
-            filtered_result["options"] = self._aunna_filter_total_from_options(
-                result_options,
-                removed_indices,
-            )
+            result_options = result.get("options")
+            if isinstance(result_options, Mapping):
+                filtered_result["options"] = self._aunna_filter_total_from_options(
+                    result_options,
+                    removed_indices,
+                )
 
-        if isinstance(result.get("lines"), list):
-            filtered_result["lines"] = self._aunna_filter_lines(
-                result["lines"],
-                removed_indices,
-                source_column_count,
-            )
-        if isinstance(result.get("column_headers"), list):
-            filtered_result["column_headers"] = self._aunna_filter_column_headers(
-                result["column_headers"],
-                removed_indices,
-            )
+            if isinstance(result.get("lines"), list):
+                filtered_result["lines"] = self._aunna_filter_lines(
+                    result["lines"],
+                    removed_indices,
+                    source_column_count,
+                )
+            if isinstance(result.get("column_headers"), list):
+                filtered_result["column_headers"] = self._aunna_filter_column_headers(
+                    result["column_headers"],
+                    removed_indices,
+                )
+        self._aunna_filter_total_from_html_result(filtered_result)
         return filtered_result
 
     def _aunna_options_from_args(self, args=False, kwargs=False):
@@ -96,6 +99,76 @@ class AccountReport(models.Model):
                 removed_indices,
             )
         return filtered_options
+
+    def _aunna_filter_total_from_html_result(self, result):
+        for key in ("main_html", "report_html", "lines_html", "html"):
+            if isinstance(result.get(key), str):
+                result[key] = self._aunna_filter_total_columns_from_html(result[key])
+
+    def _aunna_filter_total_columns_from_html(self, html_value):
+        if "Total" not in html_value and "total" not in html_value:
+            return html_value
+        try:
+            wrapper = lxml_html.fragment_fromstring(html_value, create_parent="div")
+        except Exception:
+            return html_value
+
+        changed = False
+        for table in wrapper.xpath(".//table"):
+            removed_indices = self._aunna_total_table_column_indices(table)
+            if removed_indices:
+                self._aunna_remove_table_columns(table, removed_indices)
+                changed = True
+
+        if not changed:
+            return html_value
+        return "".join(
+            lxml_html.tostring(child, encoding="unicode")
+            for child in wrapper
+        )
+
+    def _aunna_total_table_column_indices(self, table):
+        indices = set()
+        for row in table.xpath(".//thead//tr | .//tr"):
+            position = 0
+            row_indices = set()
+            for cell in row.xpath("./th | ./td"):
+                colspan = self._aunna_html_cell_colspan(cell)
+                if self._aunna_is_total_label(" ".join(cell.itertext())):
+                    row_indices.update(range(position, position + colspan))
+                position += colspan
+            if row_indices:
+                indices.update(row_indices)
+        return indices
+
+    def _aunna_remove_table_columns(self, table, removed_indices):
+        for row in table.xpath(".//tr"):
+            position = 0
+            for cell in list(row.xpath("./th | ./td")):
+                colspan = self._aunna_html_cell_colspan(cell)
+                covered = set(range(position, position + colspan))
+                removed_count = len(covered.intersection(removed_indices))
+                position += colspan
+
+                if not removed_count:
+                    continue
+                if removed_count >= colspan:
+                    parent = cell.getparent()
+                    if parent is not None:
+                        parent.remove(cell)
+                    continue
+
+                new_colspan = colspan - removed_count
+                if new_colspan > 1:
+                    cell.set("colspan", str(new_colspan))
+                elif "colspan" in cell.attrib:
+                    del cell.attrib["colspan"]
+
+    def _aunna_html_cell_colspan(self, cell):
+        try:
+            return max(1, int(cell.get("colspan") or 1))
+        except (TypeError, ValueError):
+            return 1
 
     def _aunna_is_profit_and_loss_report(self):
         self.ensure_one()
