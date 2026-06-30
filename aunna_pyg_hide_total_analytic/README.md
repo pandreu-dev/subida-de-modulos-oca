@@ -2,19 +2,19 @@
 
 ## Objetivo
 
-Ocultar la columna `Total` del informe de Perdidas y Ganancias cuando el usuario aplica filtro analitico/proyecto.
+Ocultar la columna `Total` del informe de Perdidas y Ganancias.
 
-## Decision tras revision
+## Funcionamiento
 
-El modulo queda instalable para poder desplegarlo, versionarlo y dejar documentada la necesidad funcional, pero no aplica codigo visual activo en esta version.
+El modulo hereda `account.report` y, solo para el informe de Perdidas y Ganancias, elimina de la salida cualquier columna cuyo encabezado sea exactamente `Total`.
 
-El motivo es que el motor de `account_reports` de Odoo Enterprise cambia bastante entre versiones y un override generico de `account.report` podria afectar a pantalla, PDF, XLSX u otros informes.
+Aplica siempre en PyG, con o sin filtros analiticos.
 
-Si se confirma que no hay opcion estandar, el desarrollo debe hacerse revisando el codigo real de `account_reports` instalado en la BD objetivo.
+No modifica importes ni calculos contables; solo filtra columnas en la respuesta del informe.
 
 ## Pruebas
 
-1. Abrir PyG sin filtro analitico: debe verse estandar.
+1. Abrir PyG sin filtro analitico: no debe verse columna `Total`.
 2. Abrir PyG con filtro analitico/proyecto: no debe verse columna `Total`.
 3. Probar comparacion de periodos.
-4. Probar PDF/XLSX y confirmar si debe ocultarse tambien fuera de pantalla.
+4. Abrir otros informes contables y confirmar que no cambian.

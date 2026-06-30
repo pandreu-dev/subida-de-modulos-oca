@@ -1,11 +1,11 @@
 # Analisis estandar
 
-No se ha identificado una opcion funcional visible que oculte automaticamente la columna `Total` del PyG solo cuando hay filtro analitico.
+No se ha identificado una opcion funcional visible que oculte automaticamente la columna `Total` del PyG.
 
-No se deja override activo porque sin revisar el codigo exacto de `account_reports` Enterprise instalado puede ser arriesgado:
+Se implementa un override acotado a `account.report` para el informe de Perdidas y Ganancias:
 
-- Puede descuadrar cabeceras y lineas.
-- Puede afectar PDF/XLSX.
-- Puede afectar otros informes si Odoo cambia las opciones internas.
+- Solo actua si el informe es PyG.
+- Solo elimina columnas con encabezado exacto `Total`.
+- No modifica importes ni formulas.
 
-Recomendacion: resolverlo con una revision especifica del motor de informes en la BD objetivo o con configuracion estandar si existe.
+Si Odoo cambia la estructura interna de `account_reports`, revisar `models/account_report.py`.
