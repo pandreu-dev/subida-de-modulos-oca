@@ -90,20 +90,39 @@ class StockMove(models.Model):
             return {}
         default_pl = self.company_id.aunna_default_stock_pl_analytic_account_id
         if default_pl:
-            distribution.setdefault(str(default_pl.id), 100.0)
+            default_key = str(default_pl.id)
+            if not self._aunna_distribution_has_account(distribution, default_pl):
+                distribution[default_key] = 100.0
         if self._aunna_distribution_account_count(distribution) < 2:
             return {}
         return distribution
 
+    def _aunna_distribution_has_account(self, distribution, account):
+        account_id = str(account.id)
+        for key, value in (distribution or {}).items():
+            if self._aunna_distribution_percentage(distribution, key, value) <= 0.0:
+                continue
+            if account_id in str(key).split(","):
+                return True
+        return False
+
     def _aunna_distribution_account_count(self, distribution):
         account_ids = set()
-        for key in distribution:
+        for key, value in (distribution or {}).items():
+            if self._aunna_distribution_percentage(distribution, key, value) <= 0.0:
+                continue
             account_ids.update(
                 item
                 for item in str(key).split(",")
                 if item and item.isdigit()
             )
         return len(account_ids)
+
+    def _aunna_distribution_percentage(self, distribution, key, value=None):
+        try:
+            return float(distribution.get(key) if value is None else value or 0.0)
+        except (TypeError, ValueError):
+            return 0.0
 
     def _aunna_stock_delivery_cost_amount(self):
         self.ensure_one()
@@ -125,8 +144,19 @@ class StockMove(models.Model):
                 return amount
         if "value" in self._fields and self.value:
             return abs(self.value)
-        quantity = self.product_uom._compute_quantity(self.quantity, self.product_id.uom_id)
+        quantity = self._aunna_stock_delivery_quantity()
+        if not quantity:
+            return 0.0
+        uom = self.product_uom or self.product_id.uom_id
+        quantity = uom._compute_quantity(quantity, self.product_id.uom_id)
         return abs(quantity * self.product_id.with_company(self.company_id).standard_price)
+
+    def _aunna_stock_delivery_quantity(self):
+        self.ensure_one()
+        for field_name in ("quantity", "quantity_done", "product_uom_qty"):
+            if field_name in self._fields and self[field_name]:
+                return self[field_name]
+        return 0.0
 
     def _aunna_stock_delivery_date(self):
         self.ensure_one()

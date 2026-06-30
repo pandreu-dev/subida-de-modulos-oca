@@ -10,12 +10,13 @@ El modulo marca las lineas contables WIP con la linea de calculo WIP y su proyec
 
 Tambien vuelve a revisar los asientos WIP ya existentes al abrirlos desde el calculo, para completar el enlace si el asiento se creo antes de instalar este modulo.
 
-No cambia importes, cuentas, distribucion analitica ni la logica economica del WIP.
+No cambia importes ni cuentas. Si una linea WIP tiene distribucion analitica al proyecto con porcentaje `0%`, la normaliza a `100%` para que Odoo genere el apunte analitico con importe real.
 
 ## Prueba
 
 1. Calcular WIP de un presupuesto con proyecto.
 2. Crear asiento WIP.
 3. Abrir el asiento y comprobar que la linea con analitica tiene proyecto WIP.
-4. Ir a apuntes analiticos y agrupar por proyecto.
-5. Confirmar que las lineas WIP aparecen bajo el proyecto correcto.
+4. Comprobar que la distribucion analitica no aparece al `0%`.
+5. Ir a apuntes analiticos y agrupar por proyecto.
+6. Confirmar que las lineas WIP aparecen bajo el proyecto correcto y con importe.

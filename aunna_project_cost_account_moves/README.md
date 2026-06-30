@@ -46,6 +46,8 @@ Campos principales:
 
 Si no hay diario o cuentas configuradas, no se generan asientos.
 
+Las distribuciones analiticas con porcentaje `0%` se descartan y no se consideran validas para generar el asiento tecnico.
+
 ## Trazabilidad
 
 Cada asiento queda vinculado a `aunna.project.cost.move.link`, con origen, importe, fecha, hash y estado. El modulo no edita asientos publicados: si el origen cambia, revierte y genera un asiento nuevo.
@@ -59,4 +61,3 @@ Cada asiento queda vinculado a `aunna.project.cost.move.link`, con origen, impor
 5. Validar una entrega con analitica de proyecto.
 6. Confirmar asiento tecnico 600x/600x o 600x/puente.
 7. Revisar que PyG general no cambia y PyG analitico muestra el coste.
-

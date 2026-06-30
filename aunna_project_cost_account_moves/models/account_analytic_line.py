@@ -126,25 +126,52 @@ class AccountAnalyticLine(models.Model):
             if getattr(field, "comodel_name", False) != "account.analytic.account":
                 continue
             if field.type == "many2one" and self[field_name]:
-                distribution[str(self[field_name].id)] = 100.0
+                analytic_account = self[field_name]
+                if not self._aunna_distribution_has_account(
+                    distribution,
+                    analytic_account,
+                ):
+                    distribution[str(analytic_account.id)] = 100.0
         has_source_distribution = bool(distribution)
         if not has_source_distribution:
             return {}
         if default_pl_account:
-            distribution.setdefault(str(default_pl_account.id), 100.0)
+            default_key = str(default_pl_account.id)
+            if not self._aunna_distribution_has_account(
+                distribution,
+                default_pl_account,
+            ):
+                distribution[default_key] = 100.0
         if self._aunna_distribution_account_count(distribution) < 2:
             return {}
         return distribution
 
+    def _aunna_distribution_has_account(self, distribution, account):
+        account_id = str(account.id)
+        for key, value in (distribution or {}).items():
+            if self._aunna_distribution_percentage(distribution, key, value) <= 0.0:
+                continue
+            if account_id in str(key).split(","):
+                return True
+        return False
+
     def _aunna_distribution_account_count(self, distribution):
         account_ids = set()
-        for key in distribution:
+        for key, value in (distribution or {}).items():
+            if self._aunna_distribution_percentage(distribution, key, value) <= 0.0:
+                continue
             account_ids.update(
                 item
                 for item in str(key).split(",")
                 if item and item.isdigit()
             )
         return len(account_ids)
+
+    def _aunna_distribution_percentage(self, distribution, key, value=None):
+        try:
+            return float(distribution.get(key) if value is None else value or 0.0)
+        except (TypeError, ValueError):
+            return 0.0
 
     def action_aunna_open_project_cost_moves(self):
         self.ensure_one()

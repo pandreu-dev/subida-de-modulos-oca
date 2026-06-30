@@ -36,10 +36,6 @@ class ResConfigSettings(models.TransientModel):
         related="company_id.aunna_auto_post_cost_moves",
         readonly=False,
     )
-    aunna_group_cost_moves = fields.Boolean(
-        related="company_id.aunna_group_cost_moves",
-        readonly=False,
-    )
     aunna_default_timesheet_pl_analytic_account_id = fields.Many2one(
         related="company_id.aunna_default_timesheet_pl_analytic_account_id",
         readonly=False,

@@ -35,10 +35,6 @@ class ResCompany(models.Model):
         string="Publicar asientos tecnicos automaticamente",
         default=True,
     )
-    aunna_group_cost_moves = fields.Boolean(
-        string="Agrupar costes tecnicos",
-        help="Reservado para agrupacion futura. Actualmente se genera un asiento por origen.",
-    )
     aunna_default_timesheet_pl_analytic_account_id = fields.Many2one(
         "account.analytic.account",
         string="P&L defecto horas",

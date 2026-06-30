@@ -9,6 +9,8 @@ Usa el importe `amount` del parte de horas. Si es negativo, se toma valor absolu
 - Debe en cuenta de coste de horas con analitica.
 - Haber en cuenta de contrapartida sin analitica.
 
+Las cuentas analiticas con porcentaje `0%` se ignoran para evitar asientos tecnicos sin imputacion real.
+
 ## Entregas
 
 Usa primero el coste almacenado por `project_delivery_analytic_valuation` en el movimiento de stock. Si no existe, recurre a las lineas analiticas de entrega y, como ultimo recurso, a valoracion/coste del producto.

@@ -7,6 +7,7 @@
 3. Crear/validar parte de horas con coste en proyecto.
 4. Revisar `Costes tecnicos de proyecto`.
 5. Abrir asiento y comprobar Debe con analitica y Haber sin analitica.
+6. Confirmar que la distribucion analitica no aparece al `0%`.
 
 ## Entrega
 
@@ -15,4 +16,4 @@
 3. Validar entrega con distribucion analitica.
 4. Revisar asiento tecnico generado.
 5. Confirmar que no se duplica al volver a ejecutar pendientes.
-
+6. Confirmar que la distribucion analitica no aparece al `0%`.

@@ -26,6 +26,10 @@ class AunnaWipCalculation(models.Model):
             if not calc_line:
                 continue
             used_line_ids.add(calc_line.id)
+            vals["analytic_distribution"] = self._aunna_wip_distribution_for_calc_line(
+                distribution,
+                calc_line,
+            )
             vals["aunna_wip_project_id"] = calc_line.project_id.id
             vals["aunna_wip_calculation_line_id"] = calc_line.id
         return move_vals
@@ -55,6 +59,20 @@ class AunnaWipCalculation(models.Model):
             if line.id not in used_line_ids:
                 return line
         return self.env["aunna.wip.calculation.line"]
+
+    def _aunna_wip_distribution_for_calc_line(self, distribution, calc_line):
+        account_key = str(calc_line.analytic_account_id.id)
+        for key, value in (distribution or {}).items():
+            key_parts = [item for item in str(key).split(",") if item]
+            if account_key in key_parts:
+                return {str(key): 100.0}
+        return {account_key: 100.0}
+
+    def _aunna_wip_distribution_percentage(self, value):
+        try:
+            return float(value or 0.0)
+        except (TypeError, ValueError):
+            return 0.0
 
     def action_create_wip_move(self, reversal_date=False):
         result = super().action_create_wip_move(reversal_date=reversal_date)
@@ -95,20 +113,21 @@ class AunnaWipCalculation(models.Model):
         candidate_lines = self._aunna_wip_project_candidate_lines()
         if not candidate_lines:
             return
+        candidate_line_ids = set(candidate_lines.ids)
         used_line_ids = set(move.line_ids.mapped("aunna_wip_calculation_line_id").ids)
         move_lines = move.line_ids.filtered(
             lambda line: line.analytic_distribution
-            and not (
-                line.aunna_wip_project_id
-                and line.aunna_wip_calculation_line_id
-            )
         )
         for move_line in move_lines:
-            calc_line = self._aunna_wip_match_move_line_to_calc_line(
-                candidate_lines,
-                used_line_ids,
-                move_line.analytic_distribution,
-            )
+            calc_line = move_line.aunna_wip_calculation_line_id
+            if calc_line and calc_line.id not in candidate_line_ids:
+                calc_line = self.env["aunna.wip.calculation.line"]
+            if not calc_line:
+                calc_line = self._aunna_wip_match_move_line_to_calc_line(
+                    candidate_lines,
+                    used_line_ids,
+                    move_line.analytic_distribution,
+                )
             if not calc_line:
                 continue
             used_line_ids.add(calc_line.id)
@@ -117,6 +136,15 @@ class AunnaWipCalculation(models.Model):
                 vals["aunna_wip_project_id"] = calc_line.project_id.id
             if move_line.aunna_wip_calculation_line_id != calc_line:
                 vals["aunna_wip_calculation_line_id"] = calc_line.id
+            distribution = self._aunna_wip_distribution_for_calc_line(
+                move_line.analytic_distribution,
+                calc_line,
+            )
+            if not self._aunna_wip_same_distribution(
+                move_line.analytic_distribution,
+                distribution,
+            ):
+                vals["analytic_distribution"] = distribution
             if vals:
                 move_line.sudo().with_context(check_move_validity=False).write(vals)
 
@@ -139,6 +167,10 @@ class AunnaWipCalculation(models.Model):
                 {
                     "aunna_wip_project_id": source_line.aunna_wip_project_id.id,
                     "aunna_wip_calculation_line_id": source_line.aunna_wip_calculation_line_id.id,
+                    "analytic_distribution": self._aunna_wip_distribution_for_calc_line(
+                        reversal_line.analytic_distribution,
+                        source_line.aunna_wip_calculation_line_id,
+                    ),
                 }
             )
 
@@ -164,7 +196,10 @@ class AunnaWipCalculation(models.Model):
         ) == self._aunna_wip_normalized_distribution(second)
 
     def _aunna_wip_normalized_distribution(self, distribution):
-        return {
-            str(key): float(value or 0.0)
-            for key, value in (distribution or {}).items()
-        }
+        normalized = {}
+        for key, value in (distribution or {}).items():
+            percentage = self._aunna_wip_distribution_percentage(value)
+            if percentage <= 0.0:
+                continue
+            normalized[str(key)] = percentage
+        return normalized

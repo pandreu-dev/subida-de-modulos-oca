@@ -187,7 +187,33 @@ class AunnaProjectCostMoveLink(models.Model):
 
     @api.model
     def _aunna_distribution_snapshot(self, distribution):
-        return json.dumps(distribution or {}, sort_keys=True)
+        return json.dumps(
+            self._aunna_normalize_analytic_distribution(distribution),
+            sort_keys=True,
+        )
+
+    @api.model
+    def _aunna_normalize_analytic_distribution(self, distribution):
+        normalized = {}
+        for key, value in (distribution or {}).items():
+            try:
+                percentage = float(value or 0.0)
+            except (TypeError, ValueError):
+                continue
+            if percentage <= 0.0:
+                continue
+            account_ids = sorted(
+                [
+                    int(item)
+                    for item in str(key).split(",")
+                    if item and item.isdigit()
+                ]
+            )
+            if not account_ids:
+                continue
+            normalized_key = ",".join(str(account_id) for account_id in account_ids)
+            normalized[normalized_key] = normalized.get(normalized_key, 0.0) + percentage
+        return normalized
 
     @api.model
     def _aunna_source_hash(self, payload):
@@ -212,6 +238,9 @@ class AunnaProjectCostMoveLink(models.Model):
         company = source.company_id or self.env.company
         active_link = self.search(self._aunna_active_link_domain(source, cost_type), limit=1)
         amount = abs(amount or 0.0)
+        analytic_distribution = self._aunna_normalize_analytic_distribution(
+            analytic_distribution
+        )
         if not amount:
             if active_link:
                 active_link.action_reverse_technical_move()
@@ -315,9 +344,14 @@ class AunnaProjectCostMoveLink(models.Model):
                 ),
             ],
         }
-        move = self.env["account.move"].with_company(company).create(move_vals)
+        move = (
+            self.env["account.move"]
+            .with_context(aunna_skip_project_cost_moves=True)
+            .with_company(company)
+            .create(move_vals)
+        )
         if auto_post:
-            move.action_post()
+            move.with_context(aunna_skip_project_cost_moves=True).action_post()
         return self.create(
             {
                 "name": ref,
@@ -341,6 +375,9 @@ class AunnaProjectCostMoveLink(models.Model):
     def _aunna_link_matches_source(self, link, amount, date, analytic_distribution):
         currency = link.currency_id or link.company_id.currency_id
         same_amount = currency.compare_amounts(link.amount, abs(amount or 0.0)) == 0
+        analytic_distribution = self._aunna_normalize_analytic_distribution(
+            analytic_distribution
+        )
         return (
             same_amount
             and link.date == fields.Date.to_date(date)
@@ -354,6 +391,8 @@ class AunnaProjectCostMoveLink(models.Model):
             return False
         if "company_ids" in account._fields:
             allowed_companies = account.sudo().company_ids
+            if not allowed_companies:
+                return True
             return bool(
                 self.env["res.company"].sudo().search(
                     [
@@ -398,7 +437,9 @@ class AunnaProjectCostMoveLink(models.Model):
         for link in self.filtered(lambda item: item.state == "active"):
             reversed_move = self.env["account.move"]
             if link.move_id and link.move_id.state == "posted":
-                reversed_move = link.move_id._reverse_moves(
+                reversed_move = link.move_id.with_context(
+                    aunna_skip_project_cost_moves=True
+                )._reverse_moves(
                     default_values_list=[
                         {
                             "date": fields.Date.context_today(link),
@@ -407,9 +448,13 @@ class AunnaProjectCostMoveLink(models.Model):
                     ],
                     cancel=False,
                 )
-                reversed_move.action_post()
+                reversed_move.with_context(
+                    aunna_skip_project_cost_moves=True
+                ).action_post()
             elif link.move_id and link.move_id.state == "draft" and hasattr(link.move_id, "button_cancel"):
-                link.move_id.button_cancel()
+                link.move_id.with_context(
+                    aunna_skip_project_cost_moves=True
+                ).button_cancel()
             link.write(
                 {
                     "state": "reversed" if reversed_move else "cancelled",
