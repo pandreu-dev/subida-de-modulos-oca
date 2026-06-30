@@ -6,11 +6,13 @@ Ocultar la columna `Total` del informe de Perdidas y Ganancias.
 
 ## Funcionamiento
 
-El modulo hereda `account.report` y, solo para el informe de Perdidas y Ganancias, elimina de la salida cualquier columna cuyo encabezado sea exactamente `Total`.
+El modulo carga un asset JavaScript en el backend de Odoo.
 
-Aplica siempre en PyG, con o sin filtros analiticos.
+Solo en la pantalla del informe de Perdidas y Ganancias, el script revisa la tabla renderizada y elimina visualmente cualquier columna cuyo encabezado sea exactamente `Total`.
 
-No modifica importes ni calculos contables; solo filtra columnas en la respuesta del informe.
+Aplica siempre en PyG, con o sin filtros analiticos y con comparativas de periodos.
+
+No modifica importes, apuntes ni calculos contables; solo cambia la visualizacion del informe.
 
 ## Pruebas
 

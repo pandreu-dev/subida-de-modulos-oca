@@ -1,1 +1,1 @@
-from . import models
+"""Frontend-only visual tweaks for account reports."""
