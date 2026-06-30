@@ -26,7 +26,8 @@
         <field name="inherit_id" ref="stock.vpicktree"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='partner_id']" position="after">
-                <field name="aunna_department_display" string="Departamento" optional="show"/>
+                <field name="aunna_department_out_id" string="Departamento salida" optional="show"/>
+                <field name="aunna_department_in_id" string="Departamento entrada" optional="show"/>
             </xpath>
             <xpath expr="//field[@name='state']" position="after">
                 <field name="aunna_goods_value" string="Valor" optional="show"/>
@@ -41,6 +42,8 @@
         <field name="arch" type="xml">
             <xpath expr="//search" position="inside">
                 <field name="aunna_department_id" string="Departamento"/>
+                <field name="aunna_department_out_id" string="Departamento salida"/>
+                <field name="aunna_department_in_id" string="Departamento entrada"/>
                 <filter
                     string="Departamento entrada"
                     name="groupby_aunna_department_in"

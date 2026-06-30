@@ -28,7 +28,8 @@ Departamentos iniciales:
 
 La lista muestra:
 
-- `Departamento`
+- `Departamento salida`
+- `Departamento entrada`
 - `Valor`
 
-Tambien se puede buscar por departamento desde el buscador de albaranes.
+Tambien se puede buscar por departamento general, departamento de salida o departamento de entrada desde el buscador de albaranes.

@@ -1,7 +1,7 @@
 {
     "name": "AUNNA Stock Picking Departments",
     "summary": "Anade departamentos BR en albaranes y pedidos de compra",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.1.0",
     "category": "Inventory/Inventory",
     "author": "AUNNA IT",
     "license": "LGPL-3",
