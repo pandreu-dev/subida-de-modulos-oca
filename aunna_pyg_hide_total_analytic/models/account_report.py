@@ -146,13 +146,17 @@ class AccountReport(models.Model):
         indices = set()
         if not headers:
             return indices
-        leaf_row = headers[-1] if isinstance(headers[-1], list) else []
-        position = 0
-        for cell in leaf_row:
-            colspan = self._aunna_cell_colspan(cell)
-            if isinstance(cell, Mapping) and self._aunna_is_total_label(cell.get("name")):
-                indices.update(range(position, position + colspan))
-            position += colspan
+        for row in headers:
+            if not isinstance(row, list):
+                continue
+            position = 0
+            for cell in row:
+                colspan = self._aunna_cell_colspan(cell)
+                if isinstance(cell, Mapping) and self._aunna_is_total_label(
+                    cell.get("name")
+                ):
+                    indices.update(range(position, position + colspan))
+                position += colspan
         return indices
 
     def _aunna_cell_colspan(self, cell):
