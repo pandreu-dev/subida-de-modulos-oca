@@ -51,6 +51,13 @@ class AccountMove(models.Model):
         AnalyticLine = self.env["account.analytic.line"].sudo()
         if "move_line_id" not in AnalyticLine._fields:
             return
+        project_field = AnalyticLine._fields.get("project_id")
+        can_write_standard_project = (
+            project_field
+            and project_field.type == "many2one"
+            and project_field.comodel_name == "project.project"
+            and not self.env.context.get("aunna_skip_standard_project_link")
+        )
         for move in self.sudo():
             wip_lines = move.line_ids.filtered(
                 lambda line: line.aunna_wip_project_id
@@ -64,8 +71,6 @@ class AccountMove(models.Model):
                     "aunna_wip_project_id": move_line.aunna_wip_project_id.id,
                     "aunna_wip_calculation_line_id": move_line.aunna_wip_calculation_line_id.id,
                 }
-                if "project_id" in AnalyticLine._fields and not self.env.context.get(
-                    "aunna_skip_standard_project_link"
-                ):
+                if can_write_standard_project:
                     vals["project_id"] = move_line.aunna_wip_project_id.id
                 analytic_lines.write(vals)

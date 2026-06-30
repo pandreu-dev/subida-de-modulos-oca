@@ -8,6 +8,8 @@ Los asientos WIP ya llevan distribucion analitica y aparecen en PyG, pero las li
 
 El modulo marca las lineas contables WIP con la linea de calculo WIP y su proyecto origen. Despues de crear/publicar el asiento, localiza las lineas analiticas generadas desde esas lineas contables y rellena el proyecto cuando el campo existe.
 
+Tambien vuelve a revisar los asientos WIP ya existentes al abrirlos desde el calculo, para completar el enlace si el asiento se creo antes de instalar este modulo.
+
 No cambia importes, cuentas, distribucion analitica ni la logica economica del WIP.
 
 ## Prueba
@@ -17,4 +19,3 @@ No cambia importes, cuentas, distribucion analitica ni la logica economica del W
 3. Abrir el asiento y comprobar que la linea con analitica tiene proyecto WIP.
 4. Ir a apuntes analiticos y agrupar por proyecto.
 5. Confirmar que las lineas WIP aparecen bajo el proyecto correcto.
-

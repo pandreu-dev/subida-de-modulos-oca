@@ -14,6 +14,7 @@
 - Tras publicar el asiento, se localizan las lineas analiticas generadas por `move_line_id`.
 - Si existe `project_id` en `account.analytic.line`, se rellena con el proyecto origen WIP.
 - La reversion WIP tambien recibe el mismo enlace.
+- Si el asiento ya existia, al abrirlo desde el calculo WIP se intenta reconstruir el enlace desde la distribucion analitica de sus lineas.
 
 ## No se modifica
 
@@ -21,4 +22,3 @@
 - Importes.
 - Cuentas.
 - Distribucion analitica existente.
-
