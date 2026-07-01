@@ -24,6 +24,8 @@ Ruta:
 
 Tambien se integra en Ajustes como bloque de configuracion WIP.
 
+La configuracion WIP es por compania. Cada compania debe tener informado su propio diario WIP y sus cuentas. Esto evita que un presupuesto de CITRIC use por error el diario WIP de AUNNA, o al reves.
+
 Campos de configuracion:
 
 - Diario WIP.
@@ -40,6 +42,7 @@ Ejemplo funcional de cuentas:
 - Cuenta de ingresos anticipados: `485000`.
 
 El diario WIP debe ser de tipo Miscelanea y pertenecer a la compania del calculo.
+Las cuentas deben estar disponibles para la compania del calculo.
 
 ## Campos anadidos al presupuesto analitico
 
@@ -86,7 +89,7 @@ El modulo incluye un cron diario:
 
 La logica automatica funciona asi:
 
-1. Lee la configuracion WIP.
+1. Lee la configuracion WIP de la compania de cada presupuesto.
 2. Comprueba que la contabilizacion automatica este habilitada.
 3. Calcula el primer dia del mes de ejecucion.
 4. Calcula el dia de disparo segun los dias de espera configurados.
@@ -193,7 +196,8 @@ El modulo incluye pruebas para:
 
 - `models/wip_calculation.py`: creacion de asientos, reversiones, duplicados y automatico.
 - `models/budget_analytic.py`: check automatico y smart button de asientos.
-- `models/res_config_settings.py`: parametros de configuracion.
+- `models/res_company.py`: configuracion WIP por compania.
+- `models/res_config_settings.py`: ajustes visibles por compania.
 - `wizard/wip_auto_test_wizard.py`: prueba controlada del automatico.
 - `views/res_config_settings_views.xml`: bloque de configuracion WIP.
 - `views/wip_calculation_views.xml`: botones y campos contables en calculo WIP.
