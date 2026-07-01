@@ -30,7 +30,7 @@ class AunnaWipCalculation(models.Model):
                 distribution,
                 calc_line,
             )
-            vals["aunna_wip_project_id"] = calc_line.project_id.id
+            vals["aunna_wip_project_id"] = calc_line.project_id.id or False
             vals["aunna_wip_calculation_line_id"] = calc_line.id
         return move_vals
 
@@ -39,7 +39,6 @@ class AunnaWipCalculation(models.Model):
         return self.line_ids.filtered(
             lambda line: line.wip_amount
             and line.analytic_account_id
-            and line.project_id
         )
 
     def _aunna_wip_match_move_line_to_calc_line(self, lines, used_line_ids, distribution):
@@ -133,7 +132,7 @@ class AunnaWipCalculation(models.Model):
             used_line_ids.add(calc_line.id)
             vals = {}
             if move_line.aunna_wip_project_id != calc_line.project_id:
-                vals["aunna_wip_project_id"] = calc_line.project_id.id
+                vals["aunna_wip_project_id"] = calc_line.project_id.id or False
             if move_line.aunna_wip_calculation_line_id != calc_line:
                 vals["aunna_wip_calculation_line_id"] = calc_line.id
             distribution = self._aunna_wip_distribution_for_calc_line(

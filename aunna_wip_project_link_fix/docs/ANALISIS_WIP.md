@@ -14,6 +14,7 @@
 - Si la distribucion analitica WIP llega con el proyecto al `0%`, se normaliza a `100%`.
 - Tras publicar el asiento, se localizan las lineas analiticas generadas por `move_line_id`.
 - Si existe `project_id` en `account.analytic.line`, se rellena con el proyecto origen WIP.
+- Si el apunte analitico ya existe pero quedo a `0,00` por una distribucion mal interpretada, se reconstruye desde la linea contable WIP corregida.
 - La reversion WIP tambien recibe el mismo enlace.
 - Si el asiento ya existia, al abrirlo desde el calculo WIP se intenta reconstruir el enlace desde la distribucion analitica de sus lineas.
 
