@@ -1,0 +1,149 @@
+<odoo>
+    <record id="view_aunna_wip_annual_report_list" model="ir.ui.view">
+        <field name="name">aunna.wip.annual.report.list</field>
+        <field name="model">aunna.wip.annual.report</field>
+        <field name="arch" type="xml">
+            <list string="Informes WIP anuales">
+                <field name="name"/>
+                <field name="year"/>
+                <field name="company_id"/>
+                <field name="project_id"/>
+                <field name="analytic_account_id"/>
+                <field name="last_real_update"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_aunna_wip_annual_report_form" model="ir.ui.view">
+        <field name="name">aunna.wip.annual.report.form</field>
+        <field name="model">aunna.wip.annual.report</field>
+        <field name="arch" type="xml">
+            <form string="Informe WIP anual">
+                <header>
+                    <button
+                        name="action_recalculate_real_values"
+                        string="Recalcular reales"
+                        type="object"
+                        class="btn-primary"
+                    />
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="year"/>
+                            <field name="company_id"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group>
+                            <field name="project_id"/>
+                            <field name="analytic_account_id"/>
+                            <field name="last_real_update"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Informe anual">
+                            <field name="line_ids" nolabel="1">
+                                <list editable="bottom" create="0" delete="0">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="metric" readonly="1"/>
+                                    <field name="jan_prev_amount"/>
+                                    <field name="jan_real_amount"/>
+                                    <field name="jan_diff_amount"/>
+                                    <field name="feb_prev_amount"/>
+                                    <field name="feb_real_amount"/>
+                                    <field name="feb_diff_amount"/>
+                                    <field name="mar_prev_amount"/>
+                                    <field name="mar_real_amount"/>
+                                    <field name="mar_diff_amount"/>
+                                    <field name="apr_prev_amount"/>
+                                    <field name="apr_real_amount"/>
+                                    <field name="apr_diff_amount"/>
+                                    <field name="may_prev_amount"/>
+                                    <field name="may_real_amount"/>
+                                    <field name="may_diff_amount"/>
+                                    <field name="jun_prev_amount"/>
+                                    <field name="jun_real_amount"/>
+                                    <field name="jun_diff_amount"/>
+                                    <field name="jul_prev_amount"/>
+                                    <field name="jul_real_amount"/>
+                                    <field name="jul_diff_amount"/>
+                                    <field name="aug_prev_amount"/>
+                                    <field name="aug_real_amount"/>
+                                    <field name="aug_diff_amount"/>
+                                    <field name="sep_prev_amount"/>
+                                    <field name="sep_real_amount"/>
+                                    <field name="sep_diff_amount"/>
+                                    <field name="oct_prev_amount"/>
+                                    <field name="oct_real_amount"/>
+                                    <field name="oct_diff_amount"/>
+                                    <field name="nov_prev_amount"/>
+                                    <field name="nov_real_amount"/>
+                                    <field name="nov_diff_amount"/>
+                                    <field name="dec_prev_amount"/>
+                                    <field name="dec_real_amount"/>
+                                    <field name="dec_diff_amount"/>
+                                    <field name="total_prev_amount"/>
+                                    <field name="total_real_amount"/>
+                                    <field name="total_diff_amount"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Notas de calculo">
+                            <field name="calculation_note" nolabel="1"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_aunna_wip_annual_report_search" model="ir.ui.view">
+        <field name="name">aunna.wip.annual.report.search</field>
+        <field name="model">aunna.wip.annual.report</field>
+        <field name="arch" type="xml">
+            <search string="Informes WIP anuales">
+                <field name="name"/>
+                <field name="year"/>
+                <field name="company_id"/>
+                <field name="project_id"/>
+                <field name="analytic_account_id"/>
+                <group expand="0" string="Agrupar por">
+                    <filter name="group_year" string="Ejercicio" context="{'group_by': 'year'}"/>
+                    <filter name="group_company" string="Compania" context="{'group_by': 'company_id'}"/>
+                    <filter name="group_project" string="Proyecto" context="{'group_by': 'project_id'}"/>
+                    <filter name="group_analytic" string="Cuenta analitica" context="{'group_by': 'analytic_account_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_aunna_wip_annual_report" model="ir.actions.act_window">
+        <field name="name">Informe WIP anual</field>
+        <field name="res_model">aunna.wip.annual.report</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_aunna_wip_annual_report_search"/>
+        <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Crea un informe WIP anual por proyecto o cuenta analitica.
+            </p>
+            <p>
+                Las columnas Prev. son editables y las columnas Real se recalculan desde Odoo.
+            </p>
+        </field>
+    </record>
+
+    <menuitem
+        id="menu_aunna_wip_annual_report"
+        name="Informe WIP anual"
+        parent="account.menu_finance_reports"
+        action="action_aunna_wip_annual_report"
+        groups="account.group_account_user"
+        sequence="85"
+    />
+</odoo>

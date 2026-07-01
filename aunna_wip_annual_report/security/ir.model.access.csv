@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_aunna_wip_annual_report_user,aunna.wip.annual.report user,model_aunna_wip_annual_report,account.group_account_user,1,1,1,1
+access_aunna_wip_annual_report_line_user,aunna.wip.annual.report.line user,model_aunna_wip_annual_report_line,account.group_account_user,1,1,1,1
