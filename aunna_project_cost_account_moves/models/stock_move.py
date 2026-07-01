@@ -10,7 +10,7 @@ class StockMove(models.Model):
     )
 
     def _compute_aunna_project_cost_move_count(self):
-        Link = self.env["aunna.project.cost.move.link"]
+        Link = self.env["aunna.project.cost.move.link"].sudo()
         for move in self:
             move.aunna_project_cost_move_count = Link.search_count(
                 Link._aunna_active_link_domain(move, "stock_delivery")
@@ -18,13 +18,22 @@ class StockMove(models.Model):
 
     def write(self, vals):
         result = super().write(vals)
-        watched = {"state", "analytic_distribution", "quantity", "product_uom_qty", "value"}
+        watched = {
+            "state",
+            "analytic_distribution",
+            "quantity",
+            "quantity_done",
+            "product_uom_qty",
+            "value",
+        }
         if watched.intersection(vals) and not self.env.context.get("aunna_skip_project_cost_moves"):
-            self.filtered(lambda move: move.state == "done")._aunna_sync_stock_delivery_cost_move()
+            self.filtered(
+                lambda move: move.state == "done"
+            ).sudo()._aunna_sync_stock_delivery_cost_move()
         return result
 
     def _aunna_sync_stock_delivery_cost_move(self):
-        links = self.env["aunna.project.cost.move.link"]
+        links = self.env["aunna.project.cost.move.link"].sudo()
         result_links = links.browse()
         for move in self:
             if not move._aunna_is_stock_delivery_cost_candidate():
@@ -34,14 +43,14 @@ class StockMove(models.Model):
         return result_links
 
     def _aunna_reverse_stock_delivery_cost_moves(self):
-        Link = self.env["aunna.project.cost.move.link"]
+        Link = self.env["aunna.project.cost.move.link"].sudo()
         for move in self:
             links = Link.search(Link._aunna_active_link_domain(move, "stock_delivery"))
             links.action_reverse_technical_move()
 
     def _aunna_is_stock_delivery_cost_candidate(self):
         self.ensure_one()
-        company = self.company_id or self.env.company
+        company = (self.company_id or self.env.company).sudo()
         if not company.aunna_enable_stock_delivery_cost_moves:
             return False
         if self.state != "done":
@@ -60,12 +69,12 @@ class StockMove(models.Model):
 
     def _aunna_create_stock_delivery_cost_move(self):
         self.ensure_one()
-        company = self.company_id or self.env.company
+        company = (self.company_id or self.env.company).sudo()
         distribution = self._aunna_stock_delivery_distribution()
         amount = self._aunna_stock_delivery_cost_amount()
         counterpart = company.aunna_stock_counterpart_account_id or company.aunna_stock_cost_account_id
         label = "COSTE STOCK"
-        return self.env["aunna.project.cost.move.link"]._aunna_create_or_update(
+        return self.env["aunna.project.cost.move.link"].sudo()._aunna_create_or_update(
             source=self,
             cost_type="stock_delivery",
             amount=amount,
@@ -88,11 +97,15 @@ class StockMove(models.Model):
         has_source_distribution = bool(distribution)
         if not has_source_distribution:
             return {}
-        default_pl = self.company_id.aunna_default_stock_pl_analytic_account_id
+        company = (self.company_id or self.env.company).sudo()
+        default_pl = company.aunna_default_stock_pl_analytic_account_id
         if default_pl:
-            default_key = str(default_pl.id)
-            if not self._aunna_distribution_has_account(distribution, default_pl):
-                distribution[default_key] = 100.0
+            distribution = self.env[
+                "aunna.project.cost.move.link"
+            ].sudo()._aunna_distribution_with_default_account(
+                distribution,
+                default_pl,
+            )
         if self._aunna_distribution_account_count(distribution) < 2:
             return {}
         return distribution
@@ -149,7 +162,8 @@ class StockMove(models.Model):
             return 0.0
         uom = self.product_uom or self.product_id.uom_id
         quantity = uom._compute_quantity(quantity, self.product_id.uom_id)
-        return abs(quantity * self.product_id.with_company(self.company_id).standard_price)
+        product = self.product_id.sudo().with_company(self.company_id)
+        return abs(quantity * product.standard_price)
 
     def _aunna_stock_delivery_quantity(self):
         self.ensure_one()

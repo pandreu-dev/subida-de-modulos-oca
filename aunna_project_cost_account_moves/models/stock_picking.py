@@ -11,7 +11,9 @@ class StockPicking(models.Model):
 
     def _aunna_sync_stock_delivery_cost_moves(self):
         for picking in self:
-            picking.move_ids.filtered(lambda move: move.state == "done")._aunna_sync_stock_delivery_cost_move()
+            picking.move_ids.filtered(
+                lambda move: move.state == "done"
+            ).sudo()._aunna_sync_stock_delivery_cost_move()
 
     def action_aunna_generate_stock_delivery_cost_moves(self):
         self._aunna_sync_stock_delivery_cost_moves()

@@ -10,7 +10,7 @@ class AccountAnalyticLine(models.Model):
     )
 
     def _compute_aunna_project_cost_move_count(self):
-        Link = self.env["aunna.project.cost.move.link"]
+        Link = self.env["aunna.project.cost.move.link"].sudo()
         for line in self:
             line.aunna_project_cost_move_count = Link.search_count(
                 Link._aunna_active_link_domain(line, "timesheet")
@@ -20,7 +20,7 @@ class AccountAnalyticLine(models.Model):
     def create(self, vals_list):
         lines = super().create(vals_list)
         if not self.env.context.get("aunna_skip_project_cost_moves"):
-            lines._aunna_sync_timesheet_cost_move()
+            lines.sudo()._aunna_sync_timesheet_cost_move()
         return lines
 
     def write(self, vals):
@@ -39,22 +39,22 @@ class AccountAnalyticLine(models.Model):
             "analytic_distribution",
         }
         if watched.intersection(vals) and not self.env.context.get("aunna_skip_project_cost_moves"):
-            self._aunna_sync_timesheet_cost_move()
+            self.sudo()._aunna_sync_timesheet_cost_move()
         return result
 
     def unlink(self):
         if not self.env.context.get("aunna_skip_project_cost_moves"):
-            self._aunna_reverse_timesheet_cost_moves()
+            self.sudo()._aunna_reverse_timesheet_cost_moves()
         return super().unlink()
 
     def _aunna_reverse_timesheet_cost_moves(self):
-        Link = self.env["aunna.project.cost.move.link"]
+        Link = self.env["aunna.project.cost.move.link"].sudo()
         for line in self:
             links = Link.search(Link._aunna_active_link_domain(line, "timesheet"))
             links.action_reverse_technical_move()
 
     def _aunna_sync_timesheet_cost_move(self, allow_no_validation_field=False):
-        links = self.env["aunna.project.cost.move.link"]
+        links = self.env["aunna.project.cost.move.link"].sudo()
         result_links = links.browse()
         for line in self:
             active_links = links.search(links._aunna_active_link_domain(line, "timesheet"))
@@ -69,7 +69,7 @@ class AccountAnalyticLine(models.Model):
 
     def _aunna_is_timesheet_cost_candidate(self, allow_no_validation_field=False):
         self.ensure_one()
-        company = self.company_id or self.env.company
+        company = (self.company_id or self.env.company).sudo()
         if not company.aunna_enable_timesheet_cost_moves:
             return False
         if "employee_id" not in self._fields or not self.employee_id:
@@ -78,7 +78,7 @@ class AccountAnalyticLine(models.Model):
             return False
         if "move_line_id" in self._fields and self.move_line_id:
             return False
-        if not self.amount:
+        if not self.amount or self.amount >= 0.0:
             return False
         return self._aunna_timesheet_is_validated(
             allow_no_validation_field=allow_no_validation_field,
@@ -95,7 +95,7 @@ class AccountAnalyticLine(models.Model):
 
     def _aunna_create_timesheet_cost_move(self):
         self.ensure_one()
-        company = self.company_id or self.env.company
+        company = (self.company_id or self.env.company).sudo()
         distribution = self._aunna_project_cost_analytic_distribution(
             company.aunna_default_timesheet_pl_analytic_account_id
         )
@@ -104,7 +104,7 @@ class AccountAnalyticLine(models.Model):
             or company.aunna_timesheet_cost_account_id
         )
         label = "COSTE TH"
-        return self.env["aunna.project.cost.move.link"]._aunna_create_or_update(
+        return self.env["aunna.project.cost.move.link"].sudo()._aunna_create_or_update(
             source=self,
             cost_type="timesheet",
             amount=abs(self.amount),
@@ -136,12 +136,12 @@ class AccountAnalyticLine(models.Model):
         if not has_source_distribution:
             return {}
         if default_pl_account:
-            default_key = str(default_pl_account.id)
-            if not self._aunna_distribution_has_account(
+            distribution = self.env[
+                "aunna.project.cost.move.link"
+            ].sudo()._aunna_distribution_with_default_account(
                 distribution,
                 default_pl_account,
-            ):
-                distribution[default_key] = 100.0
+            )
         if self._aunna_distribution_account_count(distribution) < 2:
             return {}
         return distribution

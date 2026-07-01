@@ -196,24 +196,93 @@ class AunnaProjectCostMoveLink(models.Model):
     def _aunna_normalize_analytic_distribution(self, distribution):
         normalized = {}
         for key, value in (distribution or {}).items():
-            try:
-                percentage = float(value or 0.0)
-            except (TypeError, ValueError):
-                continue
+            percentage = self._aunna_distribution_percentage(value)
             if percentage <= 0.0:
                 continue
-            account_ids = sorted(
-                [
-                    int(item)
-                    for item in str(key).split(",")
-                    if item and item.isdigit()
-                ]
-            )
+            account_ids = self._aunna_distribution_account_ids(key)
             if not account_ids:
                 continue
-            normalized_key = ",".join(str(account_id) for account_id in account_ids)
+            normalized_key = self._aunna_distribution_key(account_ids)
             normalized[normalized_key] = normalized.get(normalized_key, 0.0) + percentage
+        normalized = self._aunna_compact_parallel_distribution(normalized)
         return normalized
+
+    @api.model
+    def _aunna_distribution_with_default_account(self, distribution, account):
+        normalized = self._aunna_normalize_analytic_distribution(distribution)
+        if not normalized or not account:
+            return normalized
+        account_id = account.id
+        has_account = any(
+            account_id in self._aunna_distribution_account_ids(key)
+            for key in normalized
+        )
+        if has_account:
+            return self._aunna_merge_standalone_default_account(
+                normalized,
+                account_id,
+            )
+        result = {}
+        for key, percentage in normalized.items():
+            account_ids = self._aunna_distribution_account_ids(key)
+            account_ids.append(account_id)
+            new_key = self._aunna_distribution_key(account_ids)
+            result[new_key] = result.get(new_key, 0.0) + percentage
+        return self._aunna_normalize_analytic_distribution(result)
+
+    @api.model
+    def _aunna_merge_standalone_default_account(self, distribution, account_id):
+        result = {}
+        has_standalone = False
+        for key, percentage in distribution.items():
+            account_ids = self._aunna_distribution_account_ids(key)
+            if account_ids == [account_id]:
+                has_standalone = True
+                continue
+            if account_id not in account_ids:
+                account_ids.append(account_id)
+            new_key = self._aunna_distribution_key(account_ids)
+            result[new_key] = result.get(new_key, 0.0) + percentage
+        if has_standalone and result:
+            return self._aunna_normalize_analytic_distribution(result)
+        return distribution
+
+    @api.model
+    def _aunna_compact_parallel_distribution(self, distribution):
+        if len(distribution) <= 1:
+            return distribution
+        percentages = list(distribution.values())
+        if sum(percentages) <= 100.0:
+            return distribution
+        if len({round(percentage, 6) for percentage in percentages}) != 1:
+            return distribution
+        account_ids = []
+        for key in distribution:
+            account_ids += self._aunna_distribution_account_ids(key)
+        return {
+            self._aunna_distribution_key(account_ids): percentages[0],
+        }
+
+    @api.model
+    def _aunna_distribution_account_ids(self, key):
+        return sorted(
+            {
+                int(item)
+                for item in str(key).split(",")
+                if item and item.isdigit()
+            }
+        )
+
+    @api.model
+    def _aunna_distribution_key(self, account_ids):
+        return ",".join(str(account_id) for account_id in sorted(set(account_ids)))
+
+    @api.model
+    def _aunna_distribution_percentage(self, value):
+        try:
+            return float(value or 0.0)
+        except (TypeError, ValueError):
+            return 0.0
 
     @api.model
     def _aunna_source_hash(self, payload):
@@ -235,58 +304,60 @@ class AunnaProjectCostMoveLink(models.Model):
         auto_post=True,
     ):
         source.ensure_one()
-        company = source.company_id or self.env.company
-        active_link = self.search(self._aunna_active_link_domain(source, cost_type), limit=1)
+        Link = self.sudo()
+        source = source.sudo()
+        company = (source.company_id or Link.env.company).sudo()
+        active_link = Link.search(Link._aunna_active_link_domain(source, cost_type), limit=1)
         amount = abs(amount or 0.0)
-        analytic_distribution = self._aunna_normalize_analytic_distribution(
+        analytic_distribution = Link._aunna_normalize_analytic_distribution(
             analytic_distribution
         )
         if not amount:
             if active_link:
                 active_link.action_reverse_technical_move()
-            return self.browse()
+            return Link.browse()
         if not analytic_distribution:
             if active_link:
                 active_link.action_reverse_technical_move()
-            return self._aunna_create_error(source, cost_type, date, "Sin distribucion analitica.")
+            return Link._aunna_create_error(source, cost_type, date, "Sin distribucion analitica.")
         if not journal or not debit_account or not credit_account:
-            if active_link and not self._aunna_link_matches_source(
+            if active_link and not Link._aunna_link_matches_source(
                 active_link,
                 amount,
                 date,
                 analytic_distribution,
             ):
                 active_link.action_reverse_technical_move()
-            return self._aunna_create_error(
+            return Link._aunna_create_error(
                 source,
                 cost_type,
                 date,
                 "Falta diario o cuentas de costes tecnicos.",
             )
         if journal.company_id != company:
-            if active_link and not self._aunna_link_matches_source(
+            if active_link and not Link._aunna_link_matches_source(
                 active_link,
                 amount,
                 date,
                 analytic_distribution,
             ):
                 active_link.action_reverse_technical_move()
-            return self._aunna_create_error(
+            return Link._aunna_create_error(
                 source,
                 cost_type,
                 date,
                 "El diario tecnico no pertenece a la compania del origen.",
             )
         for account in debit_account | credit_account:
-            if not self._aunna_account_allowed_for_company(account, company):
-                if active_link and not self._aunna_link_matches_source(
+            if not Link._aunna_account_allowed_for_company(account, company):
+                if active_link and not Link._aunna_link_matches_source(
                     active_link,
                     amount,
                     date,
                     analytic_distribution,
                 ):
                     active_link.action_reverse_technical_move()
-                return self._aunna_create_error(
+                return Link._aunna_create_error(
                     source,
                     cost_type,
                     date,
@@ -304,12 +375,12 @@ class AunnaProjectCostMoveLink(models.Model):
             "credit_account": credit_account.id,
             "journal": journal.id,
         }
-        source_hash = self._aunna_source_hash(payload)
+        source_hash = Link._aunna_source_hash(payload)
         if active_link and active_link.source_hash == source_hash:
             return active_link
         if active_link:
             active_link.action_reverse_technical_move()
-        self.search(self._aunna_error_link_domain(source, cost_type)).write(
+        Link.search(Link._aunna_error_link_domain(source, cost_type)).write(
             {"state": "cancelled"}
         )
 
@@ -345,14 +416,15 @@ class AunnaProjectCostMoveLink(models.Model):
             ],
         }
         move = (
-            self.env["account.move"]
+            Link.env["account.move"]
+            .sudo()
             .with_context(aunna_skip_project_cost_moves=True)
             .with_company(company)
             .create(move_vals)
         )
         if auto_post:
             move.with_context(aunna_skip_project_cost_moves=True).action_post()
-        return self.create(
+        return Link.create(
             {
                 "name": ref,
                 "source_model": source._name,
@@ -363,7 +435,7 @@ class AunnaProjectCostMoveLink(models.Model):
                 "company_id": company.id,
                 "amount": amount,
                 "date": fields.Date.to_date(date),
-                "analytic_distribution_snapshot": self._aunna_distribution_snapshot(
+                "analytic_distribution_snapshot": Link._aunna_distribution_snapshot(
                     analytic_distribution
                 ),
                 "source_hash": source_hash,
@@ -408,6 +480,8 @@ class AunnaProjectCostMoveLink(models.Model):
 
     @api.model
     def _aunna_create_error(self, source, cost_type, date, message):
+        Link = self.sudo()
+        source = source.sudo()
         _logger.info(
             "No se genera coste tecnico %s para %s/%s: %s",
             cost_type,
@@ -415,7 +489,7 @@ class AunnaProjectCostMoveLink(models.Model):
             source.id,
             message,
         )
-        company = source.company_id or self.env.company
+        company = (source.company_id or Link.env.company).sudo()
         vals = {
             "name": "%s - ERROR - %s" % (cost_type, source.display_name),
             "source_model": source._name,
@@ -427,15 +501,15 @@ class AunnaProjectCostMoveLink(models.Model):
             "state": "error",
             "error_message": message,
         }
-        link = self.search(self._aunna_error_link_domain(source, cost_type), limit=1)
+        link = Link.search(Link._aunna_error_link_domain(source, cost_type), limit=1)
         if link:
             link.write(vals)
             return link
-        return self.create(vals)
+        return Link.create(vals)
 
     def action_reverse_technical_move(self):
-        for link in self.filtered(lambda item: item.state == "active"):
-            reversed_move = self.env["account.move"]
+        for link in self.sudo().filtered(lambda item: item.state == "active"):
+            reversed_move = self.env["account.move"].sudo()
             if link.move_id and link.move_id.state == "posted":
                 reversed_move = link.move_id.with_context(
                     aunna_skip_project_cost_moves=True

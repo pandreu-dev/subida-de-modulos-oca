@@ -47,6 +47,7 @@ Campos principales:
 Si no hay diario o cuentas configuradas, no se generan asientos.
 
 Las distribuciones analiticas con porcentaje `0%` se descartan y no se consideran validas para generar el asiento tecnico.
+Cuando se aplica un P&L por defecto, se combina con el proyecto en la misma clave de distribucion analitica para evitar importes duplicados o repartos al `0%`.
 
 ## Trazabilidad
 
