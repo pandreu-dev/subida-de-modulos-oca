@@ -29,7 +29,7 @@ El PyG general queda neteado. El PyG filtrado por proyecto ve solo la linea con 
 
 Ruta:
 
-`Contabilidad > Configuracion > Ajustes tecnicos de costes de proyecto`
+`Ajustes > Contabilidad > Asientos tecnicos para PyG analitico`
 
 Campos principales:
 

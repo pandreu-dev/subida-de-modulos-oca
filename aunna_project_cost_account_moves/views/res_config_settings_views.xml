@@ -2,46 +2,44 @@
     <record id="res_config_settings_view_form_project_cost_moves" model="ir.ui.view">
         <field name="name">res.config.settings.view.form.project.cost.moves</field>
         <field name="model">res.config.settings</field>
-        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="inherit_id" ref="account.res_config_settings_view_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//form" position="inside">
-                <app string="Costes proyecto" name="aunna_project_cost_account_moves" groups="account.group_account_manager">
-                    <block title="Asientos tecnicos para PyG analitico">
-                        <setting string="Diario tecnico" help="Diario usado para los asientos compensados.">
-                            <field name="aunna_cost_move_journal_id"/>
-                        </setting>
-                        <setting string="Activar partes de horas" help="Genera asientos tecnicos desde partes de horas validados.">
-                            <field name="aunna_enable_timesheet_cost_moves"/>
-                        </setting>
-                        <setting string="Cuenta coste horas" invisible="not aunna_enable_timesheet_cost_moves">
-                            <field name="aunna_timesheet_cost_account_id"/>
-                        </setting>
-                        <setting string="Contrapartida horas" invisible="not aunna_enable_timesheet_cost_moves">
-                            <field name="aunna_timesheet_counterpart_account_id"/>
-                        </setting>
-                        <setting string="P&amp;L por defecto horas" invisible="not aunna_enable_timesheet_cost_moves">
-                            <field name="aunna_default_timesheet_pl_analytic_account_id"/>
-                        </setting>
-                        <setting string="Activar entregas de almacen" help="Genera asientos tecnicos desde entregas con distribucion analitica.">
-                            <field name="aunna_enable_stock_delivery_cost_moves"/>
-                        </setting>
-                        <setting string="Cuenta coste stock" invisible="not aunna_enable_stock_delivery_cost_moves">
-                            <field name="aunna_stock_cost_account_id"/>
-                        </setting>
-                        <setting string="Contrapartida stock" invisible="not aunna_enable_stock_delivery_cost_moves">
-                            <field name="aunna_stock_counterpart_account_id"/>
-                        </setting>
-                        <setting string="P&amp;L por defecto stock" invisible="not aunna_enable_stock_delivery_cost_moves">
-                            <field name="aunna_default_stock_pl_analytic_account_id"/>
-                        </setting>
-                        <setting string="Publicar automaticamente">
-                            <field name="aunna_auto_post_cost_moves"/>
-                        </setting>
-                        <setting string="Generar pendientes" help="Lanza una revision manual de partes y entregas pendientes.">
-                            <button name="action_aunna_generate_project_cost_moves" type="object" string="Generar pendientes" class="btn-secondary"/>
-                        </setting>
-                    </block>
-                </app>
+            <xpath expr="//app[@name='account']" position="inside">
+                <block title="Asientos tecnicos para PyG analitico" name="aunna_project_cost_account_moves_settings">
+                    <setting string="Diario tecnico" help="Diario usado para los asientos compensados.">
+                        <field name="aunna_cost_move_journal_id"/>
+                    </setting>
+                    <setting string="Activar partes de horas" help="Genera asientos tecnicos desde partes de horas validados.">
+                        <field name="aunna_enable_timesheet_cost_moves"/>
+                    </setting>
+                    <setting string="Cuenta coste horas" invisible="not aunna_enable_timesheet_cost_moves">
+                        <field name="aunna_timesheet_cost_account_id"/>
+                    </setting>
+                    <setting string="Contrapartida horas" invisible="not aunna_enable_timesheet_cost_moves">
+                        <field name="aunna_timesheet_counterpart_account_id"/>
+                    </setting>
+                    <setting string="P&amp;L por defecto horas" invisible="not aunna_enable_timesheet_cost_moves">
+                        <field name="aunna_default_timesheet_pl_analytic_account_id"/>
+                    </setting>
+                    <setting string="Activar entregas de almacen" help="Genera asientos tecnicos desde entregas con distribucion analitica.">
+                        <field name="aunna_enable_stock_delivery_cost_moves"/>
+                    </setting>
+                    <setting string="Cuenta coste stock" invisible="not aunna_enable_stock_delivery_cost_moves">
+                        <field name="aunna_stock_cost_account_id"/>
+                    </setting>
+                    <setting string="Contrapartida stock" invisible="not aunna_enable_stock_delivery_cost_moves">
+                        <field name="aunna_stock_counterpart_account_id"/>
+                    </setting>
+                    <setting string="P&amp;L por defecto stock" invisible="not aunna_enable_stock_delivery_cost_moves">
+                        <field name="aunna_default_stock_pl_analytic_account_id"/>
+                    </setting>
+                    <setting string="Publicar automaticamente">
+                        <field name="aunna_auto_post_cost_moves"/>
+                    </setting>
+                    <setting string="Generar pendientes" help="Lanza una revision manual de partes y entregas pendientes.">
+                        <button name="action_aunna_generate_project_cost_moves" type="object" string="Generar pendientes" class="btn-secondary"/>
+                    </setting>
+                </block>
             </xpath>
         </field>
     </record>
@@ -51,7 +49,7 @@
         <field name="res_model">res.config.settings</field>
         <field name="view_mode">form</field>
         <field name="target">current</field>
-        <field name="context">{'module': 'aunna_project_cost_account_moves'}</field>
+        <field name="context">{'module': 'account'}</field>
     </record>
 
     <menuitem
