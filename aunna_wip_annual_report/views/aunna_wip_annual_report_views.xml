@@ -1,10 +1,138 @@
 <odoo>
+    <record id="view_aunna_wip_annual_report_period_line_list" model="ir.ui.view">
+        <field name="name">aunna.wip.annual.report.period.line.list</field>
+        <field name="model">aunna.wip.annual.report.period.line</field>
+        <field name="arch" type="xml">
+            <list
+                string="Informe WIP mensual"
+                editable="bottom"
+                create="0"
+                delete="0"
+                decoration-muted="is_empty"
+                decoration-danger="diff_amount &lt; 0"
+                decoration-success="diff_amount &gt; 0"
+                decoration-bf="metric == 'real_wip'"
+            >
+                <field name="period_label" readonly="1"/>
+                <field name="metric" readonly="1"/>
+                <field name="prev_amount" sum="Previsto" optional="show"/>
+                <field name="real_amount" sum="Real" optional="show"/>
+                <field name="diff_amount" sum="Diferencia" optional="show"/>
+                <field name="project_id" optional="show"/>
+                <field name="analytic_account_id" optional="show"/>
+                <field name="report_id" optional="show"/>
+                <field name="company_id" optional="hide"/>
+                <field name="month_start" optional="hide"/>
+                <field name="period_year" optional="hide"/>
+                <field name="period_month" optional="hide"/>
+                <field name="period_quarter" optional="hide"/>
+                <field name="in_report_range" optional="hide"/>
+                <field name="has_prev_amount" optional="hide"/>
+                <field name="has_real_amount" optional="hide"/>
+                <field name="is_current_year" optional="hide"/>
+                <field name="is_current_month" optional="hide"/>
+                <field name="is_empty" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_aunna_wip_annual_report_period_line_form" model="ir.ui.view">
+        <field name="name">aunna.wip.annual.report.period.line.form</field>
+        <field name="model">aunna.wip.annual.report.period.line</field>
+        <field name="arch" type="xml">
+            <form string="Linea mensual WIP">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="report_id" readonly="1"/>
+                            <field name="period_label" readonly="1"/>
+                            <field name="metric" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="project_id" readonly="1"/>
+                            <field name="analytic_account_id" readonly="1"/>
+                            <field name="company_id" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="prev_amount"/>
+                        <field name="real_amount"/>
+                        <field name="diff_amount"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_aunna_wip_annual_report_period_line_pivot" model="ir.ui.view">
+        <field name="name">aunna.wip.annual.report.period.line.pivot</field>
+        <field name="model">aunna.wip.annual.report.period.line</field>
+        <field name="arch" type="xml">
+            <pivot string="Informe WIP mensual">
+                <field name="month_start" type="row" interval="month"/>
+                <field name="metric" type="row"/>
+                <field name="prev_amount" type="measure"/>
+                <field name="real_amount" type="measure"/>
+                <field name="diff_amount" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_aunna_wip_annual_report_period_line_search" model="ir.ui.view">
+        <field name="name">aunna.wip.annual.report.period.line.search</field>
+        <field name="model">aunna.wip.annual.report.period.line</field>
+        <field name="arch" type="xml">
+            <search string="Informe WIP mensual">
+                <field name="report_id"/>
+                <field name="month_start"/>
+                <field name="period_year"/>
+                <field name="period_month"/>
+                <field name="metric"/>
+                <field name="company_id"/>
+                <field name="project_id"/>
+                <field name="analytic_account_id"/>
+                <separator/>
+                <filter string="Rango activo" name="current_range" domain="[('in_report_range', '=', True)]"/>
+                <filter string="Fuera de rango" name="out_of_range" domain="[('in_report_range', '=', False)]"/>
+                <filter string="Ano actual" name="current_year" domain="[('is_current_year', '=', True)]"/>
+                <filter string="Mes actual" name="current_month" domain="[('is_current_month', '=', True)]"/>
+                <filter string="Periodo" name="period_date" date="month_start"/>
+                <separator/>
+                <filter string="Ocultar vacios" name="non_empty" domain="[('is_empty', '=', False)]"/>
+                <filter string="Con diferencia" name="with_difference" domain="[('diff_amount', '!=', 0)]"/>
+                <filter string="Con previsto" name="with_prev" domain="[('has_prev_amount', '=', True)]"/>
+                <filter string="Sin previsto" name="without_prev" domain="[('has_prev_amount', '=', False)]"/>
+                <filter string="Con real" name="with_real" domain="[('has_real_amount', '=', True)]"/>
+                <filter string="Sin real" name="without_real" domain="[('has_real_amount', '=', False)]"/>
+                <separator/>
+                <filter string="ER/OE" name="metric_er" domain="[('metric', '=', 'er')]"/>
+                <filter string="Facturacion" name="metric_invoice" domain="[('metric', '=', 'invoice')]"/>
+                <filter string="Ingreso reconocido" name="metric_recognized_income" domain="[('metric', '=', 'recognized_income')]"/>
+                <filter string="WIP real" name="metric_real_wip" domain="[('metric', '=', 'real_wip')]"/>
+                <separator/>
+                <filter string="T1" name="quarter_1" domain="[('period_quarter', '=', 'q1')]"/>
+                <filter string="T2" name="quarter_2" domain="[('period_quarter', '=', 'q2')]"/>
+                <filter string="T3" name="quarter_3" domain="[('period_quarter', '=', 'q3')]"/>
+                <filter string="T4" name="quarter_4" domain="[('period_quarter', '=', 'q4')]"/>
+                <separator/>
+                <filter string="Agrupar por informe" name="group_report" context="{'group_by': 'report_id'}"/>
+                <filter string="Agrupar por mes" name="group_month" context="{'group_by': 'month_start:month'}"/>
+                <filter string="Agrupar por concepto" name="group_metric" context="{'group_by': 'metric'}"/>
+                <filter string="Agrupar por proyecto" name="group_project" context="{'group_by': 'project_id'}"/>
+                <filter string="Agrupar por cuenta analitica" name="group_analytic" context="{'group_by': 'analytic_account_id'}"/>
+                <filter string="Agrupar por compania" name="group_company" context="{'group_by': 'company_id'}"/>
+            </search>
+        </field>
+    </record>
+
     <record id="view_aunna_wip_annual_report_list" model="ir.ui.view">
         <field name="name">aunna.wip.annual.report.list</field>
         <field name="model">aunna.wip.annual.report</field>
         <field name="arch" type="xml">
-            <list string="Informes WIP anuales">
+            <list string="Configuracion informes WIP">
                 <field name="name"/>
+                <field name="date_from"/>
+                <field name="date_to"/>
                 <field name="year"/>
                 <field name="company_id"/>
                 <field name="project_id"/>
@@ -18,13 +146,19 @@
         <field name="name">aunna.wip.annual.report.form</field>
         <field name="model">aunna.wip.annual.report</field>
         <field name="arch" type="xml">
-            <form string="Informe WIP anual">
+            <form string="Informe WIP">
                 <header>
                     <button
                         name="action_recalculate_real_values"
                         string="Recalcular reales"
                         type="object"
                         class="btn-primary"
+                    />
+                    <button
+                        name="action_open_period_lines"
+                        string="Ver detalle mensual"
+                        type="object"
+                        class="btn-secondary"
                     />
                 </header>
                 <sheet>
@@ -36,6 +170,8 @@
                     <group>
                         <group>
                             <field name="year"/>
+                            <field name="date_from"/>
+                            <field name="date_to"/>
                             <field name="company_id"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
@@ -46,50 +182,18 @@
                         </group>
                     </group>
                     <notebook>
-                        <page string="Informe anual">
-                            <field name="line_ids" nolabel="1">
-                                <list editable="bottom" create="0" delete="0">
-                                    <field name="sequence" widget="handle"/>
+                        <page string="Detalle mensual">
+                            <field name="period_line_ids" nolabel="1" domain="[('in_report_range', '=', True)]">
+                                <list editable="bottom" create="0" delete="0" decoration-muted="is_empty" decoration-bf="metric == 'real_wip'">
+                                    <field name="period_label" readonly="1"/>
                                     <field name="metric" readonly="1"/>
-                                    <field name="jan_prev_amount"/>
-                                    <field name="jan_real_amount"/>
-                                    <field name="jan_diff_amount"/>
-                                    <field name="feb_prev_amount"/>
-                                    <field name="feb_real_amount"/>
-                                    <field name="feb_diff_amount"/>
-                                    <field name="mar_prev_amount"/>
-                                    <field name="mar_real_amount"/>
-                                    <field name="mar_diff_amount"/>
-                                    <field name="apr_prev_amount"/>
-                                    <field name="apr_real_amount"/>
-                                    <field name="apr_diff_amount"/>
-                                    <field name="may_prev_amount"/>
-                                    <field name="may_real_amount"/>
-                                    <field name="may_diff_amount"/>
-                                    <field name="jun_prev_amount"/>
-                                    <field name="jun_real_amount"/>
-                                    <field name="jun_diff_amount"/>
-                                    <field name="jul_prev_amount"/>
-                                    <field name="jul_real_amount"/>
-                                    <field name="jul_diff_amount"/>
-                                    <field name="aug_prev_amount"/>
-                                    <field name="aug_real_amount"/>
-                                    <field name="aug_diff_amount"/>
-                                    <field name="sep_prev_amount"/>
-                                    <field name="sep_real_amount"/>
-                                    <field name="sep_diff_amount"/>
-                                    <field name="oct_prev_amount"/>
-                                    <field name="oct_real_amount"/>
-                                    <field name="oct_diff_amount"/>
-                                    <field name="nov_prev_amount"/>
-                                    <field name="nov_real_amount"/>
-                                    <field name="nov_diff_amount"/>
-                                    <field name="dec_prev_amount"/>
-                                    <field name="dec_real_amount"/>
-                                    <field name="dec_diff_amount"/>
-                                    <field name="total_prev_amount"/>
-                                    <field name="total_real_amount"/>
-                                    <field name="total_diff_amount"/>
+                                    <field name="prev_amount" sum="Previsto"/>
+                                    <field name="real_amount" sum="Real"/>
+                                    <field name="diff_amount" sum="Diferencia"/>
+                                    <field name="in_report_range" optional="hide"/>
+                                    <field name="has_prev_amount" optional="hide"/>
+                                    <field name="has_real_amount" optional="hide"/>
+                                    <field name="is_empty" optional="hide"/>
                                 </list>
                             </field>
                         </page>
@@ -106,38 +210,68 @@
         <field name="name">aunna.wip.annual.report.search</field>
         <field name="model">aunna.wip.annual.report</field>
         <field name="arch" type="xml">
-            <search string="Informes WIP anuales">
+            <search string="Configuracion informes WIP">
                 <field name="name"/>
+                <field name="date_from"/>
+                <field name="date_to"/>
                 <field name="year"/>
                 <field name="company_id"/>
                 <field name="project_id"/>
                 <field name="analytic_account_id"/>
+                <filter string="Agrupar por proyecto" name="group_project" context="{'group_by': 'project_id'}"/>
+                <filter string="Agrupar por cuenta analitica" name="group_analytic" context="{'group_by': 'analytic_account_id'}"/>
+                <filter string="Agrupar por compania" name="group_company" context="{'group_by': 'company_id'}"/>
             </search>
         </field>
     </record>
 
+    <record id="action_aunna_wip_annual_report_period_line" model="ir.actions.act_window">
+        <field name="name">Informe WIP mensual</field>
+        <field name="res_model">aunna.wip.annual.report.period.line</field>
+        <field name="view_mode">list,pivot,form</field>
+        <field name="search_view_id" ref="view_aunna_wip_annual_report_period_line_search"/>
+        <field name="context">{'search_default_current_range': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Crea un informe WIP desde Configuracion informes WIP.
+            </p>
+            <p>
+                Esta lista permite filtrar por periodo, proyecto, cuenta analitica y exportar a Excel.
+            </p>
+        </field>
+    </record>
+
     <record id="action_aunna_wip_annual_report" model="ir.actions.act_window">
-        <field name="name">Informe WIP anual</field>
+        <field name="name">Configuracion informes WIP</field>
         <field name="res_model">aunna.wip.annual.report</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_aunna_wip_annual_report_search"/>
         <field name="context">{}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
-                Crea un informe WIP anual por proyecto o cuenta analitica.
+                Crea un informe WIP por proyecto o cuenta analitica.
             </p>
             <p>
-                Las columnas Prev. son editables y las columnas Real se recalculan desde Odoo.
+                Define el rango de meses, recalcula los reales y abre el detalle mensual.
             </p>
         </field>
     </record>
 
     <menuitem
         id="menu_aunna_wip_annual_report"
-        name="Informe WIP anual"
+        name="Informe WIP mensual"
+        parent="account.menu_finance_reports"
+        action="action_aunna_wip_annual_report_period_line"
+        groups="account.group_account_user"
+        sequence="85"
+    />
+
+    <menuitem
+        id="menu_aunna_wip_annual_report_config"
+        name="Configuracion informes WIP"
         parent="account.menu_finance_reports"
         action="action_aunna_wip_annual_report"
         groups="account.group_account_user"
-        sequence="85"
+        sequence="86"
     />
 </odoo>
