@@ -111,7 +111,6 @@ class AunnaWipAnnualReport(models.Model):
     horizontal_summary_html = fields.Html(
         string="Vista horizontal",
         compute="_compute_horizontal_summary_html",
-        store=True,
         sanitize=False,
         readonly=True,
     )
@@ -328,6 +327,7 @@ class AunnaWipAnnualReport(models.Model):
         }
 
     def action_refresh_horizontal_summary(self):
+        self._ensure_period_lines()
         self._compute_horizontal_summary_html()
         return {
             "type": "ir.actions.client",
@@ -337,7 +337,9 @@ class AunnaWipAnnualReport(models.Model):
     @api.onchange("period_line_ids")
     def _onchange_period_line_ids_refresh_horizontal_summary(self):
         for report in self:
-            report.horizontal_summary_html = report._build_horizontal_summary_html()
+            report.horizontal_summary_html = report._build_horizontal_summary_html(
+                use_unsaved_lines=True
+            )
 
     def _build_calculation_note(self):
         self.ensure_one()
@@ -368,14 +370,16 @@ class AunnaWipAnnualReport(models.Model):
         for report in self:
             report.horizontal_summary_html = report._build_horizontal_summary_html()
 
-    def _build_horizontal_summary_html(self):
+    def _build_horizontal_summary_html(self, use_unsaved_lines=False):
         self.ensure_one()
         months = list(self._iter_month_starts())
-        active_lines = self.period_line_ids.filtered("in_report_range")
+        active_lines = self._get_horizontal_period_lines(
+            use_unsaved_lines=use_unsaved_lines
+        )
         non_empty_months = {
             fields.Date.to_date(line.month_start)
             for line in active_lines
-            if not line.is_empty
+            if not self._horizontal_line_is_empty(line)
         }
         visible_months = [month for month in months if month in non_empty_months]
         if not visible_months:
@@ -489,6 +493,39 @@ class AunnaWipAnnualReport(models.Model):
 
         html.extend(["</tbody>", "</table>", "</div>"])
         return "".join(html)
+
+    def _get_horizontal_period_lines(self, use_unsaved_lines=False):
+        self.ensure_one()
+        first_month = self._month_start(self._get_report_date_from())
+        last_month = self._month_start(self._get_report_date_to())
+        report_id = self._origin.id or self.id
+        if use_unsaved_lines or not report_id:
+            return self.period_line_ids.filtered(
+                lambda line: line.month_start
+                and first_month <= fields.Date.to_date(line.month_start) <= last_month
+            )
+        domain = [
+            ("report_id", "=", report_id),
+            ("month_start", ">=", first_month),
+            ("month_start", "<=", last_month),
+        ]
+        return self.env["aunna.wip.annual.report.period.line"].search(
+            domain,
+            order="month_start, sequence, id",
+        )
+
+    def _horizontal_line_is_empty(self, line):
+        prev_amount = line.prev_amount or 0.0
+        real_amount = line.real_amount or 0.0
+        diff_amount = real_amount - prev_amount
+        currency = line.currency_id or line.company_id.currency_id or self.currency_id
+        if currency:
+            return (
+                currency.is_zero(prev_amount)
+                and currency.is_zero(real_amount)
+                and currency.is_zero(diff_amount)
+            )
+        return not any([prev_amount, real_amount, diff_amount])
 
     def _horizontal_metric_totals(self, metric, prev_values, real_values):
         if metric == "real_wip":
