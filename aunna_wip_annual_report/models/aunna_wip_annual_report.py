@@ -1,4 +1,5 @@
 from datetime import date, datetime, time, timedelta
+from html import escape
 
 from dateutil.relativedelta import relativedelta
 
@@ -106,6 +107,12 @@ class AunnaWipAnnualReport(models.Model):
         string="Notas de calculo",
         readonly=True,
         copy=False,
+    )
+    horizontal_summary_html = fields.Html(
+        string="Vista horizontal",
+        compute="_compute_horizontal_summary_html",
+        sanitize=False,
+        readonly=True,
     )
 
     @api.depends("year", "date_from", "date_to", "company_id", "project_id", "analytic_account_id")
@@ -334,6 +341,172 @@ class AunnaWipAnnualReport(models.Model):
             )
         )
         return "\n".join(notes) or False
+
+    @api.depends(
+        "period_line_ids.month_start",
+        "period_line_ids.metric",
+        "period_line_ids.prev_amount",
+        "period_line_ids.real_amount",
+        "period_line_ids.diff_amount",
+        "period_line_ids.in_report_range",
+        "period_line_ids.is_empty",
+    )
+    def _compute_horizontal_summary_html(self):
+        for report in self:
+            report.horizontal_summary_html = report._build_horizontal_summary_html()
+
+    def _build_horizontal_summary_html(self):
+        self.ensure_one()
+        months = list(self._iter_month_starts())
+        active_lines = self.period_line_ids.filtered("in_report_range")
+        non_empty_months = {
+            fields.Date.to_date(line.month_start)
+            for line in active_lines
+            if not line.is_empty
+        }
+        visible_months = [month for month in months if month in non_empty_months]
+        if not visible_months:
+            visible_months = months
+
+        lines_by_key = {
+            (fields.Date.to_date(line.month_start), line.metric): line
+            for line in active_lines
+        }
+        month_labels = {
+            month_number: month_label
+            for _month_key, month_label, month_number in MONTHS
+        }
+
+        html = [
+            "<style>",
+            ".o_aunna_wip_horizontal_wrap{overflow:auto;max-width:100%;border:1px solid #d8dee6;border-radius:4px;}",
+            ".o_aunna_wip_horizontal{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:12px;}",
+            ".o_aunna_wip_horizontal th,.o_aunna_wip_horizontal td{border-right:1px solid #e6e9ed;border-bottom:1px solid #e6e9ed;padding:6px 8px;white-space:nowrap;text-align:right;}",
+            ".o_aunna_wip_horizontal thead th{position:sticky;top:0;background:#f6f7f8;z-index:2;font-weight:600;text-align:center;}",
+            ".o_aunna_wip_horizontal .o_aunna_wip_sticky{position:sticky;left:0;background:#fff;z-index:3;text-align:left;min-width:170px;font-weight:600;box-shadow:1px 0 0 #d8dee6;}",
+            ".o_aunna_wip_horizontal thead .o_aunna_wip_sticky{background:#f6f7f8;z-index:4;}",
+            ".o_aunna_wip_prev{background:#f7fbff;}",
+            ".o_aunna_wip_real{background:#f7fff9;}",
+            ".o_aunna_wip_diff{background:#fffaf4;}",
+            ".o_aunna_wip_negative{color:#b42318;font-weight:600;}",
+            ".o_aunna_wip_positive{color:#067647;font-weight:600;}",
+            ".o_aunna_wip_total{font-weight:700;background:#f3f4f6;}",
+            "</style>",
+            "<div class='o_aunna_wip_horizontal_wrap'>",
+            "<table class='o_aunna_wip_horizontal'>",
+            "<thead>",
+            "<tr>",
+            "<th class='o_aunna_wip_sticky' rowspan='2'>Concepto</th>",
+        ]
+        for month in visible_months:
+            label = "%s %s" % (month_labels.get(month.month, month.month), month.year)
+            html.append("<th colspan='3'>%s</th>" % escape(str(label)))
+        html.append("<th class='o_aunna_wip_total' colspan='3'>Total</th>")
+        html.extend(["</tr>", "<tr>"])
+        for _month in visible_months:
+            html.extend(
+                [
+                    "<th class='o_aunna_wip_prev'>Prev.</th>",
+                    "<th class='o_aunna_wip_real'>Real</th>",
+                    "<th class='o_aunna_wip_diff'>Dif.</th>",
+                ]
+            )
+        html.extend(
+            [
+                "<th class='o_aunna_wip_total'>Prev.</th>",
+                "<th class='o_aunna_wip_total'>Real</th>",
+                "<th class='o_aunna_wip_total'>Dif.</th>",
+                "</tr>",
+                "</thead>",
+                "<tbody>",
+            ]
+        )
+
+        for metric, label, _sequence in METRICS:
+            prev_values = []
+            real_values = []
+            html.append("<tr>")
+            html.append(
+                "<td class='o_aunna_wip_sticky'>%s</td>" % escape(str(label))
+            )
+            for month in visible_months:
+                line = lines_by_key.get((month, metric))
+                prev_amount = line.prev_amount if line else 0.0
+                real_amount = line.real_amount if line else 0.0
+                diff_amount = line.diff_amount if line else real_amount - prev_amount
+                prev_values.append(prev_amount)
+                real_values.append(real_amount)
+                html.append(
+                    "<td class='o_aunna_wip_prev'>%s</td>"
+                    % self._format_horizontal_amount(prev_amount)
+                )
+                html.append(
+                    "<td class='o_aunna_wip_real'>%s</td>"
+                    % self._format_horizontal_amount(real_amount)
+                )
+                html.append(
+                    "<td class='o_aunna_wip_diff %s'>%s</td>"
+                    % (
+                        self._horizontal_amount_class(diff_amount),
+                        self._format_horizontal_amount(diff_amount),
+                    )
+                )
+            total_prev, total_real = self._horizontal_metric_totals(
+                metric,
+                prev_values,
+                real_values,
+            )
+            total_diff = total_real - total_prev
+            html.append(
+                "<td class='o_aunna_wip_total'>%s</td>"
+                % self._format_horizontal_amount(total_prev)
+            )
+            html.append(
+                "<td class='o_aunna_wip_total'>%s</td>"
+                % self._format_horizontal_amount(total_real)
+            )
+            html.append(
+                "<td class='o_aunna_wip_total %s'>%s</td>"
+                % (
+                    self._horizontal_amount_class(total_diff),
+                    self._format_horizontal_amount(total_diff),
+                )
+            )
+            html.append("</tr>")
+
+        html.extend(["</tbody>", "</table>", "</div>"])
+        return "".join(html)
+
+    def _horizontal_metric_totals(self, metric, prev_values, real_values):
+        if metric == "real_wip":
+            return (
+                prev_values[-1] if prev_values else 0.0,
+                real_values[-1] if real_values else 0.0,
+            )
+        return sum(prev_values), sum(real_values)
+
+    def _horizontal_amount_class(self, amount):
+        currency = self.currency_id or self.company_id.currency_id
+        if currency and currency.is_zero(amount):
+            return ""
+        if amount > 0:
+            return "o_aunna_wip_positive"
+        if amount < 0:
+            return "o_aunna_wip_negative"
+        return ""
+
+    def _format_horizontal_amount(self, amount):
+        value = "%.2f" % (amount or 0.0)
+        integer, decimals = value.split(".")
+        sign = ""
+        if integer.startswith("-"):
+            sign = "-"
+            integer = integer[1:]
+        groups = []
+        while integer:
+            groups.insert(0, integer[-3:])
+            integer = integer[:-3]
+        return "%s%s,%s" % (sign, ".".join(groups or ["0"]), decimals)
 
     def _collect_real_values(self):
         self.ensure_one()

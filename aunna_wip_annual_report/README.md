@@ -10,6 +10,8 @@ Contabilidad > Informes.
 - El boton `Recalcular reales` genera/actualiza el detalle mensual.
 - En `Informe WIP mensual` se trabaja en una vista lista operativa, exportable a
   Excel y filtrable como cualquier lista de Odoo.
+- En la configuracion del informe tambien hay una pestana `Vista horizontal` con
+  una matriz compacta de meses en columnas y conceptos en filas.
 - Cada fila representa un mes y un concepto: ER/OE, Facturacion, Ingreso reconocido
   o WIP real acumulado.
 - La columna `Prev.` es editable por el usuario.
@@ -22,6 +24,8 @@ Contabilidad > Informes.
 - La vista lista aplica por defecto el filtro `Rango activo`; si se necesita revisar
   informacion conservada fuera del rango, se puede quitar ese filtro o usar
   `Fuera de rango`.
+- La vista horizontal es solo visual. La columna de concepto queda fija al desplazar
+  horizontalmente, para que se pueda revisar el dato sin perder la referencia de fila.
 
 ## Fuentes de datos reales
 

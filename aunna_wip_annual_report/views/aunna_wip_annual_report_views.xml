@@ -182,6 +182,9 @@
                         </group>
                     </group>
                     <notebook>
+                        <page string="Vista horizontal">
+                            <field name="horizontal_summary_html" nolabel="1" readonly="1"/>
+                        </page>
                         <page string="Detalle mensual">
                             <field name="period_line_ids" nolabel="1" domain="[('in_report_range', '=', True)]">
                                 <list editable="bottom" create="0" delete="0" decoration-muted="is_empty" decoration-bf="metric == 'real_wip'">
