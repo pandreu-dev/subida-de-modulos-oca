@@ -218,9 +218,18 @@
                 <field name="company_id"/>
                 <field name="project_id"/>
                 <field name="analytic_account_id"/>
+                <separator/>
+                <filter string="Ano actual" name="current_year" domain="[('year', '=', context_today().year)]"/>
+                <filter string="Sin recalcular" name="not_recalculated" domain="[('last_real_update', '=', False)]"/>
+                <filter string="Recalculados" name="recalculated" domain="[('last_real_update', '!=', False)]"/>
+                <filter string="Desde" name="date_from_filter" date="date_from"/>
+                <filter string="Hasta" name="date_to_filter" date="date_to"/>
+                <filter string="Ultimo recalculo" name="last_update_filter" date="last_real_update"/>
+                <separator/>
                 <filter string="Agrupar por proyecto" name="group_project" context="{'group_by': 'project_id'}"/>
                 <filter string="Agrupar por cuenta analitica" name="group_analytic" context="{'group_by': 'analytic_account_id'}"/>
                 <filter string="Agrupar por compania" name="group_company" context="{'group_by': 'company_id'}"/>
+                <filter string="Agrupar por ejercicio" name="group_year" context="{'group_by': 'year'}"/>
             </search>
         </field>
     </record>
