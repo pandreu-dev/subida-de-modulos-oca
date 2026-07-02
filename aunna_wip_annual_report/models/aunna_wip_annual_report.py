@@ -111,6 +111,7 @@ class AunnaWipAnnualReport(models.Model):
     horizontal_summary_html = fields.Html(
         string="Vista horizontal",
         compute="_compute_horizontal_summary_html",
+        store=True,
         sanitize=False,
         readonly=True,
     )
@@ -326,6 +327,18 @@ class AunnaWipAnnualReport(models.Model):
             "context": {"default_report_id": self.id, "search_default_current_range": 1},
         }
 
+    def action_refresh_horizontal_summary(self):
+        self._compute_horizontal_summary_html()
+        return {
+            "type": "ir.actions.client",
+            "tag": "reload",
+        }
+
+    @api.onchange("period_line_ids")
+    def _onchange_period_line_ids_refresh_horizontal_summary(self):
+        for report in self:
+            report.horizontal_summary_html = report._build_horizontal_summary_html()
+
     def _build_calculation_note(self):
         self.ensure_one()
         notes = []
@@ -380,10 +393,10 @@ class AunnaWipAnnualReport(models.Model):
         html = [
             "<style>",
             ".o_aunna_wip_horizontal_wrap{overflow:auto;max-width:100%;border:1px solid #d8dee6;border-radius:4px;}",
-            ".o_aunna_wip_horizontal{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:12px;}",
-            ".o_aunna_wip_horizontal th,.o_aunna_wip_horizontal td{border-right:1px solid #e6e9ed;border-bottom:1px solid #e6e9ed;padding:6px 8px;white-space:nowrap;text-align:right;}",
+            ".o_aunna_wip_horizontal{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:15px;line-height:1.4;}",
+            ".o_aunna_wip_horizontal th,.o_aunna_wip_horizontal td{border-right:1px solid #e6e9ed;border-bottom:1px solid #e6e9ed;padding:10px 14px;white-space:nowrap;text-align:right;}",
             ".o_aunna_wip_horizontal thead th{position:sticky;top:0;background:#f6f7f8;z-index:2;font-weight:600;text-align:center;}",
-            ".o_aunna_wip_horizontal .o_aunna_wip_sticky{position:sticky;left:0;background:#fff;z-index:3;text-align:left;min-width:170px;font-weight:600;box-shadow:1px 0 0 #d8dee6;}",
+            ".o_aunna_wip_horizontal .o_aunna_wip_sticky{position:sticky;left:0;background:#fff;z-index:3;text-align:left;min-width:240px;font-weight:600;box-shadow:1px 0 0 #d8dee6;}",
             ".o_aunna_wip_horizontal thead .o_aunna_wip_sticky{background:#f6f7f8;z-index:4;}",
             ".o_aunna_wip_prev{background:#f7fbff;}",
             ".o_aunna_wip_real{background:#f7fff9;}",

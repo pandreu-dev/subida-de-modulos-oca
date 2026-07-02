@@ -160,6 +160,12 @@
                         type="object"
                         class="btn-secondary"
                     />
+                    <button
+                        name="action_refresh_horizontal_summary"
+                        string="Actualizar vista horizontal"
+                        type="object"
+                        class="btn-secondary"
+                    />
                 </header>
                 <sheet>
                     <div class="oe_title">

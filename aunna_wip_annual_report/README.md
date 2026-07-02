@@ -26,6 +26,9 @@ Contabilidad > Informes.
   `Fuera de rango`.
 - La vista horizontal es solo visual. La columna de concepto queda fija al desplazar
   horizontalmente, para que se pueda revisar el dato sin perder la referencia de fila.
+- Si se modifican importes `Prev.` manualmente en `Detalle mensual`, la matriz
+  visual se refresca en la ficha; si el navegador no lo muestra al momento,
+  guardar el informe o pulsar `Actualizar vista horizontal`.
 
 ## Fuentes de datos reales
 
