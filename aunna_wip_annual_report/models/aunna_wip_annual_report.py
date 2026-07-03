@@ -1,5 +1,7 @@
+import base64
 from datetime import date, datetime, time, timedelta
 from html import escape
+from io import BytesIO
 
 from dateutil.relativedelta import relativedelta
 
@@ -179,6 +181,7 @@ class AunnaWipAnnualReport(models.Model):
         records = super().create(vals_list)
         records._ensure_metric_lines()
         records._ensure_period_lines()
+        records._refresh_period_line_flags()
         return records
 
     def write(self, vals):
@@ -195,6 +198,7 @@ class AunnaWipAnnualReport(models.Model):
         self._ensure_metric_lines()
         if {"date_from", "date_to"}.intersection(vals):
             self._ensure_period_lines()
+            self._refresh_period_line_flags()
         return result
 
     def _ensure_metric_lines(self):
@@ -317,22 +321,72 @@ class AunnaWipAnnualReport(models.Model):
     def action_open_period_lines(self):
         self.ensure_one()
         self._ensure_period_lines()
+        first_month = self._month_start(self._get_report_date_from())
+        last_month = self._month_start(self._get_report_date_to())
         return {
             "type": "ir.actions.act_window",
             "name": _("Detalle WIP mensual"),
             "res_model": "aunna.wip.annual.report.period.line",
             "view_mode": "list,form,pivot",
-            "domain": [("report_id", "=", self.id), ("in_report_range", "=", True)],
-            "context": {"default_report_id": self.id, "search_default_current_range": 1},
+            "domain": [
+                ("report_id", "=", self.id),
+                ("month_start", ">=", fields.Date.to_string(first_month)),
+                ("month_start", "<=", fields.Date.to_string(last_month)),
+            ],
+            "context": {"default_report_id": self.id},
         }
 
     def action_refresh_horizontal_summary(self):
         self._ensure_period_lines()
+        self._refresh_period_line_flags()
         self._compute_horizontal_summary_html()
         return {
             "type": "ir.actions.client",
             "tag": "reload",
         }
+
+    def action_export_horizontal_xlsx(self):
+        self.ensure_one()
+        self._ensure_period_lines()
+        self._refresh_period_line_flags()
+        try:
+            import xlsxwriter
+        except ImportError as error:
+            raise UserError(
+                _("No se puede generar el Excel porque falta la libreria xlsxwriter.")
+            ) from error
+
+        output = BytesIO()
+        workbook = xlsxwriter.Workbook(output, {"in_memory": True})
+        self._write_horizontal_xlsx_workbook(workbook)
+        workbook.close()
+        output.seek(0)
+
+        filename = "%s.xlsx" % self._xlsx_safe_filename(self.name or _("Informe WIP"))
+        attachment = self.env["ir.attachment"].sudo().create(
+            {
+                "name": filename,
+                "type": "binary",
+                "datas": base64.b64encode(output.read()).decode(),
+                "res_model": self._name,
+                "res_id": self.id,
+                "mimetype": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            }
+        )
+        return {
+            "type": "ir.actions.act_url",
+            "url": "/web/content/%s?download=true" % attachment.id,
+            "target": "self",
+        }
+
+    def _refresh_period_line_flags(self):
+        lines = self.env["aunna.wip.annual.report.period.line"].search(
+            [("report_id", "in", self.ids)]
+        )
+        lines._compute_diff_amount()
+        lines._compute_is_empty()
+        lines._compute_in_report_range()
+        lines._compute_amount_flags()
 
     @api.onchange("period_line_ids")
     def _onchange_period_line_ids_refresh_horizontal_summary(self):
@@ -358,6 +412,8 @@ class AunnaWipAnnualReport(models.Model):
         return "\n".join(notes) or False
 
     @api.depends(
+        "date_from",
+        "date_to",
         "period_line_ids.month_start",
         "period_line_ids.metric",
         "period_line_ids.prev_amount",
@@ -376,14 +432,7 @@ class AunnaWipAnnualReport(models.Model):
         active_lines = self._get_horizontal_period_lines(
             use_unsaved_lines=use_unsaved_lines
         )
-        non_empty_months = {
-            fields.Date.to_date(line.month_start)
-            for line in active_lines
-            if not self._horizontal_line_is_empty(line)
-        }
-        visible_months = [month for month in months if month in non_empty_months]
-        if not visible_months:
-            visible_months = months
+        visible_months = self._get_horizontal_visible_months(months, active_lines)
 
         lines_by_key = {
             (fields.Date.to_date(line.month_start), line.metric): line
@@ -494,6 +543,147 @@ class AunnaWipAnnualReport(models.Model):
         html.extend(["</tbody>", "</table>", "</div>"])
         return "".join(html)
 
+    def _write_horizontal_xlsx_workbook(self, workbook):
+        self.ensure_one()
+        worksheet = workbook.add_worksheet(_("Informe WIP")[:31])
+        months = list(self._iter_month_starts())
+        active_lines = self._get_horizontal_period_lines()
+        visible_months = self._get_horizontal_visible_months(months, active_lines)
+        lines_by_key = {
+            (fields.Date.to_date(line.month_start), line.metric): line
+            for line in active_lines
+        }
+        month_labels = {
+            month_number: month_label
+            for _month_key, month_label, month_number in MONTHS
+        }
+
+        title_format = workbook.add_format(
+            {"bold": True, "font_size": 16, "bottom": 1}
+        )
+        label_format = workbook.add_format({"bold": True})
+        header_format = workbook.add_format(
+            {
+                "bold": True,
+                "align": "center",
+                "valign": "vcenter",
+                "bg_color": "#F3F4F6",
+                "border": 1,
+            }
+        )
+        concept_format = workbook.add_format(
+            {"bold": True, "bg_color": "#FFFFFF", "border": 1}
+        )
+        prev_format = workbook.add_format(
+            {"num_format": "#,##0.00", "bg_color": "#F7FBFF", "border": 1}
+        )
+        real_format = workbook.add_format(
+            {"num_format": "#,##0.00", "bg_color": "#F7FFF9", "border": 1}
+        )
+        diff_format = workbook.add_format(
+            {"num_format": "#,##0.00", "bg_color": "#FFFAF4", "border": 1}
+        )
+        total_format = workbook.add_format(
+            {"bold": True, "num_format": "#,##0.00", "bg_color": "#F3F4F6", "border": 1}
+        )
+        negative_format = workbook.add_format(
+            {
+                "num_format": "#,##0.00",
+                "bg_color": "#FFFAF4",
+                "font_color": "#B42318",
+                "bold": True,
+                "border": 1,
+            }
+        )
+
+        total_columns = 1 + (len(visible_months) * 3) + 3
+        worksheet.merge_range(0, 0, 0, total_columns - 1, self.name or "", title_format)
+        worksheet.write(2, 0, _("Ejercicio"), label_format)
+        worksheet.write(2, 1, self.year)
+        worksheet.write(3, 0, _("Desde"), label_format)
+        worksheet.write(3, 1, fields.Date.to_string(self._get_report_date_from()))
+        worksheet.write(4, 0, _("Hasta"), label_format)
+        worksheet.write(4, 1, fields.Date.to_string(self._get_report_date_to()))
+        worksheet.write(2, 3, _("Compania"), label_format)
+        worksheet.write(2, 4, self.company_id.display_name or "")
+        worksheet.write(3, 3, _("Proyecto"), label_format)
+        worksheet.write(3, 4, self.project_id.display_name or "")
+        worksheet.write(4, 3, _("Cuenta analitica"), label_format)
+        worksheet.write(4, 4, self.analytic_account_id.display_name or "")
+        worksheet.write(5, 3, _("Ultimo recalculo"), label_format)
+        worksheet.write(5, 4, fields.Datetime.to_string(self.last_real_update) if self.last_real_update else "")
+
+        start_row = 7
+        worksheet.merge_range(start_row, 0, start_row + 1, 0, _("Concepto"), header_format)
+        column = 1
+        for month in visible_months:
+            label = "%s %s" % (month_labels.get(month.month, month.month), month.year)
+            worksheet.merge_range(start_row, column, start_row, column + 2, label, header_format)
+            worksheet.write(start_row + 1, column, _("Prev."), header_format)
+            worksheet.write(start_row + 1, column + 1, _("Real"), header_format)
+            worksheet.write(start_row + 1, column + 2, _("Dif."), header_format)
+            column += 3
+        worksheet.merge_range(start_row, column, start_row, column + 2, _("Total"), header_format)
+        worksheet.write(start_row + 1, column, _("Prev."), header_format)
+        worksheet.write(start_row + 1, column + 1, _("Real"), header_format)
+        worksheet.write(start_row + 1, column + 2, _("Dif."), header_format)
+
+        row = start_row + 2
+        for metric, label, _sequence in METRICS:
+            prev_values = []
+            real_values = []
+            worksheet.write(row, 0, label, concept_format)
+            column = 1
+            for month in visible_months:
+                line = lines_by_key.get((month, metric))
+                prev_amount = line.prev_amount if line else 0.0
+                real_amount = line.real_amount if line else 0.0
+                diff_amount = line.diff_amount if line else real_amount - prev_amount
+                prev_values.append(prev_amount)
+                real_values.append(real_amount)
+                worksheet.write_number(row, column, prev_amount, prev_format)
+                worksheet.write_number(row, column + 1, real_amount, real_format)
+                worksheet.write_number(
+                    row,
+                    column + 2,
+                    diff_amount,
+                    negative_format if diff_amount < 0 else diff_format,
+                )
+                column += 3
+            total_prev, total_real = self._horizontal_metric_totals(
+                metric,
+                prev_values,
+                real_values,
+            )
+            total_diff = total_real - total_prev
+            worksheet.write_number(row, column, total_prev, total_format)
+            worksheet.write_number(row, column + 1, total_real, total_format)
+            worksheet.write_number(
+                row,
+                column + 2,
+                total_diff,
+                negative_format if total_diff < 0 else total_format,
+            )
+            row += 1
+
+        worksheet.freeze_panes(start_row + 2, 1)
+        worksheet.set_column(0, 0, 28)
+        worksheet.set_column(1, total_columns - 1, 13)
+        worksheet.autofilter(start_row + 1, 0, row - 1, total_columns - 1)
+        worksheet.repeat_rows(start_row, start_row + 1)
+        worksheet.set_landscape()
+        worksheet.fit_to_pages(1, 0)
+        worksheet.set_margins(left=0.3, right=0.3, top=0.5, bottom=0.5)
+
+    def _get_horizontal_visible_months(self, months, active_lines):
+        non_empty_months = {
+            fields.Date.to_date(line.month_start)
+            for line in active_lines
+            if not self._horizontal_line_is_empty(line)
+        }
+        visible_months = [month for month in months if month in non_empty_months]
+        return visible_months or months
+
     def _get_horizontal_period_lines(self, use_unsaved_lines=False):
         self.ensure_one()
         first_month = self._month_start(self._get_report_date_from())
@@ -557,6 +747,11 @@ class AunnaWipAnnualReport(models.Model):
             groups.insert(0, integer[-3:])
             integer = integer[:-3]
         return "%s%s,%s" % (sign, ".".join(groups or ["0"]), decimals)
+
+    def _xlsx_safe_filename(self, filename):
+        invalid_chars = '<>:"/\\|?*'
+        safe = "".join("_" if char in invalid_chars else char for char in filename)
+        return safe.strip().strip(".") or "Informe WIP"
 
     def _collect_real_values(self):
         self.ensure_one()

@@ -12,6 +12,8 @@ Contabilidad > Informes.
   Excel y filtrable como cualquier lista de Odoo.
 - En la configuracion del informe tambien hay una pestana `Vista horizontal` con
   una matriz compacta de meses en columnas y conceptos en filas.
+- El boton `Exportar Excel` descarga esa matriz horizontal en formato `.xlsx`,
+  con cabeceras, primera columna congelada y formato numerico.
 - Cada fila representa un mes y un concepto: ER/OE, Facturacion, Ingreso reconocido
   o WIP real acumulado.
 - La columna `Prev.` es editable por el usuario.
@@ -24,6 +26,10 @@ Contabilidad > Informes.
 - La vista lista aplica por defecto el filtro `Rango activo`; si se necesita revisar
   informacion conservada fuera del rango, se puede quitar ese filtro o usar
   `Fuera de rango`.
+- En la ficha del informe, `Detalle mensual` y `Vista horizontal` usan el rango
+  `Desde` / `Hasta`. Si el informe empieza en febrero, los importes escritos en
+  enero se conservan, pero no se muestran dentro de ese informe hasta ampliar el
+  rango.
 - La vista horizontal es solo visual. La columna de concepto queda fija al desplazar
   horizontalmente, para que se pueda revisar el dato sin perder la referencia de fila.
 - Si se modifican importes `Prev.` manualmente en `Detalle mensual`, la matriz
