@@ -112,9 +112,9 @@ class AunnaWipAnnualReport(models.Model):
     )
     horizontal_summary_html = fields.Html(
         string="Vista horizontal",
-        compute="_compute_horizontal_summary_html",
         sanitize=False,
         readonly=True,
+        copy=False,
     )
 
     @api.depends("year", "date_from", "date_to", "company_id", "project_id", "analytic_account_id")
@@ -182,9 +182,12 @@ class AunnaWipAnnualReport(models.Model):
         records._ensure_metric_lines()
         records._ensure_period_lines()
         records._refresh_period_line_flags()
+        records._update_horizontal_summary_html()
         return records
 
     def write(self, vals):
+        if self.env.context.get("skip_wip_horizontal_update"):
+            return super().write(vals)
         if vals.get("year") and "date_from" not in vals and "date_to" not in vals:
             year = int(vals["year"])
             vals = dict(vals, date_from=date(year, 1, 1), date_to=date(year, 12, 31))
@@ -198,7 +201,9 @@ class AunnaWipAnnualReport(models.Model):
         self._ensure_metric_lines()
         if {"date_from", "date_to"}.intersection(vals):
             self._ensure_period_lines()
+        if {"date_from", "date_to", "period_line_ids"}.intersection(vals):
             self._refresh_period_line_flags()
+        self._update_horizontal_summary_html()
         return result
 
     def _ensure_metric_lines(self):
@@ -309,13 +314,7 @@ class AunnaWipAnnualReport(models.Model):
             )
         return {
             "type": "ir.actions.client",
-            "tag": "display_notification",
-            "params": {
-                "title": _("Informe WIP anual"),
-                "message": _("Datos reales recalculados correctamente."),
-                "type": "success",
-                "sticky": False,
-            },
+            "tag": "reload",
         }
 
     def action_open_period_lines(self):
@@ -339,7 +338,7 @@ class AunnaWipAnnualReport(models.Model):
     def action_refresh_horizontal_summary(self):
         self._ensure_period_lines()
         self._refresh_period_line_flags()
-        self._compute_horizontal_summary_html()
+        self._update_horizontal_summary_html()
         return {
             "type": "ir.actions.client",
             "tag": "reload",
@@ -388,6 +387,16 @@ class AunnaWipAnnualReport(models.Model):
         lines._compute_in_report_range()
         lines._compute_amount_flags()
 
+    def _update_horizontal_summary_html(self):
+        for report in self:
+            html = report._build_horizontal_summary_html()
+            if report.id:
+                report.with_context(skip_wip_horizontal_update=True).write(
+                    {"horizontal_summary_html": html}
+                )
+            else:
+                report.horizontal_summary_html = html
+
     @api.onchange("period_line_ids")
     def _onchange_period_line_ids_refresh_horizontal_summary(self):
         for report in self:
@@ -410,21 +419,6 @@ class AunnaWipAnnualReport(models.Model):
             )
         )
         return "\n".join(notes) or False
-
-    @api.depends(
-        "date_from",
-        "date_to",
-        "period_line_ids.month_start",
-        "period_line_ids.metric",
-        "period_line_ids.prev_amount",
-        "period_line_ids.real_amount",
-        "period_line_ids.diff_amount",
-        "period_line_ids.in_report_range",
-        "period_line_ids.is_empty",
-    )
-    def _compute_horizontal_summary_html(self):
-        for report in self:
-            report.horizontal_summary_html = report._build_horizontal_summary_html()
 
     def _build_horizontal_summary_html(self, use_unsaved_lines=False):
         self.ensure_one()
@@ -1277,6 +1271,33 @@ class AunnaWipAnnualReportPeriodLine(models.Model):
             "Cada concepto mensual solo puede aparecer una vez por informe.",
         )
     ]
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        if not self.env.context.get("skip_wip_horizontal_update"):
+            records._aunna_update_parent_horizontal_summary()
+        return records
+
+    def write(self, vals):
+        reports = self.mapped("report_id")
+        result = super().write(vals)
+        if not self.env.context.get("skip_wip_horizontal_update"):
+            (reports | self.mapped("report_id"))._refresh_period_line_flags()
+            (reports | self.mapped("report_id"))._update_horizontal_summary_html()
+        return result
+
+    def unlink(self):
+        reports = self.mapped("report_id")
+        result = super().unlink()
+        if not self.env.context.get("skip_wip_horizontal_update"):
+            reports._update_horizontal_summary_html()
+        return result
+
+    def _aunna_update_parent_horizontal_summary(self):
+        reports = self.mapped("report_id")
+        reports._refresh_period_line_flags()
+        reports._update_horizontal_summary_html()
 
     @api.depends("month_start")
     def _compute_period_fields(self):

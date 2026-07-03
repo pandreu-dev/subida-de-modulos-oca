@@ -33,8 +33,8 @@ Contabilidad > Informes.
 - La vista horizontal es solo visual. La columna de concepto queda fija al desplazar
   horizontalmente, para que se pueda revisar el dato sin perder la referencia de fila.
 - Si se modifican importes `Prev.` manualmente en `Detalle mensual`, la matriz
-  visual se refresca en la ficha; si el navegador no lo muestra al momento,
-  guardar el informe o pulsar `Actualizar vista horizontal`.
+  visual se regenera al guardar el informe o la linea mensual. El boton
+  `Actualizar vista horizontal` fuerza la regeneracion para informes existentes.
 
 ## Fuentes de datos reales
 
