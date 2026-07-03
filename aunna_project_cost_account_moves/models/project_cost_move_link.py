@@ -117,14 +117,42 @@ class AunnaProjectCostMoveLink(models.Model):
                 )
 
     @api.model
-    def _aunna_generate_pending(self, limit=500):
+    def _aunna_generate_pending(self, limit=500, company=False):
+        if not company:
+            result = {"timesheet": 0, "stock": 0, "errors": 0}
+            companies = self.env["res.company"].sudo().search(
+                [
+                    "|",
+                    ("aunna_enable_timesheet_cost_moves", "=", True),
+                    ("aunna_enable_stock_delivery_cost_moves", "=", True),
+                ]
+            )
+            for target_company in companies:
+                partial = self.with_company(target_company)._aunna_generate_pending(
+                    limit=limit,
+                    company=target_company,
+                )
+                for key in result:
+                    result[key] += partial[key]
+            return result
+
+        company = company.sudo()
         result = {"timesheet": 0, "stock": 0, "errors": 0}
-        AnalyticLine = self.env["account.analytic.line"]
+        AnalyticLine = self.env["account.analytic.line"].with_company(company)
         if "employee_id" in AnalyticLine._fields:
+            timesheet_domain = [("employee_id", "!=", False)]
+            if "company_id" in AnalyticLine._fields:
+                timesheet_domain.append(("company_id", "=", company.id))
+            if "account_id" in AnalyticLine._fields:
+                timesheet_domain.append(("account_id", "!=", False))
+            if "unit_amount" in AnalyticLine._fields:
+                timesheet_domain.append(("unit_amount", "!=", 0))
+            elif "amount" in AnalyticLine._fields:
+                timesheet_domain.append(("amount", "!=", 0))
             lines = AnalyticLine.search(
-                [("employee_id", "!=", False), ("amount", "!=", 0)],
+                timesheet_domain,
                 limit=limit,
-                order="date asc, id asc",
+                order="date desc, id desc",
             )
             for line in lines:
                 before = self.search_count(
@@ -139,12 +167,21 @@ class AunnaProjectCostMoveLink(models.Model):
                 result["timesheet"] += int(after > before)
                 result["errors"] += int(bool(link and link.state == "error"))
 
-        StockMove = self.env["stock.move"]
+        StockMove = self.env["stock.move"].with_company(company)
         if "picking_id" in StockMove._fields:
+            stock_domain = [
+                ("state", "=", "done"),
+                ("picking_id", "!=", False),
+                ("picking_id.picking_type_code", "in", ("outgoing", "internal")),
+            ]
+            if "company_id" in StockMove._fields:
+                stock_domain.append(("company_id", "=", company.id))
+            if "location_id" in StockMove._fields:
+                stock_domain.append(("location_id.usage", "=", "internal"))
             moves = StockMove.search(
-                [("state", "=", "done"), ("picking_id", "!=", False)],
+                stock_domain,
                 limit=limit,
-                order="date asc, id asc",
+                order="date desc, id desc",
             )
             for move in moves:
                 before = self.search_count(

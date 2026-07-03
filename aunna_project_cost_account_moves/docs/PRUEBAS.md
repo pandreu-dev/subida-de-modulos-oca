@@ -2,7 +2,7 @@
 
 ## Parte de horas
 
-1. Configurar diario, cuenta 640x y P&L por defecto de horas.
+1. Configurar diario, cuenta 640x y P&L por defecto de horas si se quiere informar P&L.
 2. Activar generacion de horas.
 3. Crear/validar parte de horas con coste en proyecto.
 4. Revisar `Costes tecnicos de proyecto`.

@@ -78,11 +78,27 @@ class AccountAnalyticLine(models.Model):
             return False
         if "move_line_id" in self._fields and self.move_line_id:
             return False
-        if not self.amount or self.amount >= 0.0:
+        if not self._aunna_timesheet_cost_amount():
             return False
         return self._aunna_timesheet_is_validated(
             allow_no_validation_field=allow_no_validation_field,
         )
+
+    def _aunna_timesheet_cost_amount(self):
+        self.ensure_one()
+        if self.amount and self.amount < 0.0:
+            return abs(self.amount)
+        employee = self.employee_id if "employee_id" in self._fields else False
+        if not employee:
+            return 0.0
+        hourly_cost = 0.0
+        for field_name in ("hourly_cost", "timesheet_cost"):
+            if field_name in employee._fields and employee[field_name]:
+                hourly_cost = employee[field_name]
+                break
+        if not hourly_cost:
+            return 0.0
+        return abs(self.unit_amount * hourly_cost)
 
     def _aunna_timesheet_is_validated(self, allow_no_validation_field=False):
         self.ensure_one()
@@ -91,7 +107,7 @@ class AccountAnalyticLine(models.Model):
                 return bool(self[field_name])
         if "state" in self._fields and self.state:
             return self.state in ("validated", "approved", "done", "posted")
-        return allow_no_validation_field
+        return True
 
     def _aunna_create_timesheet_cost_move(self):
         self.ensure_one()
@@ -107,7 +123,7 @@ class AccountAnalyticLine(models.Model):
         return self.env["aunna.project.cost.move.link"].sudo()._aunna_create_or_update(
             source=self,
             cost_type="timesheet",
-            amount=abs(self.amount),
+            amount=self._aunna_timesheet_cost_amount(),
             date=self.date or fields.Date.context_today(self),
             analytic_distribution=distribution,
             debit_account=company.aunna_timesheet_cost_account_id,
@@ -142,8 +158,6 @@ class AccountAnalyticLine(models.Model):
                 distribution,
                 default_pl_account,
             )
-        if self._aunna_distribution_account_count(distribution) < 2:
-            return {}
         return distribution
 
     def _aunna_distribution_has_account(self, distribution, account):
@@ -154,18 +168,6 @@ class AccountAnalyticLine(models.Model):
             if account_id in str(key).split(","):
                 return True
         return False
-
-    def _aunna_distribution_account_count(self, distribution):
-        account_ids = set()
-        for key, value in (distribution or {}).items():
-            if self._aunna_distribution_percentage(distribution, key, value) <= 0.0:
-                continue
-            account_ids.update(
-                item
-                for item in str(key).split(",")
-                if item and item.isdigit()
-            )
-        return len(account_ids)
 
     def _aunna_distribution_percentage(self, distribution, key, value=None):
         try:

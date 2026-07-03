@@ -31,6 +31,11 @@ Ruta:
 
 `Ajustes > Contabilidad > Asientos tecnicos para PyG analitico`
 
+La configuracion se guarda por compania. Antes de rellenar estos campos hay que
+seleccionar la compania correcta en el selector superior de Odoo. El diario debe
+pertenecer a esa compania; las cuentas pueden ser de esa compania o compartidas
+entre companias si la contabilidad las tiene asi configuradas.
+
 Campos principales:
 
 - Diario tecnico.
@@ -41,13 +46,14 @@ Campos principales:
 - Activar horas.
 - Activar entregas.
 - Publicar automaticamente.
-- P&L por defecto para horas.
-- P&L por defecto para stock.
+- P&L por defecto para horas, opcional pero recomendado para el PyG por P&L.
+- P&L por defecto para stock, opcional pero recomendado para el PyG por P&L.
 
 Si no hay diario o cuentas configuradas, no se generan asientos.
 
 Las distribuciones analiticas con porcentaje `0%` se descartan y no se consideran validas para generar el asiento tecnico.
 Cuando se aplica un P&L por defecto, se combina con el proyecto en la misma clave de distribucion analitica para evitar importes duplicados o repartos al `0%`.
+Si el origen solo tiene proyecto y no hay P&L por defecto, el asiento se genera igualmente con la analitica disponible.
 
 ## Trazabilidad
 
@@ -57,7 +63,7 @@ Cada asiento queda vinculado a `aunna.project.cost.move.link`, con origen, impor
 
 1. Configurar diario tecnico y cuentas.
 2. Activar horas o entregas.
-3. Validar un parte con coste negativo en un proyecto.
+3. Crear/validar un parte con coste en un proyecto.
 4. Confirmar que se crea asiento tecnico 640x/640x o 640x/puente.
 5. Validar una entrega con analitica de proyecto.
 6. Confirmar asiento tecnico 600x/600x o 600x/puente.

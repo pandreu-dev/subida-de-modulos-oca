@@ -106,8 +106,6 @@ class StockMove(models.Model):
                 distribution,
                 default_pl,
             )
-        if self._aunna_distribution_account_count(distribution) < 2:
-            return {}
         return distribution
 
     def _aunna_distribution_has_account(self, distribution, account):
@@ -118,18 +116,6 @@ class StockMove(models.Model):
             if account_id in str(key).split(","):
                 return True
         return False
-
-    def _aunna_distribution_account_count(self, distribution):
-        account_ids = set()
-        for key, value in (distribution or {}).items():
-            if self._aunna_distribution_percentage(distribution, key, value) <= 0.0:
-                continue
-            account_ids.update(
-                item
-                for item in str(key).split(",")
-                if item and item.isdigit()
-            )
-        return len(account_ids)
 
     def _aunna_distribution_percentage(self, distribution, key, value=None):
         try:

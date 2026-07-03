@@ -46,10 +46,16 @@ class ResConfigSettings(models.TransientModel):
     )
 
     def action_aunna_generate_project_cost_moves(self):
-        result = self.env["aunna.project.cost.move.link"]._aunna_generate_pending()
+        self.ensure_one()
+        company = self.company_id or self.env.company
+        result = (
+            self.env["aunna.project.cost.move.link"]
+            .with_company(company)
+            ._aunna_generate_pending(company=company)
+        )
         message = (
-            "Horas: %(timesheet)s. Entregas: %(stock)s. Errores: %(errors)s."
-            % result
+            "%(company)s - Horas: %(timesheet)s. Entregas: %(stock)s. Errores: %(errors)s."
+            % {**result, "company": company.display_name}
         )
         return {
             "type": "ir.actions.client",
