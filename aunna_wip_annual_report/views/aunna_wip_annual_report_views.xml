@@ -199,9 +199,8 @@
                         </page>
                         <page string="Detalle mensual">
                             <field
-                                name="period_line_ids"
+                                name="visible_period_line_ids"
                                 nolabel="1"
-                                domain="[('month_start', '&gt;=', date_from), ('month_start', '&lt;=', date_to)]"
                             >
                                 <list editable="bottom" create="0" delete="0" decoration-muted="is_empty" decoration-bf="metric == 'real_wip'">
                                     <field name="period_label" readonly="1"/>

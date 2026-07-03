@@ -100,6 +100,13 @@ class AunnaWipAnnualReport(models.Model):
         string="Detalle mensual",
         copy=True,
     )
+    visible_period_line_ids = fields.One2many(
+        "aunna.wip.annual.report.period.line",
+        "report_id",
+        string="Detalle mensual visible",
+        domain=[("in_report_range", "=", True)],
+        copy=False,
+    )
     last_real_update = fields.Datetime(
         string="Ultimo recalculo",
         readonly=True,
@@ -201,7 +208,13 @@ class AunnaWipAnnualReport(models.Model):
         self._ensure_metric_lines()
         if {"date_from", "date_to"}.intersection(vals):
             self._ensure_period_lines()
-        if {"date_from", "date_to", "period_line_ids"}.intersection(vals):
+        period_fields = {
+            "date_from",
+            "date_to",
+            "period_line_ids",
+            "visible_period_line_ids",
+        }
+        if period_fields.intersection(vals):
             self._refresh_period_line_flags()
         self._update_horizontal_summary_html()
         return result
@@ -379,7 +392,9 @@ class AunnaWipAnnualReport(models.Model):
         }
 
     def _refresh_period_line_flags(self):
-        lines = self.env["aunna.wip.annual.report.period.line"].search(
+        lines = self.env["aunna.wip.annual.report.period.line"].with_context(
+            skip_wip_horizontal_update=True
+        ).search(
             [("report_id", "in", self.ids)]
         )
         lines._compute_diff_amount()
@@ -397,7 +412,7 @@ class AunnaWipAnnualReport(models.Model):
             else:
                 report.horizontal_summary_html = html
 
-    @api.onchange("period_line_ids")
+    @api.onchange("period_line_ids", "visible_period_line_ids")
     def _onchange_period_line_ids_refresh_horizontal_summary(self):
         for report in self:
             report.horizontal_summary_html = report._build_horizontal_summary_html(
@@ -1283,7 +1298,6 @@ class AunnaWipAnnualReportPeriodLine(models.Model):
         reports = self.mapped("report_id")
         result = super().write(vals)
         if not self.env.context.get("skip_wip_horizontal_update"):
-            (reports | self.mapped("report_id"))._refresh_period_line_flags()
             (reports | self.mapped("report_id"))._update_horizontal_summary_html()
         return result
 
