@@ -30,12 +30,7 @@ class AccountMoveLine(models.Model):
         account = calc_line.analytic_account_id
         if not account:
             return {}
-        account_key = str(account.id)
-        for key in self.analytic_distribution or {}:
-            key_parts = [item for item in str(key).split(",") if item]
-            if account_key in key_parts:
-                return {str(key): 100.0}
-        return {account_key: 100.0}
+        return {str(account.id): 100.0}
 
     def _aunna_wip_fix_distribution(self):
         for line in self:
@@ -73,42 +68,100 @@ class AccountMoveLine(models.Model):
         credit = self.credit if "credit" in self._fields else 0.0
         return debit - credit
 
+    def _aunna_wip_analytic_amount(self):
+        self.ensure_one()
+        return -self._aunna_wip_balance_amount()
+
     def _aunna_wip_needs_analytic_rebuild(self, analytic_lines):
         self.ensure_one()
         if not self.analytic_distribution:
             return False
         currency = (self.company_id or self.move_id.company_id).currency_id
-        if currency.is_zero(self._aunna_wip_balance_amount()):
+        expected_amount = self._aunna_wip_analytic_amount()
+        if currency.is_zero(expected_amount):
             return False
         if not analytic_lines:
             return True
-        return not any(
-            not currency.is_zero(analytic_line.amount)
-            for analytic_line in analytic_lines
-        )
+        if len(analytic_lines) != 1:
+            return True
+        return currency.compare_amounts(
+            analytic_lines.amount,
+            expected_amount,
+        ) != 0
 
     def _aunna_wip_rebuild_analytic_lines(self, analytic_lines):
         self.ensure_one()
         try:
-            if hasattr(self, "_create_analytic_lines"):
+            with self.env.cr.savepoint():
                 analytic_lines.unlink()
+                if self._aunna_wip_create_expected_analytic_line():
+                    return
+        except Exception:
+            _logger.exception(
+                "No se pudo crear manualmente el apunte analitico WIP de %s",
+                self.display_name,
+            )
+
+        try:
+            with self.env.cr.savepoint():
+                analytic_lines.unlink()
+                if not hasattr(self, "_create_analytic_lines"):
+                    return
                 self.with_context(check_move_validity=False)._create_analytic_lines()
-                return
-            AnalyticAccount = self.env["account.analytic.account"]
-            if hasattr(AnalyticAccount, "_perform_analytic_distribution"):
-                analytic_lines.unlink()
-                AnalyticAccount._perform_analytic_distribution(
-                    self.analytic_distribution,
-                    self._aunna_wip_balance_amount(),
-                    1.0,
-                    self.env["account.analytic.line"],
-                    self,
-                )
         except Exception:
             _logger.exception(
                 "No se pudieron reconstruir los apuntes analiticos WIP de %s",
                 self.display_name,
             )
+
+    def _aunna_wip_create_expected_analytic_line(self):
+        self.ensure_one()
+        calc_line = self.aunna_wip_calculation_line_id
+        analytic_account = calc_line.analytic_account_id
+        if not analytic_account:
+            return self.env["account.analytic.line"]
+
+        AnalyticLine = self.env["account.analytic.line"].sudo().with_context(
+            aunna_skip_project_cost_moves=True
+        )
+        if "account_id" not in AnalyticLine._fields:
+            return AnalyticLine
+
+        amount = self._aunna_wip_analytic_amount()
+        currency = (self.company_id or self.move_id.company_id).currency_id
+        if currency.is_zero(amount):
+            return AnalyticLine
+
+        move = self.move_id
+        vals = {
+            "name": self.name or move.ref or move.name or "WIP",
+            "account_id": analytic_account.id,
+            "amount": amount,
+            "date": self.date or move.date or fields.Date.context_today(self),
+        }
+        optional_values = {
+            "company_id": (self.company_id or move.company_id).id,
+            "partner_id": self.partner_id.id if self.partner_id else False,
+            "general_account_id": self.account_id.id if self.account_id else False,
+            "ref": move.ref or move.name,
+            "project_id": self.aunna_wip_project_id.id
+            if self.aunna_wip_project_id
+            else False,
+            "aunna_wip_project_id": self.aunna_wip_project_id.id
+            if self.aunna_wip_project_id
+            else False,
+            "aunna_wip_calculation_line_id": calc_line.id,
+        }
+        for field_name, value in optional_values.items():
+            if field_name in AnalyticLine._fields and value not in (False, None):
+                vals[field_name] = value
+        for field_name in ("move_line_id", "account_move_line_id"):
+            if field_name in AnalyticLine._fields:
+                vals[field_name] = self.id
+                break
+        if "unit_amount" in AnalyticLine._fields:
+            vals["unit_amount"] = 0.0
+        return AnalyticLine.create(vals)
 
 
 class AccountAnalyticLine(models.Model):
@@ -146,8 +199,11 @@ class AccountMove(models.Model):
         wip_lines._aunna_wip_fix_distribution()
 
     def _aunna_wip_link_analytic_lines_to_projects(self):
-        AnalyticLine = self.env["account.analytic.line"].sudo()
-        if "move_line_id" not in AnalyticLine._fields:
+        AnalyticLine = self.env["account.analytic.line"].sudo().with_context(
+            aunna_skip_project_cost_moves=True
+        )
+        move_line_field = self._aunna_wip_analytic_move_line_field(AnalyticLine)
+        if not move_line_field:
             return
         project_field = AnalyticLine._fields.get("project_id")
         can_write_standard_project = (
@@ -159,22 +215,34 @@ class AccountMove(models.Model):
         for move in self.sudo():
             move._aunna_wip_fix_move_line_distributions()
             wip_lines = move.line_ids.filtered(
-                lambda line: line.aunna_wip_project_id
-                and line.aunna_wip_calculation_line_id
+                lambda line: line.aunna_wip_calculation_line_id
+                and line.analytic_distribution
             )
             for move_line in wip_lines:
                 analytic_lines = AnalyticLine.search(
-                    [("move_line_id", "=", move_line.id)]
+                    [(move_line_field, "=", move_line.id)]
                 )
                 if move_line._aunna_wip_needs_analytic_rebuild(analytic_lines):
                     move_line._aunna_wip_rebuild_analytic_lines(analytic_lines)
                     analytic_lines = AnalyticLine.search(
-                        [("move_line_id", "=", move_line.id)]
+                        [(move_line_field, "=", move_line.id)]
                     )
                 vals = {
-                    "aunna_wip_project_id": move_line.aunna_wip_project_id.id,
                     "aunna_wip_calculation_line_id": move_line.aunna_wip_calculation_line_id.id,
                 }
-                if can_write_standard_project:
-                    vals["project_id"] = move_line.aunna_wip_project_id.id
+                if move_line.aunna_wip_project_id:
+                    vals["aunna_wip_project_id"] = move_line.aunna_wip_project_id.id
+                    if can_write_standard_project:
+                        vals["project_id"] = move_line.aunna_wip_project_id.id
                 analytic_lines.write(vals)
+
+    def _aunna_wip_analytic_move_line_field(self, AnalyticLine):
+        for field_name in ("move_line_id", "account_move_line_id"):
+            field = AnalyticLine._fields.get(field_name)
+            if (
+                field
+                and field.type == "many2one"
+                and field.comodel_name == "account.move.line"
+            ):
+                return field_name
+        return False

@@ -61,10 +61,6 @@ class AunnaWipCalculation(models.Model):
 
     def _aunna_wip_distribution_for_calc_line(self, distribution, calc_line):
         account_key = str(calc_line.analytic_account_id.id)
-        for key, value in (distribution or {}).items():
-            key_parts = [item for item in str(key).split(",") if item]
-            if account_key in key_parts:
-                return {str(key): 100.0}
         return {account_key: 100.0}
 
     def _aunna_wip_distribution_percentage(self, value):
