@@ -98,7 +98,7 @@ class StockMove(models.Model):
         if not has_source_distribution:
             return {}
         company = (self.company_id or self.env.company).sudo()
-        default_pl = company.aunna_default_stock_pl_analytic_account_id
+        default_pl = company._aunna_project_cost_stock_plan_account()
         if default_pl:
             distribution = self.env[
                 "aunna.project.cost.move.link"

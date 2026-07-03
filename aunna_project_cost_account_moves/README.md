@@ -46,13 +46,13 @@ Campos principales:
 - Activar horas.
 - Activar entregas.
 - Publicar automaticamente.
-- P&L por defecto para horas, opcional pero recomendado para el PyG por P&L.
-- P&L por defecto para stock, opcional pero recomendado para el PyG por P&L.
+- Plan analitico horas y valor del plan horas, opcional pero recomendado para el PyG por P&L.
+- Plan analitico stock y valor del plan stock, opcional pero recomendado para el PyG por P&L.
 
 Si no hay diario o cuentas configuradas, no se generan asientos.
 
 Las distribuciones analiticas con porcentaje `0%` se descartan y no se consideran validas para generar el asiento tecnico.
-Cuando se aplica un P&L por defecto, se combina con el proyecto en la misma clave de distribucion analitica para evitar importes duplicados o repartos al `0%`.
+Cuando se aplica un valor de P&L por defecto, se combina con el proyecto en la misma clave de distribucion analitica para evitar importes duplicados o repartos al `0%`.
 Si el origen solo tiene proyecto y no hay P&L por defecto, el asiento se genera igualmente con la analitica disponible.
 
 ## Trazabilidad

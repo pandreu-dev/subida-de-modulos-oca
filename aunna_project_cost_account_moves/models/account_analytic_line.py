@@ -113,7 +113,7 @@ class AccountAnalyticLine(models.Model):
         self.ensure_one()
         company = (self.company_id or self.env.company).sudo()
         distribution = self._aunna_project_cost_analytic_distribution(
-            company.aunna_default_timesheet_pl_analytic_account_id
+            company._aunna_project_cost_timesheet_plan_account()
         )
         counterpart = (
             company.aunna_timesheet_counterpart_account_id

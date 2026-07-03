@@ -10,7 +10,7 @@ Usa partes de horas con coste de proyecto. Si la linea ya trae `amount` negativo
 - Haber en cuenta de contrapartida sin analitica.
 
 Las cuentas analiticas con porcentaje `0%` se ignoran para evitar asientos tecnicos sin imputacion real.
-Si el modulo anade un P&L por defecto, lo fusiona con la cuenta analitica del proyecto en la misma distribucion para mantener el formato esperado por Odoo 19. Si no hay P&L por defecto, genera el asiento con la distribucion analitica disponible.
+Si el modulo anade un valor de P&L por defecto, lo fusiona con la cuenta analitica del proyecto en la misma distribucion para mantener el formato esperado por Odoo 19. Si no hay valor de P&L por defecto, genera el asiento con la distribucion analitica disponible.
 
 ## Entregas
 

@@ -18,8 +18,11 @@
                     <setting string="Contrapartida horas" invisible="not aunna_enable_timesheet_cost_moves">
                         <field name="aunna_timesheet_counterpart_account_id" domain="['|', ('company_ids', '=', False), ('company_ids', 'in', [company_id])]"/>
                     </setting>
-                    <setting string="P&amp;L por defecto horas" invisible="not aunna_enable_timesheet_cost_moves">
-                        <field name="aunna_default_timesheet_pl_analytic_account_id" domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]"/>
+                    <setting string="Plan analitico horas" help="Plan adicional que se anadira al asiento junto al proyecto, normalmente P&amp;L." invisible="not aunna_enable_timesheet_cost_moves">
+                        <field name="aunna_timesheet_pl_plan_id"/>
+                    </setting>
+                    <setting string="Valor del plan horas" help="Valor del plan anterior que se anadira por defecto. Ejemplo: Horas internas." invisible="not aunna_enable_timesheet_cost_moves or not aunna_timesheet_pl_plan_id">
+                        <field name="aunna_default_timesheet_pl_analytic_account_id" domain="['&amp;', ('plan_id', '=', aunna_timesheet_pl_plan_id), '|', ('company_id', '=', False), ('company_id', '=', company_id)]"/>
                     </setting>
                     <setting string="Activar entregas de almacen" help="Genera asientos tecnicos desde entregas con distribucion analitica.">
                         <field name="aunna_enable_stock_delivery_cost_moves"/>
@@ -30,8 +33,11 @@
                     <setting string="Contrapartida stock" invisible="not aunna_enable_stock_delivery_cost_moves">
                         <field name="aunna_stock_counterpart_account_id" domain="['|', ('company_ids', '=', False), ('company_ids', 'in', [company_id])]"/>
                     </setting>
-                    <setting string="P&amp;L por defecto stock" invisible="not aunna_enable_stock_delivery_cost_moves">
-                        <field name="aunna_default_stock_pl_analytic_account_id" domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]"/>
+                    <setting string="Plan analitico stock" help="Plan adicional que se anadira al asiento junto al proyecto, normalmente P&amp;L." invisible="not aunna_enable_stock_delivery_cost_moves">
+                        <field name="aunna_stock_pl_plan_id"/>
+                    </setting>
+                    <setting string="Valor del plan stock" help="Valor del plan anterior que se anadira por defecto. Ejemplo: Materiales." invisible="not aunna_enable_stock_delivery_cost_moves or not aunna_stock_pl_plan_id">
+                        <field name="aunna_default_stock_pl_analytic_account_id" domain="['&amp;', ('plan_id', '=', aunna_stock_pl_plan_id), '|', ('company_id', '=', False), ('company_id', '=', company_id)]"/>
                     </setting>
                     <setting string="Publicar automaticamente">
                         <field name="aunna_auto_post_cost_moves"/>

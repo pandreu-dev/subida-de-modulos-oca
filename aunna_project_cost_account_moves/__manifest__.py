@@ -1,7 +1,7 @@
 {
     "name": "AUNNA Project Cost Account Moves",
     "summary": "Genera asientos tecnicos compensados para costes analiticos de proyecto",
-    "version": "19.0.1.6.0",
+    "version": "19.0.1.7.1",
     "category": "Accounting/Accounting",
     "author": "AUNNA IT",
     "license": "LGPL-3",
