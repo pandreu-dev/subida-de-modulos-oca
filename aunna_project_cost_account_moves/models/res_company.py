@@ -38,6 +38,8 @@ class ResCompany(models.Model):
     aunna_timesheet_pl_plan_id = fields.Many2one(
         "account.analytic.plan",
         string="Plan analitico horas",
+        compute="_compute_aunna_project_cost_plan_settings",
+        inverse="_inverse_aunna_timesheet_pl_plan_id",
     )
     aunna_default_timesheet_pl_analytic_account_id = fields.Many2one(
         "account.analytic.account",
@@ -46,6 +48,8 @@ class ResCompany(models.Model):
     aunna_stock_pl_plan_id = fields.Many2one(
         "account.analytic.plan",
         string="Plan analitico stock",
+        compute="_compute_aunna_project_cost_plan_settings",
+        inverse="_inverse_aunna_stock_pl_plan_id",
     )
     aunna_default_stock_pl_analytic_account_id = fields.Many2one(
         "account.analytic.account",
@@ -80,3 +84,46 @@ class ResCompany(models.Model):
         if "root_plan_id" in account._fields and account.root_plan_id:
             return account.root_plan_id
         return self.env["account.analytic.plan"]
+
+    def _compute_aunna_project_cost_plan_settings(self):
+        for company in self:
+            company.aunna_timesheet_pl_plan_id = company._aunna_get_project_cost_plan_param(
+                "timesheet_pl_plan_id"
+            )
+            company.aunna_stock_pl_plan_id = company._aunna_get_project_cost_plan_param(
+                "stock_pl_plan_id"
+            )
+
+    def _inverse_aunna_timesheet_pl_plan_id(self):
+        for company in self:
+            company._aunna_set_project_cost_plan_param(
+                "timesheet_pl_plan_id",
+                company.aunna_timesheet_pl_plan_id,
+            )
+
+    def _inverse_aunna_stock_pl_plan_id(self):
+        for company in self:
+            company._aunna_set_project_cost_plan_param(
+                "stock_pl_plan_id",
+                company.aunna_stock_pl_plan_id,
+            )
+
+    def _aunna_get_project_cost_plan_param(self, name):
+        self.ensure_one()
+        value = (
+            self.env["ir.config_parameter"]
+            .sudo()
+            .get_param(self._aunna_project_cost_plan_param_key(name))
+        )
+        return self.env["account.analytic.plan"].browse(int(value)).exists() if value else False
+
+    def _aunna_set_project_cost_plan_param(self, name, plan):
+        self.ensure_one()
+        self.env["ir.config_parameter"].sudo().set_param(
+            self._aunna_project_cost_plan_param_key(name),
+            plan.id or "",
+        )
+
+    def _aunna_project_cost_plan_param_key(self, name):
+        self.ensure_one()
+        return "aunna_project_cost_account_moves.%s.%s" % (self.id, name)
