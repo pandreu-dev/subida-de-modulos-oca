@@ -196,6 +196,7 @@ class AunnaWipCalculation(models.Model):
             moves = calculation.move_id | calculation.reversal_move_id
             for move in moves:
                 calculation._aunna_wip_tag_move_lines_from_calculation(move)
+            moves._aunna_wip_force_analytic_distribution_from_calculation()
             moves._aunna_wip_link_analytic_lines_to_projects(force_rebuild=True)
         return True
 

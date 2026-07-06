@@ -24,6 +24,26 @@ class AccountMoveLine(models.Model):
         ondelete="set null",
     )
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        lines = super().create(vals_list)
+        if not self.env.context.get("aunna_skip_wip_distribution_force"):
+            lines._aunna_wip_force_distribution_from_move()
+        return lines
+
+    def write(self, vals):
+        result = super().write(vals)
+        if (
+            not self.env.context.get("aunna_skip_wip_distribution_force")
+            and "analytic_distribution" not in vals
+        ):
+            self._aunna_wip_force_distribution_from_move()
+        return result
+
+    def _aunna_wip_force_distribution_from_move(self):
+        moves = self.filtered(lambda line: line.move_id).mapped("move_id")
+        moves._aunna_wip_force_analytic_distribution_from_calculation()
+
     def _aunna_wip_expected_distribution(self):
         self.ensure_one()
         account = self._aunna_wip_expected_analytic_account()
@@ -233,34 +253,97 @@ class AccountMove(models.Model):
         moves = super().create(vals_list)
         if not self.env.context.get("aunna_skip_wip_project_link_fix"):
             moves._aunna_wip_tag_from_matching_calculation()
+            moves._aunna_wip_force_analytic_distribution_from_calculation()
         return moves
 
     def action_post(self):
         self._aunna_wip_tag_from_matching_calculation()
+        self._aunna_wip_force_analytic_distribution_from_calculation()
         self._aunna_wip_fix_move_line_distributions()
         result = super().action_post()
+        self._aunna_wip_force_analytic_distribution_from_calculation()
         self._aunna_wip_link_analytic_lines_to_projects(force_rebuild=True)
         return result
 
     def _aunna_wip_tag_from_matching_calculation(self):
-        Calculation = self.env["aunna.wip.calculation"].sudo()
         for move in self.sudo():
-            if move.line_ids.filtered(lambda line: line.aunna_wip_calculation_line_id):
-                continue
-            if not move.ref or not move.ref.startswith("WIP "):
-                continue
-            calculation = Calculation.search(
-                [
-                    ("name", "=", move.ref[4:]),
-                    ("company_id", "=", move.company_id.id),
-                ],
-                limit=1,
-            )
+            calculation = move._aunna_wip_find_matching_calculation()
             if calculation:
                 calculation.with_context(
                     aunna_skip_wip_project_link_fix=True
                 )._aunna_wip_tag_move_lines_from_calculation(move)
         return True
+
+    def _aunna_wip_find_matching_calculation(self):
+        self.ensure_one()
+        Calculation = self.env["aunna.wip.calculation"].sudo()
+        refs = []
+        for value in (self.ref, self.name):
+            if not value:
+                continue
+            refs.append(value)
+            if value.startswith("WIP "):
+                refs.append(value[4:])
+        refs = [value for value in dict.fromkeys(refs) if value]
+        if not refs:
+            return Calculation
+        return Calculation.search(
+            [
+                ("name", "in", refs),
+                ("company_id", "=", self.company_id.id),
+            ],
+            order="id desc",
+            limit=1,
+        )
+
+    def _aunna_wip_force_analytic_distribution_from_calculation(self):
+        for move in self.sudo():
+            calculation = move._aunna_wip_find_matching_calculation()
+            if not calculation:
+                continue
+            settings = calculation._aunna_wip_accounting_settings(
+                calculation.company_id
+            )
+            income_account = settings.get("income_account")
+            if not income_account:
+                continue
+            used_line_ids = set()
+            income_lines = move.line_ids.filtered(
+                lambda line: line.account_id == income_account
+            )
+            for move_line in income_lines:
+                calc_line = calculation._aunna_wip_match_move_line_to_calc_line(
+                    calculation._aunna_wip_project_candidate_lines(),
+                    used_line_ids,
+                    move_line.analytic_distribution,
+                    self._aunna_wip_move_line_abs_amount(move_line),
+                )
+                if not calc_line:
+                    continue
+                used_line_ids.add(calc_line.id)
+                analytic_account = calculation._aunna_wip_calc_line_analytic_account(
+                    calc_line
+                )
+                if not analytic_account:
+                    continue
+                distribution = {str(analytic_account.id): 100.0}
+                vals = {
+                    "analytic_distribution": distribution,
+                    "aunna_wip_calculation_line_id": calc_line.id,
+                }
+                project = calculation._aunna_wip_calc_line_project(calc_line)
+                if project:
+                    vals["aunna_wip_project_id"] = project.id
+                move_line.with_context(
+                    aunna_skip_wip_distribution_force=True,
+                    check_move_validity=False,
+                ).write(vals)
+        return True
+
+    def _aunna_wip_move_line_abs_amount(self, move_line):
+        if "balance" in move_line._fields:
+            return abs(move_line.balance)
+        return abs((move_line.debit or 0.0) - (move_line.credit or 0.0))
 
     def _aunna_wip_fix_move_line_distributions(self):
         wip_lines = self.sudo().line_ids.filtered(
