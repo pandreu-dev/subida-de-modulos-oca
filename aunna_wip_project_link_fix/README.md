@@ -12,6 +12,7 @@ Tambien vuelve a revisar los asientos WIP ya existentes al abrirlos desde el cal
 
 No cambia importes ni cuentas. Si una linea WIP tiene distribucion analitica al proyecto con porcentaje `0%`, la normaliza a la cuenta analitica del calculo con `100%`.
 Si el asiento ya estaba publicado y el apunte analitico se habia generado a `0,00`, el modulo reconstruye el apunte desde la linea contable WIP corregida, usando el importe real del debe/haber.
+La reconstruccion no informa cantidad/horas a cero en el apunte analitico WIP, para evitar que el importe contable quede anulado.
 
 ## Prueba
 
@@ -21,3 +22,5 @@ Si el asiento ya estaba publicado y el apunte analitico se habia generado a `0,0
 4. Comprobar que la distribucion analitica no aparece al `0%`.
 5. Ir a apuntes analiticos y agrupar por proyecto.
 6. Confirmar que las lineas WIP aparecen bajo el proyecto correcto y con importe.
+
+Para reparar un asiento antiguo, abrir el calculo WIP desde `Calculos WIP` y entrar en el asiento con `Abrir asiento WIP`. Esa accion vuelve a normalizar la distribucion y reconstruye el apunte analitico si estaba a cero.

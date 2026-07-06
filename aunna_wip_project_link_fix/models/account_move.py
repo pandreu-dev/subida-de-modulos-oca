@@ -33,6 +33,7 @@ class AccountMoveLine(models.Model):
         return {str(account.id): 100.0}
 
     def _aunna_wip_fix_distribution(self):
+        changed_lines = self.env["account.move.line"]
         for line in self:
             distribution = line._aunna_wip_expected_distribution()
             if not distribution:
@@ -44,6 +45,8 @@ class AccountMoveLine(models.Model):
             line.sudo().with_context(check_move_validity=False).write(
                 {"analytic_distribution": distribution}
             )
+            changed_lines |= line
+        return changed_lines
 
     def _aunna_wip_normalized_distribution(self, distribution):
         normalized = {}
@@ -55,6 +58,14 @@ class AccountMoveLine(models.Model):
         return normalized
 
     def _aunna_wip_distribution_percentage(self, value):
+        if isinstance(value, dict):
+            for key in ("percentage", "amount", "value"):
+                if key in value:
+                    return self._aunna_wip_distribution_percentage(value[key])
+            if len(value) == 1:
+                return self._aunna_wip_distribution_percentage(
+                    next(iter(value.values()))
+                )
         try:
             return float(value or 0.0)
         except (TypeError, ValueError):
@@ -93,7 +104,7 @@ class AccountMoveLine(models.Model):
         self.ensure_one()
         try:
             with self.env.cr.savepoint():
-                analytic_lines.unlink()
+                analytic_lines.exists().unlink()
                 if self._aunna_wip_create_expected_analytic_line():
                     return
         except Exception:
@@ -104,7 +115,7 @@ class AccountMoveLine(models.Model):
 
         try:
             with self.env.cr.savepoint():
-                analytic_lines.unlink()
+                analytic_lines.exists().unlink()
                 if not hasattr(self, "_create_analytic_lines"):
                     return
                 self.with_context(check_move_validity=False)._create_analytic_lines()
@@ -159,8 +170,6 @@ class AccountMoveLine(models.Model):
             if field_name in AnalyticLine._fields:
                 vals[field_name] = self.id
                 break
-        if "unit_amount" in AnalyticLine._fields:
-            vals["unit_amount"] = 0.0
         return AnalyticLine.create(vals)
 
 
@@ -189,16 +198,16 @@ class AccountMove(models.Model):
     def action_post(self):
         self._aunna_wip_fix_move_line_distributions()
         result = super().action_post()
-        self._aunna_wip_link_analytic_lines_to_projects()
+        self._aunna_wip_link_analytic_lines_to_projects(force_rebuild=True)
         return result
 
     def _aunna_wip_fix_move_line_distributions(self):
         wip_lines = self.sudo().line_ids.filtered(
             lambda line: line.aunna_wip_calculation_line_id
         )
-        wip_lines._aunna_wip_fix_distribution()
+        return wip_lines._aunna_wip_fix_distribution()
 
-    def _aunna_wip_link_analytic_lines_to_projects(self):
+    def _aunna_wip_link_analytic_lines_to_projects(self, force_rebuild=False):
         AnalyticLine = self.env["account.analytic.line"].sudo().with_context(
             aunna_skip_project_cost_moves=True
         )
@@ -213,7 +222,7 @@ class AccountMove(models.Model):
             and not self.env.context.get("aunna_skip_standard_project_link")
         )
         for move in self.sudo():
-            move._aunna_wip_fix_move_line_distributions()
+            changed_lines = move._aunna_wip_fix_move_line_distributions()
             wip_lines = move.line_ids.filtered(
                 lambda line: line.aunna_wip_calculation_line_id
                 and line.analytic_distribution
@@ -222,7 +231,11 @@ class AccountMove(models.Model):
                 analytic_lines = AnalyticLine.search(
                     [(move_line_field, "=", move_line.id)]
                 )
-                if move_line._aunna_wip_needs_analytic_rebuild(analytic_lines):
+                if (
+                    force_rebuild
+                    or move_line in changed_lines
+                    or move_line._aunna_wip_needs_analytic_rebuild(analytic_lines)
+                ):
                     move_line._aunna_wip_rebuild_analytic_lines(analytic_lines)
                     analytic_lines = AnalyticLine.search(
                         [(move_line_field, "=", move_line.id)]

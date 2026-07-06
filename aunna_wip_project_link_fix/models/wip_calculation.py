@@ -82,7 +82,7 @@ class AunnaWipCalculation(models.Model):
         )
         self._aunna_wip_tag_move_lines_from_calculation(reversal_move)
         self._aunna_wip_copy_project_link_to_reversal_lines(move, reversal_move)
-        reversal_move._aunna_wip_link_analytic_lines_to_projects()
+        reversal_move._aunna_wip_link_analytic_lines_to_projects(force_rebuild=True)
         return reversal_move
 
     def action_open_wip_move(self):
@@ -98,7 +98,7 @@ class AunnaWipCalculation(models.Model):
             moves = calculation.move_id | calculation.reversal_move_id
             for move in moves:
                 calculation._aunna_wip_tag_move_lines_from_calculation(move)
-            moves._aunna_wip_link_analytic_lines_to_projects()
+            moves._aunna_wip_link_analytic_lines_to_projects(force_rebuild=True)
         return True
 
     def _aunna_wip_tag_move_lines_from_calculation(self, move):
@@ -108,10 +108,14 @@ class AunnaWipCalculation(models.Model):
         candidate_lines = self._aunna_wip_project_candidate_lines()
         if not candidate_lines:
             return
+        settings = self._aunna_wip_accounting_settings(self.company_id)
+        income_account = settings.get("income_account")
         candidate_line_ids = set(candidate_lines.ids)
         used_line_ids = set(move.line_ids.mapped("aunna_wip_calculation_line_id").ids)
         move_lines = move.line_ids.filtered(
             lambda line: line.analytic_distribution
+            or line.aunna_wip_calculation_line_id
+            or (income_account and line.account_id == income_account)
         )
         for move_line in move_lines:
             calc_line = move_line.aunna_wip_calculation_line_id
