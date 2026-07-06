@@ -10,13 +10,18 @@ class AunnaWipCalculation(models.Model):
             return move_vals
 
         candidate_lines = self._aunna_wip_project_candidate_lines()
+        income_account = settings.get("income_account")
         used_line_ids = set()
         for command in move_vals.get("line_ids", []):
             if len(command) < 3 or not isinstance(command[2], dict):
                 continue
             vals = command[2]
             distribution = vals.get("analytic_distribution") or {}
-            if not distribution:
+            is_wip_income_line = (
+                income_account
+                and vals.get("account_id") == income_account.id
+            )
+            if not distribution and not is_wip_income_line:
                 continue
             calc_line = self._aunna_wip_match_move_line_to_calc_line(
                 candidate_lines,
