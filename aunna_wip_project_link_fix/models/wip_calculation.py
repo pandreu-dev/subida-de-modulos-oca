@@ -23,10 +23,12 @@ class AunnaWipCalculation(models.Model):
             )
             if not distribution and not is_wip_income_line:
                 continue
+            line_amount = abs(vals.get("debit") or vals.get("credit") or 0.0)
             calc_line = self._aunna_wip_match_move_line_to_calc_line(
                 candidate_lines,
                 used_line_ids,
                 distribution,
+                line_amount,
             )
             if not calc_line:
                 continue
@@ -35,7 +37,8 @@ class AunnaWipCalculation(models.Model):
                 distribution,
                 calc_line,
             )
-            vals["aunna_wip_project_id"] = calc_line.project_id.id or False
+            project = self._aunna_wip_calc_line_project(calc_line)
+            vals["aunna_wip_project_id"] = project.id or False
             vals["aunna_wip_calculation_line_id"] = calc_line.id
         return move_vals
 
@@ -46,15 +49,87 @@ class AunnaWipCalculation(models.Model):
             and self._aunna_wip_calc_line_analytic_account(line)
         )
 
+    def _aunna_wip_line_analytic_distribution(self, line):
+        distribution = self._aunna_wip_distribution_for_calc_line(False, line)
+        return distribution or super()._aunna_wip_line_analytic_distribution(line)
+
     def _aunna_wip_calc_line_analytic_account(self, calc_line):
         if calc_line.analytic_account_id:
             return calc_line.analytic_account_id
         project = calc_line.project_id
         if project and "account_id" in project._fields:
-            return project.account_id
+            account = project.account_id
+            if account:
+                return account
+        source = self._aunna_wip_calc_line_source_record(calc_line)
+        return self._aunna_wip_analytic_account_from_record(source)
+
+    def _aunna_wip_calc_line_project(self, calc_line):
+        if calc_line.project_id:
+            return calc_line.project_id
+        source = self._aunna_wip_calc_line_source_record(calc_line)
+        return self._aunna_wip_project_from_record(source)
+
+    def _aunna_wip_calc_line_source_record(self, calc_line):
+        if not calc_line.budget_line_model or not calc_line.budget_line_res_id:
+            return self.env["account.analytic.account"]
+        try:
+            return self.env[calc_line.budget_line_model].browse(
+                calc_line.budget_line_res_id
+            ).exists()
+        except KeyError:
+            return self.env["account.analytic.account"]
+
+    def _aunna_wip_project_from_record(self, record):
+        if not record or "project.project" not in self.env.registry:
+            return self.env["project.project"]
+        if "project_id" in record._fields and record.project_id:
+            return record.project_id
+        account = self._aunna_wip_analytic_account_from_record(record)
+        if not account:
+            return self.env["project.project"]
+        Project = self.env["project.project"].sudo()
+        for field_name, field in Project._fields.items():
+            if (
+                field.type == "many2one"
+                and getattr(field, "comodel_name", False) == "account.analytic.account"
+            ):
+                project = Project.search([(field_name, "=", account.id)], limit=1)
+                if project:
+                    return project
+        return self.env["project.project"]
+
+    def _aunna_wip_analytic_account_from_record(self, record):
+        if not record:
+            return self.env["account.analytic.account"]
+        for field_name in ("analytic_account_id", "account_id"):
+            field = record._fields.get(field_name)
+            if (
+                field
+                and field.type == "many2one"
+                and getattr(field, "comodel_name", False) == "account.analytic.account"
+                and record[field_name]
+            ):
+                return record[field_name]
+        accounts = self.env["account.analytic.account"]
+        for field_name, field in record._fields.items():
+            if getattr(field, "comodel_name", False) != "account.analytic.account":
+                continue
+            if field.type == "many2one" and record[field_name]:
+                accounts |= record[field_name]
+            elif field.type == "many2many" and record[field_name]:
+                accounts |= record[field_name]
+        if len(accounts) == 1:
+            return accounts
         return self.env["account.analytic.account"]
 
-    def _aunna_wip_match_move_line_to_calc_line(self, lines, used_line_ids, distribution):
+    def _aunna_wip_match_move_line_to_calc_line(
+        self,
+        lines,
+        used_line_ids,
+        distribution,
+        amount=False,
+    ):
         distribution = distribution or {}
         distribution_ids = set()
         for key in distribution:
@@ -66,8 +141,15 @@ class AunnaWipCalculation(models.Model):
         for line in lines:
             if line.id in used_line_ids:
                 continue
-            if line.analytic_account_id.id in distribution_ids:
+            if self._aunna_wip_calc_line_analytic_account(line).id in distribution_ids:
                 return line
+        if amount:
+            currency = self.company_id.currency_id
+            for line in lines:
+                if line.id in used_line_ids:
+                    continue
+                if not currency.compare_amounts(abs(line.wip_amount), abs(amount)):
+                    return line
         for line in lines:
             if line.id not in used_line_ids:
                 return line
@@ -77,8 +159,7 @@ class AunnaWipCalculation(models.Model):
         account = self._aunna_wip_calc_line_analytic_account(calc_line)
         if not account:
             return {}
-        account_key = str(account.id)
-        return {account_key: 100.0}
+        return {account.id: 100.0}
 
     def _aunna_wip_distribution_percentage(self, value):
         try:
@@ -133,6 +214,7 @@ class AunnaWipCalculation(models.Model):
             lambda line: line.analytic_distribution
             or line.aunna_wip_calculation_line_id
             or (income_account and line.account_id == income_account)
+            or self._aunna_wip_is_income_move_line(line)
         )
         for move_line in move_lines:
             calc_line = move_line.aunna_wip_calculation_line_id
@@ -143,13 +225,15 @@ class AunnaWipCalculation(models.Model):
                     candidate_lines,
                     used_line_ids,
                     move_line.analytic_distribution,
+                    self._aunna_wip_move_line_abs_amount(move_line),
                 )
             if not calc_line:
                 continue
             used_line_ids.add(calc_line.id)
             vals = {}
-            if move_line.aunna_wip_project_id != calc_line.project_id:
-                vals["aunna_wip_project_id"] = calc_line.project_id.id or False
+            project = self._aunna_wip_calc_line_project(calc_line)
+            if move_line.aunna_wip_project_id != project:
+                vals["aunna_wip_project_id"] = project.id or False
             if move_line.aunna_wip_calculation_line_id != calc_line:
                 vals["aunna_wip_calculation_line_id"] = calc_line.id
             distribution = self._aunna_wip_distribution_for_calc_line(
@@ -163,6 +247,24 @@ class AunnaWipCalculation(models.Model):
                 vals["analytic_distribution"] = distribution
             if vals:
                 move_line.sudo().with_context(check_move_validity=False).write(vals)
+
+    def _aunna_wip_is_income_move_line(self, move_line):
+        account = move_line.account_id
+        if not account:
+            return False
+        amount = self._aunna_wip_move_line_abs_amount(move_line)
+        if not amount:
+            return False
+        account_type = account.account_type if "account_type" in account._fields else ""
+        if account_type in ("income", "income_other"):
+            return True
+        code = account.code if "code" in account._fields else ""
+        return bool(code and code.startswith("7"))
+
+    def _aunna_wip_move_line_abs_amount(self, move_line):
+        if "balance" in move_line._fields:
+            return abs(move_line.balance)
+        return abs((move_line.debit or 0.0) - (move_line.credit or 0.0))
 
     def _aunna_wip_copy_project_link_to_reversal_lines(self, move, reversal_move):
         used_reversal_line_ids = set()

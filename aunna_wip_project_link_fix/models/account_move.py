@@ -26,13 +26,44 @@ class AccountMoveLine(models.Model):
 
     def _aunna_wip_expected_distribution(self):
         self.ensure_one()
-        calc_line = self.aunna_wip_calculation_line_id
-        account = calc_line.analytic_account_id
-        if not account and calc_line.project_id and "account_id" in calc_line.project_id._fields:
-            account = calc_line.project_id.account_id
+        account = self._aunna_wip_expected_analytic_account()
         if not account:
             return {}
-        return {str(account.id): 100.0}
+        return {account.id: 100.0}
+
+    def _aunna_wip_expected_analytic_account(self):
+        self.ensure_one()
+        calc_line = self.aunna_wip_calculation_line_id
+        calculation = calc_line.calculation_id
+        if calculation and hasattr(calculation, "_aunna_wip_calc_line_analytic_account"):
+            account = calculation._aunna_wip_calc_line_analytic_account(calc_line)
+            if account:
+                return account
+        if calc_line.analytic_account_id:
+            return calc_line.analytic_account_id
+        if calc_line.project_id and "account_id" in calc_line.project_id._fields:
+            account = calc_line.project_id.account_id
+            if account:
+                return account
+        return self._aunna_wip_distribution_analytic_account()
+
+    def _aunna_wip_distribution_analytic_account(self):
+        self.ensure_one()
+        distribution = self._aunna_wip_normalized_distribution(
+            self.analytic_distribution
+        )
+        for key in distribution:
+            account_ids = [
+                int(item)
+                for item in str(key).split(",")
+                if item and item.isdigit()
+            ]
+            account = self.env["account.analytic.account"].browse(
+                account_ids[:1]
+            ).exists()
+            if account:
+                return account
+        return self.env["account.analytic.account"]
 
     def _aunna_wip_fix_distribution(self):
         changed_lines = self.env["account.move.line"]
@@ -130,7 +161,7 @@ class AccountMoveLine(models.Model):
     def _aunna_wip_create_expected_analytic_line(self):
         self.ensure_one()
         calc_line = self.aunna_wip_calculation_line_id
-        analytic_account = calc_line.analytic_account_id
+        analytic_account = self._aunna_wip_expected_analytic_account()
         if not analytic_account:
             return self.env["account.analytic.line"]
 

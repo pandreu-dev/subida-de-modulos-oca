@@ -1,7 +1,7 @@
 {
     "name": "AUNNA WIP - Enlace de proyecto analitico",
     "summary": "Vincula los apuntes analiticos generados por WIP con su proyecto origen",
-    "version": "19.0.1.5.3",
+    "version": "19.0.1.5.5",
     "category": "Accounting/Accounting",
     "author": "AUNNA IT",
     "license": "LGPL-3",
