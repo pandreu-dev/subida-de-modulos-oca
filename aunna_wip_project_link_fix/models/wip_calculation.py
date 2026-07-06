@@ -42,6 +42,7 @@ class AunnaWipCalculation(models.Model):
         )
 
     def _aunna_wip_match_move_line_to_calc_line(self, lines, used_line_ids, distribution):
+        distribution = distribution or {}
         distribution_ids = set()
         for key in distribution:
             distribution_ids.update(
