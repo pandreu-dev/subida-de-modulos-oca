@@ -160,10 +160,48 @@ class AunnaWipCalculation(models.Model):
             limit=1,
         )
 
+    def _aunna_wip_line_analytic_account(self, line):
+        if line.analytic_account_id:
+            return line.analytic_account_id
+        project = line.project_id
+        if project and "account_id" in project._fields and project.account_id:
+            return project.account_id
+        if not line.budget_line_model or not line.budget_line_res_id:
+            return self.env["account.analytic.account"]
+        try:
+            budget_line = self.env[line.budget_line_model].browse(
+                line.budget_line_res_id
+            ).exists()
+        except KeyError:
+            return self.env["account.analytic.account"]
+        if not budget_line:
+            return self.env["account.analytic.account"]
+        for field_name in ("analytic_account_id", "account_id"):
+            field = budget_line._fields.get(field_name)
+            if (
+                field
+                and field.type == "many2one"
+                and getattr(field, "comodel_name", False) == "account.analytic.account"
+                and budget_line[field_name]
+            ):
+                return budget_line[field_name]
+        accounts = self.env["account.analytic.account"]
+        for field_name, field in budget_line._fields.items():
+            if getattr(field, "comodel_name", False) != "account.analytic.account":
+                continue
+            if field.type == "many2one" and budget_line[field_name]:
+                accounts |= budget_line[field_name]
+            elif field.type == "many2many" and budget_line[field_name]:
+                accounts |= budget_line[field_name]
+        if len(accounts) == 1:
+            return accounts
+        return self.env["account.analytic.account"]
+
     def _aunna_wip_line_analytic_distribution(self, line):
-        if not line.analytic_account_id:
+        analytic_account = self._aunna_wip_line_analytic_account(line)
+        if not analytic_account:
             return False
-        return {str(line.analytic_account_id.id): 100.0}
+        return {str(analytic_account.id): 100.0}
 
     def _aunna_wip_lock_budget(self):
         self.ensure_one()
@@ -183,6 +221,44 @@ class AunnaWipCalculation(models.Model):
             vals["analytic_distribution"] = analytic_distribution
         return vals
 
+    def _aunna_wip_move_line_abs_amount(self, move_line):
+        if "balance" in move_line._fields:
+            return abs(move_line.balance)
+        return abs((move_line.debit or 0.0) - (move_line.credit or 0.0))
+
+    def _aunna_wip_match_calc_line_by_amount(self, amount, used_line_ids):
+        currency = self.company_id.currency_id
+        for calc_line in self.line_ids:
+            if calc_line.id in used_line_ids or not calc_line.wip_amount:
+                continue
+            if not currency.compare_amounts(abs(calc_line.wip_amount), abs(amount)):
+                return calc_line
+        for calc_line in self.line_ids:
+            if calc_line.id not in used_line_ids and calc_line.wip_amount:
+                return calc_line
+        return self.env["aunna.wip.calculation.line"]
+
+    def _aunna_wip_force_move_analytic_distribution(self, move, settings):
+        self.ensure_one()
+        income_account = settings["income_account"]
+        used_line_ids = set()
+        for move_line in move.line_ids.filtered(
+            lambda line: line.account_id == income_account
+        ):
+            calc_line = self._aunna_wip_match_calc_line_by_amount(
+                self._aunna_wip_move_line_abs_amount(move_line),
+                used_line_ids,
+            )
+            if not calc_line:
+                continue
+            used_line_ids.add(calc_line.id)
+            distribution = self._aunna_wip_line_analytic_distribution(calc_line)
+            if not distribution:
+                continue
+            move_line.sudo().with_context(check_move_validity=False).write(
+                {"analytic_distribution": distribution}
+            )
+
     def _aunna_wip_prepare_move_vals(self, settings):
         self.ensure_one()
         lines = []
@@ -197,7 +273,7 @@ class AunnaWipCalculation(models.Model):
                     )
                     % (calc_line.budget_line_name or calc_line.display_name)
                 )
-            if not calc_line.analytic_account_id:
+            if not self._aunna_wip_line_analytic_account(calc_line):
                 raise UserError(
                     _("La linea %s no tiene cuenta analitica. No se crea un asiento sin imputacion.")
                     % (calc_line.budget_line_name or calc_line.display_name)
@@ -318,6 +394,7 @@ class AunnaWipCalculation(models.Model):
             )
 
         move = self.env["account.move"].with_company(self.company_id).create(move_vals)
+        self._aunna_wip_force_move_analytic_distribution(move, settings)
         if settings["auto_post"]:
             move.action_post()
 

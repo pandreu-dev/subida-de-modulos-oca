@@ -159,7 +159,7 @@ class AunnaWipCalculation(models.Model):
         account = self._aunna_wip_calc_line_analytic_account(calc_line)
         if not account:
             return {}
-        return {account.id: 100.0}
+        return {str(account.id): 100.0}
 
     def _aunna_wip_distribution_percentage(self, value):
         try:

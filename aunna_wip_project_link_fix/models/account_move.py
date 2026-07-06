@@ -29,7 +29,7 @@ class AccountMoveLine(models.Model):
         account = self._aunna_wip_expected_analytic_account()
         if not account:
             return {}
-        return {account.id: 100.0}
+        return {str(account.id): 100.0}
 
     def _aunna_wip_expected_analytic_account(self):
         self.ensure_one()
