@@ -1,6 +1,6 @@
 import logging
 
-from odoo import fields, models
+from odoo import api, fields, models
 
 
 _logger = logging.getLogger(__name__)
@@ -28,6 +28,8 @@ class AccountMoveLine(models.Model):
         self.ensure_one()
         calc_line = self.aunna_wip_calculation_line_id
         account = calc_line.analytic_account_id
+        if not account and calc_line.project_id and "account_id" in calc_line.project_id._fields:
+            account = calc_line.project_id.account_id
         if not account:
             return {}
         return {str(account.id): 100.0}
@@ -195,11 +197,39 @@ class AccountAnalyticLine(models.Model):
 class AccountMove(models.Model):
     _inherit = "account.move"
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        moves = super().create(vals_list)
+        if not self.env.context.get("aunna_skip_wip_project_link_fix"):
+            moves._aunna_wip_tag_from_matching_calculation()
+        return moves
+
     def action_post(self):
+        self._aunna_wip_tag_from_matching_calculation()
         self._aunna_wip_fix_move_line_distributions()
         result = super().action_post()
         self._aunna_wip_link_analytic_lines_to_projects(force_rebuild=True)
         return result
+
+    def _aunna_wip_tag_from_matching_calculation(self):
+        Calculation = self.env["aunna.wip.calculation"].sudo()
+        for move in self.sudo():
+            if move.line_ids.filtered(lambda line: line.aunna_wip_calculation_line_id):
+                continue
+            if not move.ref or not move.ref.startswith("WIP "):
+                continue
+            calculation = Calculation.search(
+                [
+                    ("name", "=", move.ref[4:]),
+                    ("company_id", "=", move.company_id.id),
+                ],
+                limit=1,
+            )
+            if calculation:
+                calculation.with_context(
+                    aunna_skip_wip_project_link_fix=True
+                )._aunna_wip_tag_move_lines_from_calculation(move)
+        return True
 
     def _aunna_wip_fix_move_line_distributions(self):
         wip_lines = self.sudo().line_ids.filtered(

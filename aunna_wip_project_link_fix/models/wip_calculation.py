@@ -43,8 +43,16 @@ class AunnaWipCalculation(models.Model):
         self.ensure_one()
         return self.line_ids.filtered(
             lambda line: line.wip_amount
-            and line.analytic_account_id
+            and self._aunna_wip_calc_line_analytic_account(line)
         )
+
+    def _aunna_wip_calc_line_analytic_account(self, calc_line):
+        if calc_line.analytic_account_id:
+            return calc_line.analytic_account_id
+        project = calc_line.project_id
+        if project and "account_id" in project._fields:
+            return project.account_id
+        return self.env["account.analytic.account"]
 
     def _aunna_wip_match_move_line_to_calc_line(self, lines, used_line_ids, distribution):
         distribution = distribution or {}
@@ -66,7 +74,10 @@ class AunnaWipCalculation(models.Model):
         return self.env["aunna.wip.calculation.line"]
 
     def _aunna_wip_distribution_for_calc_line(self, distribution, calc_line):
-        account_key = str(calc_line.analytic_account_id.id)
+        account = self._aunna_wip_calc_line_analytic_account(calc_line)
+        if not account:
+            return {}
+        account_key = str(account.id)
         return {account_key: 100.0}
 
     def _aunna_wip_distribution_percentage(self, value):
