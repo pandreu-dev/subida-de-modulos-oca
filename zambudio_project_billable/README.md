@@ -19,6 +19,12 @@ Pequenas reglas de negocio sobre el formulario de **Proyecto** (`project.project
 3. **Cliente obligatorio si es facturable (en la vista).** Cuando el proyecto es
    Facturable, el campo **Cliente** (`partner_id`) es obligatorio en el formulario.
 
+4. **Productividad por defecto = "Actividad facturable".** Un proyecto nuevo se crea
+   con ese valor de Productividad (por **codigo**, con `default_get`), coherente con
+   que se cree Facturable por defecto. Esto **no** genera el cuadro "Informacion
+   guardada" del desplegable (ese cuadro es un `ir.default` guardado en la BD; la
+   migracion `19.0.1.1.0` lo elimina).
+
 ## Detalles tecnicos
 
 - El check Facturable es el campo estandar `allow_billable` (modulo `sale_project`).

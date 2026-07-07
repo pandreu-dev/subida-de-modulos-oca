@@ -16,6 +16,19 @@ class ProjectProject(models.Model):
     # 1) Por defecto, los proyectos se crean como Facturables.
     allow_billable = fields.Boolean(default=True)
 
+    @api.model
+    def default_get(self, fields_list):
+        """Por defecto, un proyecto nuevo tiene Productividad = "Actividad
+        facturable" (coherente con que se cree Facturable por defecto).
+
+        No se redefine el campo de Studio; solo se aporta su valor por defecto de
+        forma segura y solo si no viene ya informado por otra via.
+        """
+        defaults = super().default_get(fields_list)
+        if PRODUCTIVITY_FIELD in self._fields and not defaults.get(PRODUCTIVITY_FIELD):
+            defaults[PRODUCTIVITY_FIELD] = BILLABLE_ACTIVITY
+        return defaults
+
     @api.model_create_multi
     def create(self, vals_list):
         projects = super().create(vals_list)
