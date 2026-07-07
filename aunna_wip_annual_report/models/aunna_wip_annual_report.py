@@ -26,6 +26,7 @@ MONTHS = [
 ]
 
 METRICS = [
+    ("services_income", "Venta de servicios", 5),
     ("recognized_income", "Ingreso reconocido", 10),
     ("invoice", "Facturacion", 20),
     ("real_wip", "WIP real acumulado", 30),
@@ -708,13 +709,9 @@ class AunnaWipAnnualReport(models.Model):
         worksheet.set_margins(left=0.3, right=0.3, top=0.5, bottom=0.5)
 
     def _get_horizontal_visible_months(self, months, active_lines):
-        non_empty_months = {
-            fields.Date.to_date(line.month_start)
-            for line in active_lines
-            if not self._horizontal_line_is_empty(line)
-        }
-        visible_months = [month for month in months if month in non_empty_months]
-        return visible_months or months
+        # Se muestran TODOS los meses del rango del informe, aunque no tengan datos,
+        # para no crear confusion (p.ej. que no falte marzo entre febrero y abril).
+        return months
 
     def _get_horizontal_period_lines(self, use_unsaved_lines=False):
         self.ensure_one()
@@ -800,6 +797,11 @@ class AunnaWipAnnualReport(models.Model):
         running_wip = 0.0
         for month_key, _month_label, month_number in MONTHS:
             start_date, end_date, next_start_date = self._month_period(month_number)
+            values["services_income"][month_key] = self._amount_pl_income(
+                analytic_account,
+                start_date,
+                end_date,
+            )
             values["invoice"][month_key] = self._amount_invoices(
                 analytic_account,
                 start_date,
@@ -834,6 +836,11 @@ class AunnaWipAnnualReport(models.Model):
         for month_start in self._iter_month_starts():
             next_start = month_start + relativedelta(months=1)
             month_end = next_start - timedelta(days=1)
+            services_amount = self._amount_pl_income(
+                analytic_account,
+                month_start,
+                month_end,
+            )
             invoice_amount = self._amount_invoices(
                 analytic_account,
                 month_start,
@@ -845,6 +852,7 @@ class AunnaWipAnnualReport(models.Model):
                 month_end,
             )
             running_wip += recognized_amount - invoice_amount
+            values[(month_start, "services_income")] = services_amount
             values[(month_start, "invoice")] = invoice_amount
             values[(month_start, "recognized_income")] = recognized_amount
             values[(month_start, "real_wip")] = running_wip
@@ -855,6 +863,32 @@ class AunnaWipAnnualReport(models.Model):
         next_start_date = start_date + relativedelta(months=1)
         end_date = next_start_date - timedelta(days=1)
         return start_date, end_date, next_start_date
+
+    def _amount_pl_income(self, analytic_account, start_date, end_date):
+        """Ingreso del P&L (grupo "Ingreso") = "Venta de servicios".
+
+        Suma de los apuntes publicados en cuentas de ingreso (700000, 705000,
+        705001, ...) imputados a la cuenta analitica del informe, en el mes.
+        Equivale al dato "Ingreso" del informe de Perdidas y Ganancias filtrado por
+        el proyecto / cuenta analitica del informe (a diferencia de "Facturacion",
+        que solo recoge facturas de cliente).
+        """
+        MoveLine = self.env["account.move.line"].sudo()
+        domain = [
+            ("date", ">=", start_date),
+            ("date", "<=", end_date),
+            ("company_id", "=", self.company_id.id),
+            ("analytic_distribution", "!=", False),
+        ]
+        domain = expression.AND(
+            [
+                domain,
+                self._posted_move_line_domain(MoveLine),
+                self._income_account_domain(),
+                self._display_type_domain(MoveLine),
+            ]
+        )
+        return self._sum_move_lines(MoveLine.search(domain), analytic_account)
 
     def _amount_invoices(self, analytic_account, start_date, end_date):
         MoveLine = self.env["account.move.line"].sudo()

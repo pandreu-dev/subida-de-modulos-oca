@@ -28,19 +28,21 @@ Se encuentra en **Contabilidad > Informes > Informe WIP mensual** y
 
 ## 2. Conceptos (filas) y su orden
 
-Cada mes tiene **3 conceptos**, en este orden fijo:
+Cada mes tiene estos conceptos, en este orden fijo:
 
-| Orden | Concepto            | Que mide                                                        |
-|-------|---------------------|-----------------------------------------------------------------|
-| 1     | Ingreso reconocido  | Ingreso imputado a la cuenta de ingreso WIP (p. ej. `705001`).  |
-| 2     | Facturacion         | Ingreso facturado al cliente (facturas y abonos).               |
-| 3     | WIP real acumulado  | Acumulado de `Ingreso reconocido - Facturacion`.                |
+| Orden | Concepto            | Que mide                                                                                  |
+|-------|---------------------|-------------------------------------------------------------------------------------------|
+| 1     | Venta de servicios  | Ingreso del P&L (grupo "Ingreso": 700000 + 705000 + 705001 + ...) para la analitica.      |
+| 2     | Ingreso reconocido  | Ingreso imputado a la cuenta de ingreso WIP (p. ej. `705001`).                             |
+| 3     | Facturacion         | Ingreso facturado al cliente (facturas y abonos).                                         |
+| 4     | WIP real acumulado  | Acumulado de `Ingreso reconocido - Facturacion`.                                          |
 
 El orden lo define la constante `METRICS` en
 [models/aunna_wip_annual_report.py](../models/aunna_wip_annual_report.py):
 
 ```python
 METRICS = [
+    ("services_income", "Venta de servicios", 5),
     ("recognized_income", "Ingreso reconocido", 10),
     ("invoice", "Facturacion", 20),
     ("real_wip", "WIP real acumulado", 30),

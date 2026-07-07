@@ -1,7 +1,7 @@
 {
     "name": "AUNNA WIP - Informe anual",
     "summary": "Informe anual editable de prevision y reales WIP por proyecto o cuenta analitica",
-    "version": "19.0.7.0.0",
+    "version": "19.0.7.2.0",
     "category": "Accounting/Reporting",
     "author": "AUNNA",
     "license": "LGPL-3",

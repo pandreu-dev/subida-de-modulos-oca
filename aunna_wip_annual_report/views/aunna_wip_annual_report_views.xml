@@ -105,6 +105,7 @@
                 <filter string="Con real" name="with_real" domain="[('has_real_amount', '=', True)]"/>
                 <filter string="Sin real" name="without_real" domain="[('has_real_amount', '=', False)]"/>
                 <separator/>
+                <filter string="Venta de servicios" name="metric_services_income" domain="[('metric', '=', 'services_income')]"/>
                 <filter string="Ingreso reconocido" name="metric_recognized_income" domain="[('metric', '=', 'recognized_income')]"/>
                 <filter string="Facturacion" name="metric_invoice" domain="[('metric', '=', 'invoice')]"/>
                 <filter string="WIP real" name="metric_real_wip" domain="[('metric', '=', 'real_wip')]"/>
@@ -201,16 +202,14 @@
                                 name="visible_period_line_ids"
                                 nolabel="1"
                             >
-                                <list editable="bottom" create="0" delete="0" decoration-muted="is_empty" decoration-bf="metric == 'real_wip'">
+                                <!-- Solo se edita "Prev." (Previsto). Real y Dif. se ven en la
+                                     pestana "Vista horizontal" (solo lectura). -->
+                                <list editable="bottom" create="0" delete="0" decoration-bf="metric == 'real_wip'">
                                     <field name="period_label" readonly="1"/>
                                     <field name="metric" readonly="1"/>
                                     <field name="prev_amount" sum="Previsto"/>
-                                    <field name="real_amount" sum="Real"/>
-                                    <field name="diff_amount" sum="Diferencia"/>
                                     <field name="in_report_range" optional="hide"/>
                                     <field name="has_prev_amount" optional="hide"/>
-                                    <field name="has_real_amount" optional="hide"/>
-                                    <field name="is_empty" optional="hide"/>
                                 </list>
                             </field>
                         </page>
