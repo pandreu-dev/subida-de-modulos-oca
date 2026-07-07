@@ -1,0 +1,13 @@
+<odoo>
+    <!-- 3) Si el proyecto es facturable, el cliente es obligatorio (solo en la vista). -->
+    <record id="view_project_project_form_zambudio_billable" model="ir.ui.view">
+        <field name="name">project.project.form.zambudio.billable</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <field name="partner_id" position="attributes">
+                <attribute name="required">allow_billable</attribute>
+            </field>
+        </field>
+    </record>
+</odoo>
