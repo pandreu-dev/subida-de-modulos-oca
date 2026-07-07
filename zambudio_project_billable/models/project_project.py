@@ -5,7 +5,8 @@ from odoo import api, fields, models
 # seleccion que representa una actividad facturable.
 #
 # Si en el futuro Studio recrea el campo con otro nombre tecnico, o cambia la
-# etiqueta/valor de "Actividad facturable", basta con ajustar estas dos constantes.
+# etiqueta/valor de "Actividad facturable", basta con ajustar estas dos constantes
+# (y el nombre del campo en el decorador @api.onchange de mas abajo).
 PRODUCTIVITY_FIELD = "x_studio_selection_field_3ib_1j1am422d"
 BILLABLE_ACTIVITY = "Actividad facturable"
 
@@ -13,7 +14,7 @@ BILLABLE_ACTIVITY = "Actividad facturable"
 class ProjectProject(models.Model):
     _inherit = "project.project"
 
-    # 1) Por defecto, los proyectos se crean como Facturables.
+    # Por defecto, los proyectos se crean como Facturables.
     allow_billable = fields.Boolean(default=True)
 
     @api.model
@@ -29,40 +30,29 @@ class ProjectProject(models.Model):
             defaults[PRODUCTIVITY_FIELD] = BILLABLE_ACTIVITY
         return defaults
 
-    @api.model_create_multi
-    def create(self, vals_list):
-        projects = super().create(vals_list)
-        projects._zambudio_sync_billable_from_productivity()
-        return projects
+    @api.onchange("x_studio_selection_field_3ib_1j1am422d")
+    def _onchange_zambudio_productividad(self):
+        """Sincronizacion al CAMBIAR el campo Productividad:
 
-    def write(self, vals):
-        result = super().write(vals)
-        if not self.env.context.get("zambudio_skip_billable_sync"):
-            self._zambudio_sync_billable_from_productivity()
-        return result
-
-    def _zambudio_sync_billable_from_productivity(self):
-        """Sincroniza el check Facturable con el campo Productividad.
-
-        Regla (solo desmarcar): al guardar, si el proyecto tiene una Productividad
-        informada y distinta de "Actividad facturable", se quita el check
-        Facturable. No se vuelve a marcar de forma automatica: si un proyecto pasa a
-        ser facturable, se marca a mano.
-
-        Un proyecto sin Productividad informada conserva el check (por defecto viene
-        marcado); solo se desmarca cuando se le asigna una actividad no facturable.
+        - Si Productividad = "Actividad facturable": se marca Facturable (y el
+          cliente pasa a ser obligatorio, controlado en la vista).
+        - Si Productividad deja de ser "Actividad facturable": se desmarca Facturable
+          y se limpia el cliente.
         """
-        if PRODUCTIVITY_FIELD not in self._fields:
-            # El campo de Studio no esta disponible: no hay nada que sincronizar.
-            return True
         for project in self:
-            productivity = project[PRODUCTIVITY_FIELD]
-            if (
-                project.allow_billable
-                and productivity
-                and productivity != BILLABLE_ACTIVITY
-            ):
-                project.with_context(
-                    zambudio_skip_billable_sync=True
-                ).allow_billable = False
-        return True
+            if project[PRODUCTIVITY_FIELD] == BILLABLE_ACTIVITY:
+                project.allow_billable = True
+            else:
+                project.allow_billable = False
+                project.partner_id = False
+
+    @api.onchange("allow_billable")
+    def _onchange_zambudio_allow_billable(self):
+        """Sincronizacion al CAMBIAR el check Facturable:
+
+        - Si se desmarca Facturable: se limpia el cliente.
+        - Si se marca Facturable: el cliente es obligatorio (controlado en la vista).
+        """
+        for project in self:
+            if not project.allow_billable:
+                project.partner_id = False

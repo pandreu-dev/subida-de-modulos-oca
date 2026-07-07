@@ -5,25 +5,28 @@ Pequenas reglas de negocio sobre el formulario de **Proyecto** (`project.project
 ## Que hace
 
 1. **Facturable por defecto.** Los proyectos nuevos se crean con el check
-   **Facturable** (`allow_billable`) ya marcado.
+   **Facturable** (`allow_billable`) ya marcado y con **Productividad = "Actividad
+   facturable"** (por codigo, con `default_get`).
 
-2. **Sincronizacion con Productividad (solo desmarcar).** Al guardar, si el campo
-   **Productividad** tiene un valor informado y **distinto de "Actividad facturable"**
-   (es decir: *Actividad No facturable*, *Inactividad* o *Ausencias*), se **quita**
-   automaticamente el check Facturable.
-   - No se vuelve a marcar de forma automatica: si un proyecto debe volver a ser
-     facturable, se marca a mano.
-   - Un proyecto **sin** Productividad conserva el check por defecto (solo se desmarca
-     al asignarle una actividad no facturable).
+2. **Sincronizacion REACTIVA (al cambiar el campo, no al guardar).** La
+   sincronizacion se ejecuta con `@api.onchange`, en el formulario, en el momento de
+   cambiar Productividad o Facturable:
+
+   - Al **cambiar Productividad**:
+     - Si pasa a **"Actividad facturable"** -> se **marca** Facturable (y el cliente
+       pasa a ser obligatorio).
+     - Si **deja de ser** "Actividad facturable" -> se **desmarca** Facturable y se
+       **limpia el cliente**.
+   - Al **cambiar Facturable**:
+     - Si se **desmarca** -> se **limpia el cliente**.
+     - Si se **marca** -> el cliente es **obligatorio**.
 
 3. **Cliente obligatorio si es facturable (en la vista).** Cuando el proyecto es
    Facturable, el campo **Cliente** (`partner_id`) es obligatorio en el formulario.
 
-4. **Productividad por defecto = "Actividad facturable".** Un proyecto nuevo se crea
-   con ese valor de Productividad (por **codigo**, con `default_get`), coherente con
-   que se cree Facturable por defecto. Esto **no** genera el cuadro "Informacion
-   guardada" del desplegable (ese cuadro es un `ir.default` guardado en la BD; la
-   migracion `19.0.1.1.0` lo elimina).
+> El cuadro "Informacion guardada" del desplegable de Productividad era un
+> `ir.default` guardado en la BD (no lo genera este modulo); la migracion
+> `19.0.1.1.0` lo elimina. El valor por defecto se aporta por codigo.
 
 ## Detalles tecnicos
 
