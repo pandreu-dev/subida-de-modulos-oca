@@ -170,6 +170,7 @@ class AunnaWipCalculation(models.Model):
     def action_create_wip_move(self, reversal_date=False):
         result = super().action_create_wip_move(reversal_date=reversal_date)
         self._aunna_wip_tag_calculation_moves_to_projects()
+        self._aunna_wip_force_own_move_distributions()
         return result
 
     def _aunna_wip_create_native_reversal(self, move, reversal_date, settings):
@@ -180,15 +181,22 @@ class AunnaWipCalculation(models.Model):
         )
         self._aunna_wip_tag_move_lines_from_calculation(reversal_move)
         self._aunna_wip_copy_project_link_to_reversal_lines(move, reversal_move)
+        self._aunna_wip_force_own_move_distributions(moves=reversal_move)
         reversal_move._aunna_wip_link_analytic_lines_to_projects(force_rebuild=True)
         return reversal_move
 
     def action_open_wip_move(self):
         self._aunna_wip_tag_calculation_moves_to_projects()
+        self._aunna_wip_force_own_move_distributions(
+            moves=self.mapped("move_id"),
+        )
         return super().action_open_wip_move()
 
     def action_open_reversal_move(self):
         self._aunna_wip_tag_calculation_moves_to_projects()
+        self._aunna_wip_force_own_move_distributions(
+            moves=self.mapped("reversal_move_id"),
+        )
         return super().action_open_reversal_move()
 
     def _aunna_wip_tag_calculation_moves_to_projects(self):
@@ -196,9 +204,87 @@ class AunnaWipCalculation(models.Model):
             moves = calculation.move_id | calculation.reversal_move_id
             for move in moves:
                 calculation._aunna_wip_tag_move_lines_from_calculation(move)
-            moves._aunna_wip_force_analytic_distribution_from_calculation()
+            calculation._aunna_wip_force_own_move_distributions(moves=moves)
             moves._aunna_wip_link_analytic_lines_to_projects(force_rebuild=True)
         return True
+
+    def _aunna_wip_force_own_move_distributions(
+        self,
+        moves=False,
+        rebuild_analytic=True,
+    ):
+        for calculation in self.sudo():
+            candidate_lines = calculation._aunna_wip_project_candidate_lines()
+            if not candidate_lines:
+                continue
+            settings = calculation._aunna_wip_accounting_settings(
+                calculation.company_id
+            )
+            income_account = settings.get("income_account")
+            target_moves = moves or (calculation.move_id | calculation.reversal_move_id)
+            target_moves = target_moves.sudo().filtered(
+                lambda move: move.company_id == calculation.company_id
+            )
+            changed_lines = calculation.env["account.move.line"]
+            for move in target_moves:
+                used_line_ids = set()
+                move_lines = calculation._aunna_wip_distribution_target_lines(
+                    move,
+                    income_account,
+                )
+                for move_line in move_lines:
+                    calc_line = move_line.aunna_wip_calculation_line_id
+                    if not calc_line or calc_line not in candidate_lines:
+                        calc_line = calculation._aunna_wip_match_move_line_to_calc_line(
+                            candidate_lines,
+                            used_line_ids,
+                            move_line.analytic_distribution,
+                            calculation._aunna_wip_move_line_abs_amount(move_line),
+                        )
+                    if not calc_line:
+                        continue
+                    used_line_ids.add(calc_line.id)
+                    distribution = calculation._aunna_wip_distribution_for_calc_line(
+                        move_line.analytic_distribution,
+                        calc_line,
+                    )
+                    if not distribution:
+                        continue
+                    project = calculation._aunna_wip_calc_line_project(calc_line)
+                    vals = {
+                        "analytic_distribution": distribution,
+                        "aunna_wip_calculation_line_id": calc_line.id,
+                        "aunna_wip_project_id": project.id or False,
+                    }
+                    move_line.sudo().with_context(
+                        aunna_skip_wip_distribution_force=True,
+                        check_move_validity=False,
+                    ).write(vals)
+                    changed_lines |= move_line
+            if rebuild_analytic and changed_lines:
+                target_moves._aunna_wip_link_analytic_lines_to_projects(
+                    force_rebuild=True,
+                )
+        return True
+
+    def _aunna_wip_distribution_target_lines(self, move, income_account):
+        self.ensure_one()
+        amount_lines = move.line_ids.filtered(
+            lambda line: self._aunna_wip_move_line_abs_amount(line)
+        )
+        if income_account:
+            income_lines = amount_lines.filtered(
+                lambda line: line.account_id == income_account
+            )
+            if income_lines:
+                return income_lines
+        tagged_lines = amount_lines.filtered(
+            lambda line: line.aunna_wip_calculation_line_id
+            or line.aunna_wip_project_id
+        )
+        if tagged_lines:
+            return tagged_lines
+        return amount_lines.filtered(self._aunna_wip_is_income_move_line)
 
     def _aunna_wip_tag_move_lines_from_calculation(self, move):
         self.ensure_one()

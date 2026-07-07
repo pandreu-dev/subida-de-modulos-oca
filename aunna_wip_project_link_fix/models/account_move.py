@@ -277,6 +277,16 @@ class AccountMove(models.Model):
     def _aunna_wip_find_matching_calculation(self):
         self.ensure_one()
         Calculation = self.env["aunna.wip.calculation"].sudo()
+        calculation = Calculation.search(
+            [
+                "|",
+                ("move_id", "=", self.id),
+                ("reversal_move_id", "=", self.id),
+            ],
+            limit=1,
+        )
+        if calculation:
+            return calculation
         refs = []
         for value in (self.ref, self.name):
             if not value:
@@ -300,6 +310,12 @@ class AccountMove(models.Model):
         for move in self.sudo():
             calculation = move._aunna_wip_find_matching_calculation()
             if not calculation:
+                continue
+            if hasattr(calculation, "_aunna_wip_force_own_move_distributions"):
+                calculation._aunna_wip_force_own_move_distributions(
+                    moves=move,
+                    rebuild_analytic=False,
+                )
                 continue
             settings = calculation._aunna_wip_accounting_settings(
                 calculation.company_id

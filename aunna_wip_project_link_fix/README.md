@@ -24,3 +24,9 @@ La reconstruccion no informa cantidad/horas a cero en el apunte analitico WIP, p
 6. Confirmar que las lineas WIP aparecen bajo el proyecto correcto y con importe.
 
 Para reparar un asiento antiguo, abrir el calculo WIP desde `Calculos WIP` y entrar en el asiento con `Abrir asiento WIP`. Esa accion vuelve a normalizar la distribucion y reconstruye el apunte analitico si estaba a cero.
+
+## Estado de la incidencia
+
+La incidencia de distribucion analitica WIP sigue pendiente de validacion funcional en Odoo. El historial completo de pruebas, sintomas y comprobaciones recomendadas esta documentado en:
+
+`docs/INCIDENCIA_DISTRIBUCION_ANALITICA_WIP.md`
