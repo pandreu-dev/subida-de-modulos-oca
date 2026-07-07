@@ -139,10 +139,23 @@ class AccountMove(models.Model):
                     move_line.sudo().with_context(
                         check_move_validity=False,
                     ).write({"analytic_distribution": desired})
-            # 2) Enriquecer los apuntes analiticos nativos con el proyecto.
+            # 2) Enriquecer los apuntes analiticos nativos con el proyecto y
+            #    garantizar el importe contable correcto.
             project = move_line.aunna_wip_project_id
             calc_line = move_line.aunna_wip_calculation_line_id
-            for analytic_line in move_line.sudo().analytic_line_ids:
+            analytic_lines = move_line.sudo().analytic_line_ids
+            # El WIP genera un unico apunte analitico por linea de ingreso (una
+            # cuenta al 100%), cuyo importe debe ser el importe contable (-balance).
+            single_line = len(analytic_lines) == 1
+            expected_amount = -move_line.balance
+            currency = (
+                move_line.company_id or move_line.move_id.company_id
+            ).currency_id
+            for analytic_line in analytic_lines:
+                line_sudo = analytic_line.sudo().with_context(
+                    aunna_skip_project_cost_moves=True,
+                    skip_analytic_sync=True,
+                )
                 vals = {}
                 if analytic_line.aunna_wip_calculation_line_id != calc_line:
                     vals["aunna_wip_calculation_line_id"] = calc_line.id
@@ -151,8 +164,15 @@ class AccountMove(models.Model):
                 if project and has_project_field and analytic_line.project_id != project:
                     vals["project_id"] = project.id
                 if vals:
-                    analytic_line.sudo().with_context(
-                        aunna_skip_project_cost_moves=True,
-                        skip_analytic_sync=True,
-                    ).write(vals)
+                    line_sudo.write(vals)
+                # Al escribir project_id, hr_timesheet inyecta account_id en los
+                # valores y recalcula amount = -unit_amount * coste = 0 (el apunte
+                # no tiene horas). Se restaura el importe contable real con una
+                # escritura SOLO de amount, que no dispara ese recalculo. Se calcula
+                # desde la linea contable, de modo que tambien repara apuntes que ya
+                # quedaron a 0.
+                if single_line and currency and currency.compare_amounts(
+                    analytic_line.amount, expected_amount
+                ) != 0:
+                    line_sudo.write({"amount": expected_amount})
         return True
