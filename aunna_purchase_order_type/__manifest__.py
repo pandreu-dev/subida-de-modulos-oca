@@ -1,7 +1,7 @@
 {
     "name": "Aunnna Purchase Order Type",
     "summary": "Anade tipo de pedido en solicitudes de presupuesto y pedidos de compra",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.1.0",
     "category": "Purchase",
     "author": "Aunnna",
     "license": "LGPL-3",
