@@ -114,9 +114,13 @@ class AccountMove(models.Model):
             if not wip_move_lines:
                 continue
             try:
-                move._aunna_wip_link_move_analytic_lines(
-                    wip_move_lines, has_project_field
-                )
+                # Savepoint: si el enriquecimiento falla (p.ej. un error de BD), se
+                # revierte solo este bloque sin abortar la transaccion de
+                # contabilizacion en curso (action_post / reversion / write final).
+                with move.env.cr.savepoint():
+                    move._aunna_wip_link_move_analytic_lines(
+                        wip_move_lines, has_project_field
+                    )
             except Exception:
                 _logger.exception(
                     "No se pudieron enlazar los apuntes analiticos WIP de %s con su proyecto",
@@ -138,7 +142,7 @@ class AccountMove(models.Model):
             # 2) Enriquecer los apuntes analiticos nativos con el proyecto.
             project = move_line.aunna_wip_project_id
             calc_line = move_line.aunna_wip_calculation_line_id
-            for analytic_line in move_line.analytic_line_ids:
+            for analytic_line in move_line.sudo().analytic_line_ids:
                 vals = {}
                 if analytic_line.aunna_wip_calculation_line_id != calc_line:
                     vals["aunna_wip_calculation_line_id"] = calc_line.id

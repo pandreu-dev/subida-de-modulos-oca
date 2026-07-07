@@ -105,9 +105,8 @@
                 <filter string="Con real" name="with_real" domain="[('has_real_amount', '=', True)]"/>
                 <filter string="Sin real" name="without_real" domain="[('has_real_amount', '=', False)]"/>
                 <separator/>
-                <filter string="ER/OE" name="metric_er" domain="[('metric', '=', 'er')]"/>
-                <filter string="Facturacion" name="metric_invoice" domain="[('metric', '=', 'invoice')]"/>
                 <filter string="Ingreso reconocido" name="metric_recognized_income" domain="[('metric', '=', 'recognized_income')]"/>
+                <filter string="Facturacion" name="metric_invoice" domain="[('metric', '=', 'invoice')]"/>
                 <filter string="WIP real" name="metric_real_wip" domain="[('metric', '=', 'real_wip')]"/>
                 <separator/>
                 <filter string="T1" name="quarter_1" domain="[('period_quarter', '=', 'q1')]"/>

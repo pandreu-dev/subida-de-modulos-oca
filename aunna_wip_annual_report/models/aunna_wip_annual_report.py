@@ -1,5 +1,5 @@
 import base64
-from datetime import date, datetime, time, timedelta
+from datetime import date, timedelta
 from html import escape
 from io import BytesIO
 
@@ -26,10 +26,9 @@ MONTHS = [
 ]
 
 METRICS = [
-    ("er", "ER/OE", 10),
+    ("recognized_income", "Ingreso reconocido", 10),
     ("invoice", "Facturacion", 20),
-    ("recognized_income", "Ingreso reconocido", 30),
-    ("real_wip", "WIP real acumulado", 40),
+    ("real_wip", "WIP real acumulado", 30),
 ]
 METRIC_LABELS = {metric: label for metric, label, _sequence in METRICS}
 METRIC_SEQUENCE = {metric: sequence for metric, _label, sequence in METRICS}
@@ -220,12 +219,22 @@ class AunnaWipAnnualReport(models.Model):
         return result
 
     def _ensure_metric_lines(self):
+        """Crea las lineas de concepto que falten, elimina las obsoletas (conceptos
+        que ya no existen en METRICS, p.ej. ER/OE) y resincroniza la secuencia para
+        respetar el orden definido en METRICS."""
         Line = self.env["aunna.wip.annual.report.line"]
+        valid_metrics = {metric for metric, _label, _sequence in METRICS}
         for report in self:
-            existing_metrics = set(report.line_ids.mapped("metric"))
+            obsolete = report.line_ids.filtered(
+                lambda line: line.metric not in valid_metrics
+            )
+            if obsolete:
+                obsolete.unlink()
+            existing = {line.metric: line for line in report.line_ids}
             commands = []
             for metric, _label, sequence in METRICS:
-                if metric not in existing_metrics:
+                line = existing.get(metric)
+                if line is None:
                     commands.append(
                         {
                             "report_id": report.id,
@@ -233,12 +242,22 @@ class AunnaWipAnnualReport(models.Model):
                             "sequence": sequence,
                         }
                     )
+                elif line.sequence != sequence:
+                    line.sequence = sequence
             if commands:
                 Line.create(commands)
 
     def _ensure_period_lines(self):
+        """Crea las lineas mensuales que falten, elimina las obsoletas y resincroniza
+        la secuencia para respetar el orden definido en METRICS."""
         PeriodLine = self.env["aunna.wip.annual.report.period.line"]
+        valid_metrics = {metric for metric, _label, _sequence in METRICS}
         for report in self:
+            obsolete = report.period_line_ids.filtered(
+                lambda line: line.metric not in valid_metrics
+            )
+            if obsolete:
+                obsolete.with_context(skip_wip_horizontal_update=True).unlink()
             existing = {
                 (line.month_start, line.metric): line
                 for line in report.period_line_ids
@@ -246,16 +265,20 @@ class AunnaWipAnnualReport(models.Model):
             to_create = []
             for month_start in report._iter_month_starts():
                 for metric, _label, sequence in METRICS:
-                    if (month_start, metric) in existing:
-                        continue
-                    to_create.append(
-                        {
-                            "report_id": report.id,
-                            "month_start": month_start,
-                            "metric": metric,
-                            "sequence": sequence,
-                        }
-                    )
+                    line = existing.get((month_start, metric))
+                    if line is None:
+                        to_create.append(
+                            {
+                                "report_id": report.id,
+                                "month_start": month_start,
+                                "metric": metric,
+                                "sequence": sequence,
+                            }
+                        )
+                    elif line.sequence != sequence:
+                        line.with_context(
+                            skip_wip_horizontal_update=True
+                        ).sequence = sequence
             if to_create:
                 PeriodLine.create(to_create)
 
@@ -777,11 +800,6 @@ class AunnaWipAnnualReport(models.Model):
         running_wip = 0.0
         for month_key, _month_label, month_number in MONTHS:
             start_date, end_date, next_start_date = self._month_period(month_number)
-            values["er"][month_key] = self._amount_sale_orders(
-                analytic_account,
-                start_date,
-                next_start_date,
-            )
             values["invoice"][month_key] = self._amount_invoices(
                 analytic_account,
                 start_date,
@@ -816,11 +834,6 @@ class AunnaWipAnnualReport(models.Model):
         for month_start in self._iter_month_starts():
             next_start = month_start + relativedelta(months=1)
             month_end = next_start - timedelta(days=1)
-            er_amount = self._amount_sale_orders(
-                analytic_account,
-                month_start,
-                next_start,
-            )
             invoice_amount = self._amount_invoices(
                 analytic_account,
                 month_start,
@@ -832,7 +845,6 @@ class AunnaWipAnnualReport(models.Model):
                 month_end,
             )
             running_wip += recognized_amount - invoice_amount
-            values[(month_start, "er")] = er_amount
             values[(month_start, "invoice")] = invoice_amount
             values[(month_start, "recognized_income")] = recognized_amount
             values[(month_start, "real_wip")] = running_wip
@@ -843,75 +855,6 @@ class AunnaWipAnnualReport(models.Model):
         next_start_date = start_date + relativedelta(months=1)
         end_date = next_start_date - timedelta(days=1)
         return start_date, end_date, next_start_date
-
-    def _amount_sale_orders(self, analytic_account, start_date, next_start_date):
-        if "sale.order.line" not in self.env.registry:
-            return 0.0
-        SaleLine = self.env["sale.order.line"].sudo()
-        if "analytic_distribution" not in SaleLine._fields:
-            return 0.0
-
-        date_field = self._sale_order_date_field()
-        if not date_field:
-            return 0.0
-
-        domain = [
-            ("order_id.state", "in", ["sale", "done"]),
-            ("order_id.company_id", "=", self.company_id.id),
-            ("analytic_distribution", "!=", False),
-        ]
-        domain = expression.AND(
-            [
-                domain,
-                self._sale_order_line_date_domain(
-                    date_field,
-                    start_date,
-                    next_start_date,
-                ),
-                self._display_type_domain(SaleLine),
-            ]
-        )
-        amount = 0.0
-        for line in SaleLine.search(domain):
-            ratio = self._analytic_distribution_ratio(
-                line.analytic_distribution,
-                analytic_account,
-            )
-            if ratio:
-                amount += (line.price_subtotal or 0.0) * ratio
-        return amount
-
-    def _sale_order_date_field(self):
-        SaleOrder = self.env["sale.order"]
-        for field_name in ("confirmation_date", "date_order"):
-            if field_name in SaleOrder._fields:
-                return field_name
-        return False
-
-    def _sale_order_line_date_domain(self, date_field, start_date, next_start_date):
-        field = self.env["sale.order"]._fields[date_field]
-        field_name = "order_id.%s" % date_field
-        if field.type == "datetime":
-            return [
-                (
-                    field_name,
-                    ">=",
-                    fields.Datetime.to_string(
-                        datetime.combine(start_date, time.min)
-                    ),
-                ),
-                (
-                    field_name,
-                    "<",
-                    fields.Datetime.to_string(
-                        datetime.combine(next_start_date, time.min)
-                    ),
-                ),
-            ]
-        return [
-            (field_name, ">=", fields.Date.to_string(start_date)),
-            (field_name, "<", fields.Date.to_string(next_start_date)),
-        ]
 
     def _amount_invoices(self, analytic_account, start_date, end_date):
         MoveLine = self.env["account.move.line"].sudo()
