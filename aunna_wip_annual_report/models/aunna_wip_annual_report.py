@@ -57,9 +57,11 @@ REPORT_GROUPS = [
         "rows": [
             {"label": "Horas internas", "metric": None},
             {"label": "Horas externas", "metric": None},
-            {"label": "Servicios subcontratados", "metric": None},
-            {"label": "Infraestructura", "metric": None},
-            {"label": "Otros", "metric": None},
+            # "Pedidos" se desglosara en una linea por cada tipo de pedido
+            # (aunna.purchase.order.type) con importe distinto de cero.
+            {"label": "Pedidos", "metric": None},
+            {"label": "Materiales", "metric": None},
+            {"label": "Gastos", "metric": None},
         ],
         "total_label": "Total costes",
     },
