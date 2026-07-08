@@ -38,33 +38,39 @@ Contabilidad > Informes.
 
 ## Conceptos (filas) y fuentes de datos reales
 
-**Ingresos** (grupo contable **70**, imputado a la analitica del informe):
+**Ingresos** (grupo contable **70**, imputado a la analitica del informe). Se alimentan
+de los **asientos WIP (ingreso reconocido)**, **NO de las facturas de cliente**:
 
-- **Venta de servicios**: cuentas **705** (incluye `705000` servicios facturados y
-  `705001` ingreso reconocido del WIP).
-- **Venta de productos**: resto del grupo **70** (`700...`).
-- **Total ingresos** = grupo 70 completo, que coincide con la fila "Ingreso" del
-  informe de **Perdidas y Ganancias** filtrado por el mismo proyecto/cuenta analitica.
+- **Venta de servicios**: cuentas **705** en asientos que no son factura de cliente.
+- **Venta de productos**: resto del grupo **70** (`700...`) en asientos que no son
+  factura de cliente.
+- **Total ingresos** = servicios + productos = ingreso reconocido via asientos WIP.
 
 **WIP**:
 
 - **Facturacion**: facturas/abonos de cliente (`out_invoice` / `out_refund`) en cuentas
-  del grupo 70.
-- **WIP**: acumulado mensual de `Total ingresos - Facturacion` (arrastra el saldo
-  anterior al rango). Representa el ingreso reconocido aun no facturado; queda a 0 al
-  facturar el proyecto al 100%.
+  del grupo 70. Se muestra aparte; no entra en Ingresos.
+- **WIP**: acumulado del **ingreso reconocido** (arrastra el saldo anterior al rango).
+  Lo mueve el **asiento WIP**; una factura no lo mueve. Queda a 0 al facturar el
+  proyecto al 100% (dentro del flujo WIP).
 
-**Costes** (Horas internas, Horas externas, Pedidos, Materiales, Gastos) y **PM**:
-aparecen en la estructura pero estan **pendientes de conectar su fuente**.
+**Costes** (Horas internas, Horas externas, Pedidos, Materiales, Gastos) salen de las
+mismas fuentes que el panel de **Rentabilidad** del proyecto. **PM** se calcula a partir
+de Ingresos y Costes.
 
 > Historico: la fila **ER/OE** se retiro en `19.0.7.0.0`; en `19.0.8.0.0` se separo
-> Venta de servicios / Venta de productos y se retiro **Ingreso reconocido**. Las
-> migraciones adaptan los informes ya existentes.
+> Venta de servicios / Venta de productos y se retiro **Ingreso reconocido**. En
+> `19.0.12.0.0` los **Ingresos** dejaron de incluir las facturas de cliente (solo
+> asientos WIP), para que una factura no infle "Venta de productos". Las migraciones
+> adaptan los informes ya existentes.
 
 ## Notas
 
 El calculo se filtra por la cuenta analitica seleccionada. Si se selecciona un
 proyecto, el modulo intenta localizar automaticamente su cuenta analitica.
 
-Para una explicacion detallada de cada calculo y del contexto del modulo consulta
-[docs/GUIA_CALCULOS.md](docs/GUIA_CALCULOS.md).
+## Documentacion
+
+- **Manual de usuario** (como usarlo, como conseguir que salgan los datos y por que a
+  veces sale 0): [docs/MANUAL_USUARIO.md](docs/MANUAL_USUARIO.md).
+- **Guia de calculos** (detalle tecnico de cada dato): [docs/GUIA_CALCULOS.md](docs/GUIA_CALCULOS.md).

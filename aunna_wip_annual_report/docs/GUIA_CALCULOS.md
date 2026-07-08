@@ -33,11 +33,11 @@ WIP), como el cuadro de referencia. Los conceptos con dato contable son:
 
 | Seccion  | Concepto            | Que mide                                                                     |
 |----------|---------------------|------------------------------------------------------------------------------|
-| Ingresos | Venta de servicios  | Ingreso en cuentas **705** para la analitica (incluye 705000 y 705001 WIP).  |
-| Ingresos | Venta de productos  | Ingreso en el resto del grupo **70** (700...) para la analitica.             |
-| Ingresos | *Total ingresos*    | Servicios + Productos = grupo **70** completo (= fila "Ingreso" del P&L).     |
-| WIP      | Facturacion         | Facturas de cliente en cuentas del grupo **70** para la analitica.           |
-| WIP      | WIP                 | Acumulado de `Total ingresos - Facturacion`, mes a mes.                      |
+| Ingresos | Venta de servicios  | Ingreso reconocido (asientos WIP) en cuentas **705**, SIN facturas.          |
+| Ingresos | Venta de productos  | Ingreso reconocido en el resto del grupo **70** (700...), SIN facturas.      |
+| Ingresos | *Total ingresos*    | Servicios + Productos = ingreso reconocido via asientos WIP.                 |
+| WIP      | Facturacion         | Facturas de cliente en cuentas del grupo **70** (aparte, no entra en Ingresos). |
+| WIP      | WIP                 | Acumulado del ingreso reconocido (lo mueve el asiento WIP, no la factura).   |
 
 Las filas de **Costes** (Horas internas, Horas externas, Pedidos, Materiales, Gastos)
 y **PM** aparecen en la estructura pero estan pendientes de conectar su fuente.
@@ -98,14 +98,19 @@ por el **ratio analitico** (ver seccion 6).
 
 Metodo: `_amount_income_by_code(analytic, desde, hasta, codigo)`.
 
+Los Ingresos se toman de los **asientos WIP (ingreso reconocido)** y **excluyen las
+facturas/abonos de cliente** (`move_type not in (out_invoice, out_refund)`, ver
+`_non_customer_invoice_domain`). Asi una factura no infla "Venta de productos".
+
 - **Venta de servicios** (`"705%"`): apuntes en cuentas cuyo codigo empieza por
-  **705** (incluye `705000` prestaciones facturadas y `705001` ingreso reconocido del
-  WIP). Incluye todos los tipos de asiento (facturas y asientos WIP).
+  **705** (p. ej. `705001` ingreso reconocido del WIP), en asientos que **no** son
+  factura de cliente.
 - **Venta de productos**: `Total ingresos - Venta de servicios`, donde
-  **Total ingresos** = apuntes del grupo **70** completo (`"70%"`). Es decir, el resto
-  del grupo 70 (700...).
-- **Total ingresos** = grupo 70 completo. Coincide con la fila **"Ingreso"** del
-  informe de **Perdidas y Ganancias** filtrado por el mismo proyecto/cuenta analitica.
+  **Total ingresos** = apuntes del grupo **70** completo (`"70%"`) sin facturas. Es
+  decir, el resto del grupo 70 (700...) reconocido via asiento WIP.
+- **Total ingresos** = ingreso reconocido del grupo 70 (sin facturas de cliente). La
+  fila **"Ingreso"** del P&L incluye ademas las facturas, por lo que ya **no tiene por
+  que coincidir**; lo facturado se ve en la fila **Facturacion**.
 
 ### 4.2 Facturacion
 
@@ -122,12 +127,13 @@ Es cuanto se ha **facturado** del proyecto en el mes.
 Metodo: dentro de `_collect_period_real_values` / `_collect_real_values`.
 
 - Formula mensual (definicion del negocio):
-  `WIP_mes = WIP_mes_anterior + (Total ingresos_mes - Facturacion_mes)`.
-- Es un **acumulado**. Como `Total ingresos - Facturacion` equivale al movimiento neto
-  del ingreso reconocido (705001), el WIP acumulado representa el ingreso reconocido
-  aun **no facturado**; queda a 0 cuando el proyecto se factura al 100%.
+  `WIP_mes = WIP_mes_anterior + Total ingresos_mes`, donde `Total ingresos` es el
+  **ingreso reconocido** del mes (asientos WIP, sin facturas).
+- Es un **acumulado** del ingreso reconocido. Lo mueve el **asiento WIP**; una factura
+  **no lo mueve** (la factura solo aparece en Facturacion). En el flujo WIP, el asiento
+  de cierre contra lo reconocido lo deja a 0 al facturar el 100%.
 - **Saldo inicial**: el primer mes visible arrastra lo anterior al rango, con
-  `_amount_income_by_code_before(..., "70%")` menos `_amount_invoices_before`.
+  `_amount_income_by_code_before(..., "70%")` (ingreso reconocido previo, sin facturas).
 - En el **Total** de la matriz horizontal, el WIP muestra el valor del **ultimo mes**
   (no la suma), por ser un acumulado.
 

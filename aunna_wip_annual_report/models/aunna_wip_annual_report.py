@@ -28,9 +28,23 @@ MONTHS = [
 METRICS = [
     ("services_income", "Venta de servicios", 10),
     ("products_income", "Venta de productos", 20),
+    ("internal_hours", "Horas internas", 30),
+    ("external_hours", "Horas externas", 40),
+    ("purchase_costs", "Pedidos", 50),
+    ("materials", "Materiales", 60),
+    ("expenses", "Gastos", 70),
     ("invoice", "Facturacion", 80),
     ("real_wip", "WIP", 90),
 ]
+
+# Cuentas analiticas de coste de horas: las asigna la automatizacion
+# "Horas internas/externas Apuntes analiticos" a cada parte de horas segun el
+# Tipo empleado (Interno/Externo). Si en Odoo se llaman distinto, ajustar aqui.
+INTERNAL_HOURS_ACCOUNT_NAME = "Horas internas"
+EXTERNAL_HOURS_ACCOUNT_NAME = "Horas externas"
+
+# Estados de gasto que cuentan como coste real (panel de Rentabilidad del proyecto).
+EXPENSE_COST_STATES = ["posted", "in_payment", "paid"]
 METRIC_LABELS = {metric: label for metric, label, _sequence in METRICS}
 METRIC_SEQUENCE = {metric: sequence for metric, _label, sequence in METRICS}
 
@@ -55,13 +69,13 @@ REPORT_GROUPS = [
         "label": "Costes",
         "css": "cost",
         "rows": [
-            {"label": "Horas internas", "metric": None},
-            {"label": "Horas externas", "metric": None},
-            # "Pedidos" se desglosara en una linea por cada tipo de pedido
-            # (aunna.purchase.order.type) con importe distinto de cero.
-            {"label": "Pedidos", "metric": None},
-            {"label": "Materiales", "metric": None},
-            {"label": "Gastos", "metric": None},
+            {"label": "Horas internas", "metric": "internal_hours"},
+            {"label": "Horas externas", "metric": "external_hours"},
+            # "Pedidos" es de momento una linea unica; el desglose por tipo de
+            # pedido (aunna.purchase.order.type) queda como mejora.
+            {"label": "Pedidos", "metric": "purchase_costs"},
+            {"label": "Materiales", "metric": "materials"},
+            {"label": "Gastos", "metric": "expenses"},
         ],
         "total_label": "Total costes",
     },
@@ -69,9 +83,9 @@ REPORT_GROUPS = [
         "label": "PM",
         "css": "pm",
         "rows": [
-            {"label": "PM (Rentabilidad)", "metric": None},
-            {"label": "%PM", "metric": None},
-            {"label": "%PM (Acumulado)", "metric": None},
+            {"label": "PM (Rentabilidad)", "kind": "pm"},
+            {"label": "%PM", "kind": "pm_pct"},
+            {"label": "%PM (Acumulado)", "kind": "pm_pct_acc"},
         ],
         "total_label": None,
     },
@@ -499,15 +513,15 @@ class AunnaWipAnnualReport(models.Model):
         self.ensure_one()
         notes = [
             _(
-                "Venta de servicios: cuentas 705; Venta de productos: resto del grupo 70. "
-                "Total ingresos = grupo 70 completo (coincide con la fila Ingreso del P&L)."
+                "Ingresos (Venta de servicios = 705 / Venta de productos = resto del 70): "
+                "se alimentan de los ASIENTOS WIP (ingreso reconocido), NO de las facturas."
             ),
             _(
-                "Facturacion: facturas de cliente en cuentas del grupo 70."
+                "Facturacion: facturas/abonos de cliente en cuentas del grupo 70."
             ),
             _(
-                "WIP: acumulado mensual de (Total ingresos - Facturacion). El primer mes "
-                "visible arrastra el saldo anterior al rango."
+                "WIP: acumulado del ingreso reconocido. Lo mueve el asiento WIP; una "
+                "factura no lo mueve. El primer mes arrastra el saldo anterior al rango."
             ),
         ]
         return "\n".join(notes) or False
@@ -536,24 +550,84 @@ class AunnaWipAnnualReport(models.Model):
                 (line.real_amount if line else 0.0),
             )
 
-        def cells(prev, real, blank=False):
+        def cells(prev, real, blank=False, pct=False):
             if blank:
                 return (
                     "<td class='wv-prev'></td>"
                     "<td class='wv-real'></td>"
                     "<td class='wv-diff'></td>"
                 )
+            fmt = self._format_horizontal_pct if pct else self._format_horizontal_amount
             diff = real - prev
             return (
                 "<td class='wv-prev'>%s</td>"
                 "<td class='wv-real'>%s</td>"
                 "<td class='wv-diff %s'>%s</td>"
             ) % (
-                self._format_horizontal_amount(prev),
-                self._format_horizontal_amount(real),
+                fmt(prev),
+                fmt(real),
                 self._horizontal_amount_class(diff),
-                self._format_horizontal_amount(diff),
+                fmt(diff),
             )
+
+        # --- PM: Ingresos - Costes; %PM; %PM acumulado ---
+        income_metrics = [
+            row["metric"]
+            for group in REPORT_GROUPS
+            if group["css"] == "income"
+            for row in group["rows"]
+            if row.get("metric")
+        ]
+        cost_metrics = [
+            row["metric"]
+            for group in REPORT_GROUPS
+            if group["css"] == "cost"
+            for row in group["rows"]
+            if row.get("metric")
+        ]
+
+        def month_totals(metrics, month):
+            prev = real = 0.0
+            for metric in metrics:
+                metric_prev, metric_real = month_pair(metric, month)
+                prev += metric_prev
+                real += metric_real
+            return prev, real
+
+        # Los costes vienen en negativo, asi que PM = Ingresos + Costes.
+        pm_by_month = {}
+        cum_pm_prev = cum_pm_real = cum_inc_prev = cum_inc_real = 0.0
+        for month in visible_months:
+            inc_prev, inc_real = month_totals(income_metrics, month)
+            cost_prev, cost_real = month_totals(cost_metrics, month)
+            pm_prev = inc_prev + cost_prev
+            pm_real = inc_real + cost_real
+            cum_pm_prev += pm_prev
+            cum_pm_real += pm_real
+            cum_inc_prev += inc_prev
+            cum_inc_real += inc_real
+            pm_by_month[month] = {
+                "pm": (pm_prev, pm_real),
+                "pm_pct": (
+                    100.0 * pm_prev / inc_prev if inc_prev else 0.0,
+                    100.0 * pm_real / inc_real if inc_real else 0.0,
+                ),
+                "pm_pct_acc": (
+                    100.0 * cum_pm_prev / cum_inc_prev if cum_inc_prev else 0.0,
+                    100.0 * cum_pm_real / cum_inc_real if cum_inc_real else 0.0,
+                ),
+            }
+        last_month = visible_months[-1] if visible_months else None
+        pm_total = {
+            "pm": (cum_pm_prev, cum_pm_real),
+            "pm_pct": (
+                100.0 * cum_pm_prev / cum_inc_prev if cum_inc_prev else 0.0,
+                100.0 * cum_pm_real / cum_inc_real if cum_inc_real else 0.0,
+            ),
+            "pm_pct_acc": (
+                pm_by_month[last_month]["pm_pct_acc"] if last_month else (0.0, 0.0)
+            ),
+        }
 
         html = [
             "<style>",
@@ -610,7 +684,9 @@ class AunnaWipAnnualReport(models.Model):
             first = True
             for row in group["rows"]:
                 metric = row.get("metric")
+                kind = row.get("kind")
                 is_accumulated = metric == "real_wip"
+                is_pct = kind in ("pm_pct", "pm_pct_acc")
                 html.append("<tr>")
                 if first:
                     html.append(
@@ -624,7 +700,10 @@ class AunnaWipAnnualReport(models.Model):
                 )
                 total_prev = total_real = 0.0
                 for month in visible_months:
-                    if metric:
+                    if kind:
+                        prev, real = pm_by_month[month][kind]
+                        html.append(cells(prev, real, pct=is_pct))
+                    elif metric:
                         prev, real = month_pair(metric, month)
                         if is_accumulated:
                             total_prev, total_real = prev, real
@@ -634,7 +713,10 @@ class AunnaWipAnnualReport(models.Model):
                         html.append(cells(prev, real))
                     else:
                         html.append(cells(0.0, 0.0, blank=True))
-                if metric:
+                if kind:
+                    tprev, treal = pm_total[kind]
+                    html.append(cells(tprev, treal, pct=is_pct))
+                elif metric:
                     html.append(cells(total_prev, total_real))
                 else:
                     html.append(cells(0.0, 0.0, blank=True))
@@ -864,6 +946,9 @@ class AunnaWipAnnualReport(models.Model):
             integer = integer[:-3]
         return "%s%s,%s" % (sign, ".".join(groups or ["0"]), decimals)
 
+    def _format_horizontal_pct(self, value):
+        return "%s%%" % self._format_horizontal_amount(value)
+
     def _xlsx_safe_filename(self, filename):
         invalid_chars = '<>:"/\\|?*'
         safe = "".join("_" if char in invalid_chars else char for char in filename)
@@ -893,10 +978,26 @@ class AunnaWipAnnualReport(models.Model):
             invoice_amount = self._amount_invoices(
                 analytic_account, start_date, end_date
             )
-            # WIP acumulado = WIP mes anterior + Total ingresos - Facturacion.
-            running_wip += total_income - invoice_amount
+            # Ingresos = asientos WIP (sin facturas). WIP acumulado = acumulado del
+            # ingreso reconocido; una factura no lo mueve (solo lo mueve el asiento WIP).
+            running_wip += total_income
             values["services_income"][month_key] = services
             values["products_income"][month_key] = total_income - services
+            values["internal_hours"][month_key] = self._amount_timesheet_cost(
+                start_date, end_date, INTERNAL_HOURS_ACCOUNT_NAME
+            )
+            values["external_hours"][month_key] = self._amount_timesheet_cost(
+                start_date, end_date, EXTERNAL_HOURS_ACCOUNT_NAME
+            )
+            values["purchase_costs"][month_key] = self._amount_purchase_costs(
+                analytic_account, start_date, end_date
+            )
+            values["materials"][month_key] = self._amount_materials(
+                analytic_account, start_date, end_date
+            )
+            values["expenses"][month_key] = self._amount_expenses(
+                analytic_account, start_date, end_date
+            )
             values["invoice"][month_key] = invoice_amount
             values["real_wip"][month_key] = running_wip
         return values
@@ -911,12 +1012,10 @@ class AunnaWipAnnualReport(models.Model):
 
         values = {}
         first_month_start = self._month_start(self._get_report_date_from())
-        # Saldo WIP inicial = acumulado (Total ingresos - Facturacion) anterior al rango.
-        running_wip = (
-            self._amount_income_by_code_before(
-                analytic_account, first_month_start, "70%"
-            )
-            - self._amount_invoices_before(analytic_account, first_month_start)
+        # Saldo WIP inicial = acumulado del ingreso reconocido (asientos WIP) anterior
+        # al rango.
+        running_wip = self._amount_income_by_code_before(
+            analytic_account, first_month_start, "70%"
         )
         for month_start in self._iter_month_starts():
             next_start = month_start + relativedelta(months=1)
@@ -930,9 +1029,24 @@ class AunnaWipAnnualReport(models.Model):
             invoice_amount = self._amount_invoices(
                 analytic_account, month_start, month_end
             )
-            running_wip += total_income - invoice_amount
+            running_wip += total_income
             values[(month_start, "services_income")] = services
             values[(month_start, "products_income")] = total_income - services
+            values[(month_start, "internal_hours")] = self._amount_timesheet_cost(
+                month_start, month_end, INTERNAL_HOURS_ACCOUNT_NAME
+            )
+            values[(month_start, "external_hours")] = self._amount_timesheet_cost(
+                month_start, month_end, EXTERNAL_HOURS_ACCOUNT_NAME
+            )
+            values[(month_start, "purchase_costs")] = self._amount_purchase_costs(
+                analytic_account, month_start, month_end
+            )
+            values[(month_start, "materials")] = self._amount_materials(
+                analytic_account, month_start, month_end
+            )
+            values[(month_start, "expenses")] = self._amount_expenses(
+                analytic_account, month_start, month_end
+            )
             values[(month_start, "invoice")] = invoice_amount
             values[(month_start, "real_wip")] = running_wip
         return values
@@ -942,6 +1056,126 @@ class AunnaWipAnnualReport(models.Model):
         next_start_date = start_date + relativedelta(months=1)
         end_date = next_start_date - timedelta(days=1)
         return start_date, end_date, next_start_date
+
+    def _amount_timesheet_cost(self, start_date, end_date, account_name):
+        """Coste de horas del proyecto del informe en el mes (parte de horas).
+
+        Los partes de horas son apuntes analiticos (`account.analytic.line`). Una
+        automatizacion les asigna la cuenta analitica "Horas internas" / "Horas
+        externas" segun el Tipo empleado. Aqui se filtran por el **proyecto** del
+        informe y por esa cuenta de coste, y se suma su **Importe** (`amount`, que es
+        el coste y viene en negativo).
+        """
+        AAL = self.env["account.analytic.line"].sudo()
+        project = self.project_id
+        if not project or "project_id" not in AAL._fields:
+            return 0.0
+        account = self.env["account.analytic.account"].sudo().search(
+            [("name", "=", account_name)], limit=1
+        )
+        if not account:
+            return 0.0
+        lines = AAL.search(
+            [
+                ("project_id", "=", project.id),
+                ("account_id", "=", account.id),
+                ("date", ">=", start_date),
+                ("date", "<=", end_date),
+            ]
+        )
+        return sum(lines.mapped("amount"))
+
+    def _amount_materials(self, analytic_account, start_date, end_date):
+        """Materiales: coste de material del panel de Rentabilidad del proyecto.
+
+        Son apuntes analiticos (`account.analytic.line`) del bucket "other_costs"
+        (p.ej. movimientos de stock valorados) imputados a la cuenta analitica del
+        proyecto, en negativo. Se filtra por la cuenta (no por proyecto: estas lineas
+        no llevan project_id) y se replica la deduplicacion del panel (se excluyen las
+        lineas que en realidad son gastos o pedidos, para no contarlas dos veces).
+        """
+        AAL = self.env["account.analytic.line"].sudo()
+        if "timesheet_invoice_type" not in AAL._fields:
+            return 0.0
+        domain = [
+            ("account_id", "=", analytic_account.id),
+            ("company_id", "=", self.company_id.id),
+            ("timesheet_invoice_type", "=", "other_costs"),
+            ("amount", "<", 0),
+            ("date", ">=", start_date),
+            ("date", "<=", end_date),
+        ]
+        if "category" in AAL._fields:
+            domain.append(("category", "!=", "vendor_bill"))
+        AML = self.env["account.move.line"]
+        if "move_line_id" in AAL._fields and "expense_id" in AML._fields:
+            domain += ["|", ("move_line_id", "=", False), ("move_line_id.expense_id", "=", False)]
+        if "move_line_id" in AAL._fields and "purchase_line_id" in AML._fields:
+            domain += ["|", ("move_line_id", "=", False), ("move_line_id.purchase_line_id", "=", False)]
+        return sum(AAL.search(domain).mapped("amount"))
+
+    def _amount_expenses(self, analytic_account, start_date, end_date):
+        """Gastos: gastos de empleado (`hr.expense`) imputados a la cuenta analitica
+        del proyecto, en negativo (panel de Rentabilidad). No se pondera por el % de
+        distribucion analitica (el panel toma el importe integro)."""
+        if "hr.expense" not in self.env:
+            return 0.0
+        Expense = self.env["hr.expense"].sudo()
+        if "analytic_distribution" not in Expense._fields:
+            return 0.0
+        amount_field = (
+            "untaxed_amount_currency"
+            if "untaxed_amount_currency" in Expense._fields
+            else "total_amount"
+        )
+        expenses = Expense.search(
+            [
+                ("state", "in", EXPENSE_COST_STATES),
+                ("company_id", "=", self.company_id.id),
+                ("analytic_distribution", "in", [analytic_account.id]),
+                ("date", ">=", start_date),
+                ("date", "<=", end_date),
+            ]
+        )
+        company = self.company_id
+        company_currency = company.currency_id
+        # `untaxed_amount_currency` va en la divisa del gasto (hay que convertir);
+        # el fallback `total_amount` ya va en divisa de compania (no se convierte).
+        needs_convert = amount_field == "untaxed_amount_currency"
+        total = 0.0
+        for expense in expenses:
+            amount = expense[amount_field] or 0.0
+            currency = expense.currency_id
+            if needs_convert and currency and company_currency and currency != company_currency:
+                amount = currency._convert(
+                    amount, company_currency, company, expense.date or start_date
+                )
+            total += amount
+        return -total
+
+    def _amount_purchase_costs(self, analytic_account, start_date, end_date):
+        """Pedidos: coste de pedidos de compra del panel de Rentabilidad = lineas de
+        factura de proveedor publicadas ligadas a un pedido de compra, imputadas a la
+        cuenta analitica del proyecto y ponderadas por su % analitico (en negativo).
+
+        (De momento es una unica linea "Pedidos"; el desglose por tipo de pedido
+        queda como mejora.)"""
+        MoveLine = self.env["account.move.line"].sudo()
+        if "purchase_line_id" not in MoveLine._fields:
+            return 0.0
+        domain = [
+            ("move_id.move_type", "in", ["in_invoice", "in_refund"]),
+            ("company_id", "=", self.company_id.id),
+            ("analytic_distribution", "in", [analytic_account.id]),
+            ("purchase_line_id", "!=", False),
+            ("date", ">=", start_date),
+            ("date", "<=", end_date),
+        ]
+        extra = [self._posted_move_line_domain(MoveLine), self._display_type_domain(MoveLine)]
+        if "expense_id" in MoveLine._fields:
+            extra.append([("expense_id", "=", False)])
+        domain = expression.AND([domain] + extra)
+        return self._sum_move_lines(MoveLine.search(domain), analytic_account)
 
     def _amount_income_by_code(self, analytic_account, start_date, end_date, code_like):
         """Ingreso (grupo 70) imputado a la cuenta analitica del informe, en el mes,
@@ -953,7 +1187,9 @@ class AunnaWipAnnualReport(models.Model):
           la fila "Ingreso" del informe de Perdidas y Ganancias filtrado por el
           proyecto / cuenta analitica.
 
-        Incluye todos los tipos de asiento (facturas y asientos WIP).
+        **EXCLUYE las facturas/abonos de cliente**: los Ingresos se alimentan solo de
+        los **asientos WIP** (ingreso reconocido, 705001) y de otros apuntes que NO
+        sean facturas. Lo facturado se ve en la fila "Facturacion".
         """
         MoveLine = self.env["account.move.line"].sudo()
         domain = [
@@ -967,6 +1203,7 @@ class AunnaWipAnnualReport(models.Model):
             [
                 domain,
                 self._posted_move_line_domain(MoveLine),
+                self._non_customer_invoice_domain(),
                 self._display_type_domain(MoveLine),
             ]
         )
@@ -986,10 +1223,19 @@ class AunnaWipAnnualReport(models.Model):
             [
                 domain,
                 self._posted_move_line_domain(MoveLine),
+                self._non_customer_invoice_domain(),
                 self._display_type_domain(MoveLine),
             ]
         )
         return self._sum_move_lines(MoveLine.search(domain), analytic_account)
+
+    def _non_customer_invoice_domain(self):
+        """Excluye facturas/abonos de cliente (los Ingresos = asientos WIP, no
+        facturas)."""
+        Move = self.env["account.move"]
+        if "move_type" not in Move._fields:
+            return []
+        return [("move_id.move_type", "not in", ["out_invoice", "out_refund"])]
 
     def _amount_invoices(self, analytic_account, start_date, end_date):
         """Facturacion: facturas/abonos de cliente en cuentas del grupo 70 (700 y
