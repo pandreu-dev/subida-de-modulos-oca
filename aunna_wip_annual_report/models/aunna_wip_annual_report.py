@@ -26,10 +26,10 @@ MONTHS = [
 ]
 
 METRICS = [
-    ("services_income", "Venta de servicios", 5),
-    ("recognized_income", "Ingreso reconocido", 10),
-    ("invoice", "Facturacion", 20),
-    ("real_wip", "WIP real acumulado", 30),
+    ("services_income", "Venta de servicios", 10),
+    ("products_income", "Venta de productos", 20),
+    ("invoice", "Facturacion", 80),
+    ("real_wip", "WIP", 90),
 ]
 METRIC_LABELS = {metric: label for metric, label, _sequence in METRICS}
 METRIC_SEQUENCE = {metric: sequence for metric, _label, sequence in METRICS}
@@ -47,7 +47,7 @@ REPORT_GROUPS = [
         "css": "income",
         "rows": [
             {"label": "Venta de servicios", "metric": "services_income"},
-            {"label": "Venta de productos", "metric": None},
+            {"label": "Venta de productos", "metric": "products_income"},
         ],
         "total_label": "Total ingresos",
     },
@@ -497,18 +497,19 @@ class AunnaWipAnnualReport(models.Model):
 
     def _build_calculation_note(self):
         self.ensure_one()
-        notes = []
-        if not self.company_id.aunnna_wip_income_account_id:
-            notes.append(
-                _(
-                    "Ingreso reconocido: no hay cuenta ingreso WIP configurada en la compania."
-                )
-            )
-        notes.append(
+        notes = [
             _(
-                "WIP real acumulado: incluye el saldo anterior al primer mes visible."
-            )
-        )
+                "Venta de servicios: cuentas 705; Venta de productos: resto del grupo 70. "
+                "Total ingresos = grupo 70 completo (coincide con la fila Ingreso del P&L)."
+            ),
+            _(
+                "Facturacion: facturas de cliente en cuentas del grupo 70."
+            ),
+            _(
+                "WIP: acumulado mensual de (Total ingresos - Facturacion). El primer mes "
+                "visible arrastra el saldo anterior al rango."
+            ),
+        ]
         return "\n".join(notes) or False
 
     def _build_horizontal_summary_html(self, use_unsaved_lines=False):
@@ -883,25 +884,20 @@ class AunnaWipAnnualReport(models.Model):
         running_wip = 0.0
         for month_key, _month_label, month_number in MONTHS:
             start_date, end_date, next_start_date = self._month_period(month_number)
-            values["services_income"][month_key] = self._amount_pl_income(
-                analytic_account,
-                start_date,
-                end_date,
+            services = self._amount_income_by_code(
+                analytic_account, start_date, end_date, "705%"
             )
-            values["invoice"][month_key] = self._amount_invoices(
-                analytic_account,
-                start_date,
-                end_date,
+            total_income = self._amount_income_by_code(
+                analytic_account, start_date, end_date, "70%"
             )
-            values["recognized_income"][month_key] = self._amount_recognized_income(
-                analytic_account,
-                start_date,
-                end_date,
+            invoice_amount = self._amount_invoices(
+                analytic_account, start_date, end_date
             )
-            running_wip += (
-                values["recognized_income"][month_key]
-                - values["invoice"][month_key]
-            )
+            # WIP acumulado = WIP mes anterior + Total ingresos - Facturacion.
+            running_wip += total_income - invoice_amount
+            values["services_income"][month_key] = services
+            values["products_income"][month_key] = total_income - services
+            values["invoice"][month_key] = invoice_amount
             values["real_wip"][month_key] = running_wip
         return values
 
@@ -915,32 +911,29 @@ class AunnaWipAnnualReport(models.Model):
 
         values = {}
         first_month_start = self._month_start(self._get_report_date_from())
+        # Saldo WIP inicial = acumulado (Total ingresos - Facturacion) anterior al rango.
         running_wip = (
-            self._amount_recognized_income_before(analytic_account, first_month_start)
+            self._amount_income_by_code_before(
+                analytic_account, first_month_start, "70%"
+            )
             - self._amount_invoices_before(analytic_account, first_month_start)
         )
         for month_start in self._iter_month_starts():
             next_start = month_start + relativedelta(months=1)
             month_end = next_start - timedelta(days=1)
-            services_amount = self._amount_pl_income(
-                analytic_account,
-                month_start,
-                month_end,
+            services = self._amount_income_by_code(
+                analytic_account, month_start, month_end, "705%"
+            )
+            total_income = self._amount_income_by_code(
+                analytic_account, month_start, month_end, "70%"
             )
             invoice_amount = self._amount_invoices(
-                analytic_account,
-                month_start,
-                month_end,
+                analytic_account, month_start, month_end
             )
-            recognized_amount = self._amount_recognized_income(
-                analytic_account,
-                month_start,
-                month_end,
-            )
-            running_wip += recognized_amount - invoice_amount
-            values[(month_start, "services_income")] = services_amount
+            running_wip += total_income - invoice_amount
+            values[(month_start, "services_income")] = services
+            values[(month_start, "products_income")] = total_income - services
             values[(month_start, "invoice")] = invoice_amount
-            values[(month_start, "recognized_income")] = recognized_amount
             values[(month_start, "real_wip")] = running_wip
         return values
 
@@ -950,14 +943,17 @@ class AunnaWipAnnualReport(models.Model):
         end_date = next_start_date - timedelta(days=1)
         return start_date, end_date, next_start_date
 
-    def _amount_pl_income(self, analytic_account, start_date, end_date):
-        """Ingreso del P&L (grupo "Ingreso") = "Venta de servicios".
+    def _amount_income_by_code(self, analytic_account, start_date, end_date, code_like):
+        """Ingreso (grupo 70) imputado a la cuenta analitica del informe, en el mes,
+        cuya cuenta contable tiene un codigo que empieza por `code_like`.
 
-        Suma de los apuntes publicados en cuentas de ingreso (700000, 705000,
-        705001, ...) imputados a la cuenta analitica del informe, en el mes.
-        Equivale al dato "Ingreso" del informe de Perdidas y Ganancias filtrado por
-        el proyecto / cuenta analitica del informe (a diferencia de "Facturacion",
-        que solo recoge facturas de cliente).
+        - ``"705%"`` -> Venta de servicios (incluye 705000 servicios facturados y
+          705001 ingreso reconocido del WIP).
+        - ``"70%"``  -> Total del grupo Ingreso (servicios + productos); coincide con
+          la fila "Ingreso" del informe de Perdidas y Ganancias filtrado por el
+          proyecto / cuenta analitica.
+
+        Incluye todos los tipos de asiento (facturas y asientos WIP).
         """
         MoveLine = self.env["account.move.line"].sudo()
         domain = [
@@ -965,31 +961,52 @@ class AunnaWipAnnualReport(models.Model):
             ("date", "<=", end_date),
             ("company_id", "=", self.company_id.id),
             ("analytic_distribution", "!=", False),
+            ("account_id.code", "=like", code_like),
         ]
         domain = expression.AND(
             [
                 domain,
                 self._posted_move_line_domain(MoveLine),
-                self._income_account_domain(),
+                self._display_type_domain(MoveLine),
+            ]
+        )
+        return self._sum_move_lines(MoveLine.search(domain), analytic_account)
+
+    def _amount_income_by_code_before(self, analytic_account, before_date, code_like):
+        """Igual que ``_amount_income_by_code`` pero acumulado hasta antes de una
+        fecha (saldo inicial para el WIP acumulado)."""
+        MoveLine = self.env["account.move.line"].sudo()
+        domain = [
+            ("date", "<", before_date),
+            ("company_id", "=", self.company_id.id),
+            ("analytic_distribution", "!=", False),
+            ("account_id.code", "=like", code_like),
+        ]
+        domain = expression.AND(
+            [
+                domain,
+                self._posted_move_line_domain(MoveLine),
                 self._display_type_domain(MoveLine),
             ]
         )
         return self._sum_move_lines(MoveLine.search(domain), analytic_account)
 
     def _amount_invoices(self, analytic_account, start_date, end_date):
+        """Facturacion: facturas/abonos de cliente en cuentas del grupo 70 (700 y
+        705.0) imputados a la cuenta analitica del informe, en el mes."""
         MoveLine = self.env["account.move.line"].sudo()
         domain = [
             ("date", ">=", start_date),
             ("date", "<=", end_date),
             ("company_id", "=", self.company_id.id),
             ("analytic_distribution", "!=", False),
+            ("account_id.code", "=like", "70%"),
         ]
         domain = expression.AND(
             [
                 domain,
                 self._posted_move_line_domain(MoveLine),
                 self._customer_invoice_domain(),
-                self._income_account_domain(),
                 self._display_type_domain(MoveLine),
             ]
         )
@@ -1001,56 +1018,13 @@ class AunnaWipAnnualReport(models.Model):
             ("date", "<", before_date),
             ("company_id", "=", self.company_id.id),
             ("analytic_distribution", "!=", False),
+            ("account_id.code", "=like", "70%"),
         ]
         domain = expression.AND(
             [
                 domain,
                 self._posted_move_line_domain(MoveLine),
                 self._customer_invoice_domain(),
-                self._income_account_domain(),
-                self._display_type_domain(MoveLine),
-            ]
-        )
-        return self._sum_move_lines(MoveLine.search(domain), analytic_account)
-
-    def _amount_recognized_income(self, analytic_account, start_date, end_date):
-        wip_account = self.company_id.aunnna_wip_income_account_id
-        if not wip_account:
-            return 0.0
-
-        MoveLine = self.env["account.move.line"].sudo()
-        domain = [
-            ("date", ">=", start_date),
-            ("date", "<=", end_date),
-            ("company_id", "=", self.company_id.id),
-            ("account_id", "=", wip_account.id),
-            ("analytic_distribution", "!=", False),
-        ]
-        domain = expression.AND(
-            [
-                domain,
-                self._posted_move_line_domain(MoveLine),
-                self._display_type_domain(MoveLine),
-            ]
-        )
-        return self._sum_move_lines(MoveLine.search(domain), analytic_account)
-
-    def _amount_recognized_income_before(self, analytic_account, before_date):
-        wip_account = self.company_id.aunnna_wip_income_account_id
-        if not wip_account:
-            return 0.0
-
-        MoveLine = self.env["account.move.line"].sudo()
-        domain = [
-            ("date", "<", before_date),
-            ("company_id", "=", self.company_id.id),
-            ("account_id", "=", wip_account.id),
-            ("analytic_distribution", "!=", False),
-        ]
-        domain = expression.AND(
-            [
-                domain,
-                self._posted_move_line_domain(MoveLine),
                 self._display_type_domain(MoveLine),
             ]
         )

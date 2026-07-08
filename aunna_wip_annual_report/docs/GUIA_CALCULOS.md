@@ -28,34 +28,40 @@ Se encuentra en **Contabilidad > Informes > Informe WIP mensual** y
 
 ## 2. Conceptos (filas) y su orden
 
-Cada mes tiene estos conceptos, en este orden fijo:
+La "Vista horizontal" se muestra agrupada por secciones (Ingresos / Costes / PM /
+WIP), como el cuadro de referencia. Los conceptos con dato contable son:
 
-| Orden | Concepto            | Que mide                                                                                  |
-|-------|---------------------|-------------------------------------------------------------------------------------------|
-| 1     | Venta de servicios  | Ingreso del P&L (grupo "Ingreso": 700000 + 705000 + 705001 + ...) para la analitica.      |
-| 2     | Ingreso reconocido  | Ingreso imputado a la cuenta de ingreso WIP (p. ej. `705001`).                             |
-| 3     | Facturacion         | Ingreso facturado al cliente (facturas y abonos).                                         |
-| 4     | WIP real acumulado  | Acumulado de `Ingreso reconocido - Facturacion`.                                          |
+| Seccion  | Concepto            | Que mide                                                                     |
+|----------|---------------------|------------------------------------------------------------------------------|
+| Ingresos | Venta de servicios  | Ingreso en cuentas **705** para la analitica (incluye 705000 y 705001 WIP).  |
+| Ingresos | Venta de productos  | Ingreso en el resto del grupo **70** (700...) para la analitica.             |
+| Ingresos | *Total ingresos*    | Servicios + Productos = grupo **70** completo (= fila "Ingreso" del P&L).     |
+| WIP      | Facturacion         | Facturas de cliente en cuentas del grupo **70** para la analitica.           |
+| WIP      | WIP                 | Acumulado de `Total ingresos - Facturacion`, mes a mes.                      |
 
-El orden lo define la constante `METRICS` en
+Las filas de **Costes** (Horas internas, Horas externas, Pedidos, Materiales, Gastos)
+y **PM** aparecen en la estructura pero estan pendientes de conectar su fuente.
+
+Las filas de dato editable/almacenado las define `METRICS` en
 [models/aunna_wip_annual_report.py](../models/aunna_wip_annual_report.py):
 
 ```python
 METRICS = [
-    ("services_income", "Venta de servicios", 5),
-    ("recognized_income", "Ingreso reconocido", 10),
-    ("invoice", "Facturacion", 20),
-    ("real_wip", "WIP real acumulado", 30),
+    ("services_income", "Venta de servicios", 10),
+    ("products_income", "Venta de productos", 20),
+    ("invoice", "Facturacion", 80),
+    ("real_wip", "WIP", 90),
 ]
 ```
 
-El numero (10/20/30) es la **secuencia**; determina el orden en todas las vistas y en
-la matriz horizontal. Cambiar el orden aqui lo cambia en todo el modulo.
+La estructura visual agrupada se define en la constante `REPORT_GROUPS` del mismo
+archivo.
 
-> **Nota historica:** antes existia una cuarta fila, **ER/OE** (pedidos de venta).
-> Se retiro en la version `19.0.7.0.0`. La migracion
-> [migrations/19.0.7.0.0/post-migration.py](../migrations/19.0.7.0.0/post-migration.py)
-> borra esa fila de los informes ya creados y reordena los conceptos restantes.
+> **Notas historicas:** en `19.0.7.0.0` se retiro la fila **ER/OE** (pedidos de venta).
+> En `19.0.8.0.0` se reformo el bloque de ingresos: se separo Venta de servicios /
+> Venta de productos y se retiro **Ingreso reconocido** (queda dentro de Venta de
+> servicios, ya que 705001 es una cuenta 705). Cada cambio tiene su migracion en
+> [migrations/](../migrations/).
 
 ---
 
@@ -82,57 +88,48 @@ cuenta el 60% de su importe (ver seccion 6).
 Los importes de ingreso se toman como `credito - debito` (`-balance`), de modo que un
 ingreso (credito) suma en positivo.
 
-### 4.1 Ingreso reconocido
+Todos los filtros comunes de apuntes (`account.move.line`) son: asiento
+**publicado** (`parent_state = posted`), de la **compania** del informe, `date`
+dentro del mes, con `analytic_distribution` informada y excluyendo lineas de
+seccion/nota. El importe se toma como `credito - debito` (`-balance`) y se reparte
+por el **ratio analitico** (ver seccion 6).
 
-Metodo: `_amount_recognized_income`.
+### 4.1 Venta de servicios / Venta de productos
 
-- Cuenta: la **cuenta de ingreso WIP** configurada en la compania
-  (`res.company.aunnna_wip_income_account_id`, p. ej. `705001`). Si la compania no la
-  tiene configurada, el Ingreso reconocido sale **0** y se avisa en *Notas de calculo*.
-- Filtro de apuntes (`account.move.line`):
-  - `account_id` = cuenta de ingreso WIP,
-  - asiento **publicado** (`parent_state = posted`),
-  - de la **compania** del informe,
-  - `date` dentro del mes,
-  - con `analytic_distribution` informada (imputa a alguna cuenta analitica),
-  - excluyendo lineas de seccion/nota.
-- Importe: `sum( (credito - debito) x ratio_analitico )` de esos apuntes.
+Metodo: `_amount_income_by_code(analytic, desde, hasta, codigo)`.
 
-En la practica, esto recoge los asientos WIP generados por `aunna_wip_accounting`
-contra la cuenta `705001` (y cualquier otro apunte manual contra esa cuenta con
-imputacion analitica).
+- **Venta de servicios** (`"705%"`): apuntes en cuentas cuyo codigo empieza por
+  **705** (incluye `705000` prestaciones facturadas y `705001` ingreso reconocido del
+  WIP). Incluye todos los tipos de asiento (facturas y asientos WIP).
+- **Venta de productos**: `Total ingresos - Venta de servicios`, donde
+  **Total ingresos** = apuntes del grupo **70** completo (`"70%"`). Es decir, el resto
+  del grupo 70 (700...).
+- **Total ingresos** = grupo 70 completo. Coincide con la fila **"Ingreso"** del
+  informe de **Perdidas y Ganancias** filtrado por el mismo proyecto/cuenta analitica.
 
 ### 4.2 Facturacion
 
 Metodo: `_amount_invoices`.
 
-- Origen: **facturas y abonos de cliente** (`account.move.move_type` en
-  `out_invoice`, `out_refund`).
-- Filtro de apuntes:
-  - asiento **publicado**,
-  - de la **compania** del informe,
-  - `date` dentro del mes,
-  - con `analytic_distribution` informada,
-  - solo lineas de **ingreso**: cuenta de tipo `income` / `income_other` **o** cuyo
-    codigo empieza por `7`,
-  - excluyendo lineas de seccion/nota.
+- **Facturas y abonos de cliente** (`move_type` en `out_invoice`, `out_refund`) en
+  cuentas del **grupo 70** (`"70%"` = 700 y 705.0), imputados a la analitica.
 - Importe: `sum( (credito - debito) x ratio_analitico )`.
 
-Es decir, cuanto se ha **facturado** de ese proyecto/cuenta analitica en el mes.
+Es cuanto se ha **facturado** del proyecto en el mes.
 
-### 4.3 WIP real acumulado
+### 4.3 WIP
 
 Metodo: dentro de `_collect_period_real_values` / `_collect_real_values`.
 
-- Formula mensual: `WIP_mes = WIP_mes_anterior + (Ingreso reconocido_mes - Facturacion_mes)`.
-- Es un **acumulado**, no un valor mensual aislado.
-- **Saldo inicial**: el primer mes visible del informe arrastra todo lo anterior al
-  rango, calculado con `_amount_recognized_income_before` y `_amount_invoices_before`
-  (mismos filtros, pero con `date <` el primer mes). Asi, si filtras de marzo a
-  diciembre, el acumulado de marzo ya incluye enero y febrero y no se reinicia.
-- En los **totales** de la matriz horizontal, el total del WIP acumulado es el valor
-  del **ultimo mes** (no la suma de meses), porque ya es un acumulado
-  (`_horizontal_metric_totals`).
+- Formula mensual (definicion del negocio):
+  `WIP_mes = WIP_mes_anterior + (Total ingresos_mes - Facturacion_mes)`.
+- Es un **acumulado**. Como `Total ingresos - Facturacion` equivale al movimiento neto
+  del ingreso reconocido (705001), el WIP acumulado representa el ingreso reconocido
+  aun **no facturado**; queda a 0 cuando el proyecto se factura al 100%.
+- **Saldo inicial**: el primer mes visible arrastra lo anterior al rango, con
+  `_amount_income_by_code_before(..., "70%")` menos `_amount_invoices_before`.
+- En el **Total** de la matriz horizontal, el WIP muestra el valor del **ultimo mes**
+  (no la suma), por ser un acumulado.
 
 ---
 

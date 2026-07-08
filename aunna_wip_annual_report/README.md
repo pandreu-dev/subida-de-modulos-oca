@@ -14,8 +14,8 @@ Contabilidad > Informes.
   una matriz compacta de meses en columnas y conceptos en filas.
 - El boton `Exportar Excel` descarga esa matriz horizontal en formato `.xlsx`,
   con cabeceras, primera columna congelada y formato numerico.
-- Cada fila representa un mes y un concepto, en este orden: Ingreso reconocido,
-  Facturacion y WIP real acumulado.
+- La `Vista horizontal` se muestra agrupada por secciones (Ingresos / Costes / PM /
+  WIP), con colores, al estilo del cuadro de referencia.
 - La columna `Prev.` es editable por el usuario.
 - Las columnas `Real` y `Dif.` se calculan desde Odoo.
 - La lista permite ocultar columnas, filtrar por proyecto/cuenta analitica, filtrar
@@ -38,20 +38,28 @@ Contabilidad > Informes.
 
 ## Conceptos (filas) y fuentes de datos reales
 
-El orden de filas es: **Ingreso reconocido**, **Facturacion** y **WIP real acumulado**.
+**Ingresos** (grupo contable **70**, imputado a la analitica del informe):
 
-- Ingreso reconocido: apuntes publicados contra la cuenta de ingreso WIP configurada
-  en la compania (`Configuracion WIP > Cuenta ingreso WIP`), filtrados por la cuenta
-  analitica del informe.
-- Facturacion: apuntes de ingreso publicados de facturas/abonos de cliente
-  (`out_invoice` / `out_refund`) con distribucion analitica hacia la cuenta del
-  informe.
-- WIP real acumulado: acumulado mensual de `Ingreso reconocido - Facturacion`.
-  El primer mes visible arrastra como saldo inicial todo lo anterior al rango para
-  que el acumulado no se reinicie artificialmente al filtrar de un mes a otro.
+- **Venta de servicios**: cuentas **705** (incluye `705000` servicios facturados y
+  `705001` ingreso reconocido del WIP).
+- **Venta de productos**: resto del grupo **70** (`700...`).
+- **Total ingresos** = grupo 70 completo, que coincide con la fila "Ingreso" del
+  informe de **Perdidas y Ganancias** filtrado por el mismo proyecto/cuenta analitica.
 
-> El concepto ER/OE (pedidos de venta) se retiro a partir de la version 19.0.7.0.0.
-> La migracion elimina esa fila de los informes ya existentes.
+**WIP**:
+
+- **Facturacion**: facturas/abonos de cliente (`out_invoice` / `out_refund`) en cuentas
+  del grupo 70.
+- **WIP**: acumulado mensual de `Total ingresos - Facturacion` (arrastra el saldo
+  anterior al rango). Representa el ingreso reconocido aun no facturado; queda a 0 al
+  facturar el proyecto al 100%.
+
+**Costes** (Horas internas, Horas externas, Pedidos, Materiales, Gastos) y **PM**:
+aparecen en la estructura pero estan **pendientes de conectar su fuente**.
+
+> Historico: la fila **ER/OE** se retiro en `19.0.7.0.0`; en `19.0.8.0.0` se separo
+> Venta de servicios / Venta de productos y se retiro **Ingreso reconocido**. Las
+> migraciones adaptan los informes ya existentes.
 
 ## Notas
 
