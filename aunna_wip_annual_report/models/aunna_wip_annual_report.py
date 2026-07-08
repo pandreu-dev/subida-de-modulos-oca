@@ -392,9 +392,9 @@ class AunnaWipAnnualReport(models.Model):
             report._ensure_period_lines()
             period_values = report._collect_period_real_values()
             for period_line in report.period_line_ids.filtered("in_report_range"):
-                period_line.real_amount = period_values[
-                    (period_line.month_start, period_line.metric)
-                ]
+                period_line.real_amount = period_values.get(
+                    (period_line.month_start, period_line.metric), 0.0
+                )
             report.write(
                 {
                     "last_real_update": fields.Datetime.now(),
