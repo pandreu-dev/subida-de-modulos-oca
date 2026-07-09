@@ -3,7 +3,7 @@
     "summary": "Informe operativo financiero (WIP) por proyecto o cuenta analitica: prevision y reales",
     "version": "19.0.14.0.0",
     "category": "Accounting/Reporting",
-    "author": "AUNNA",
+    "author": "Zambudio",
     "license": "LGPL-3",
     "depends": [
         "account",
