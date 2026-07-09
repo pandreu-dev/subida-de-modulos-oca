@@ -1060,30 +1060,40 @@ class AunnaWipAnnualReport(models.Model):
     def _amount_timesheet_cost(self, start_date, end_date, account_name):
         """Coste de horas del proyecto del informe en el mes (parte de horas).
 
-        Los partes de horas son apuntes analiticos (`account.analytic.line`). Una
-        automatizacion les asigna la cuenta analitica "Horas internas" / "Horas
-        externas" segun el Tipo empleado. Aqui se filtran por el **proyecto** del
-        informe y por esa cuenta de coste, y se suma su **Importe** (`amount`, que es
-        el coste y viene en negativo).
+        Los partes de horas son apuntes analiticos (`account.analytic.line`) con el
+        `project_id` del informe. Una automatizacion les asigna, en un **plan
+        analitico aparte (P&L)**, la cuenta "Horas internas" / "Horas externas"
+        segun el Tipo empleado. Esa cuenta **NO es** la cuenta analitica principal
+        de la linea (`account_id`, que es la del proyecto), sino **otra columna de
+        plan**; por eso se busca en **cualquier** columna de cuenta analitica de la
+        linea. Se suma su **Importe** (`amount`, el coste, en negativo), igual que
+        el panel de Rentabilidad del proyecto.
         """
         AAL = self.env["account.analytic.line"].sudo()
         project = self.project_id
         if not project or "project_id" not in AAL._fields:
             return 0.0
-        account = self.env["account.analytic.account"].sudo().search(
-            [("name", "=", account_name)], limit=1
-        )
-        if not account:
-            return 0.0
+        # Columnas de la linea que apuntan a una cuenta analitica: una por plan
+        # (Proyecto, P&L, Departamento, Division...). La clasificacion Horas
+        # internas/externas vive en el plan P&L, no en `account_id`.
+        plan_fields = [
+            name
+            for name, field in AAL._fields.items()
+            if field.type == "many2one"
+            and field.comodel_name == "account.analytic.account"
+        ]
         lines = AAL.search(
             [
                 ("project_id", "=", project.id),
-                ("account_id", "=", account.id),
                 ("date", ">=", start_date),
                 ("date", "<=", end_date),
             ]
         )
-        return sum(lines.mapped("amount"))
+        total = 0.0
+        for line in lines:
+            if any(line[name].name == account_name for name in plan_fields):
+                total += line.amount
+        return total
 
     def _amount_materials(self, analytic_account, start_date, end_date):
         """Materiales: coste de material del panel de Rentabilidad del proyecto.
