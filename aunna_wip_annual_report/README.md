@@ -1,7 +1,8 @@
-# AUNNA WIP - Informe anual/mensual
+# Informe operativo financiero (WIP)
 
-Modulo para crear informes WIP por proyecto o cuenta analitica desde
-Contabilidad > Informes.
+Modulo para crear el **Informe operativo financiero** (WIP) por proyecto o cuenta
+analitica desde Contabilidad > Informes. Menus: `Informe operativo financiero` y
+`Configuracion informe operativo financiero`.
 
 ## Funcionamiento
 
@@ -50,19 +51,29 @@ de los **asientos WIP (ingreso reconocido)**, **NO de las facturas de cliente**:
 
 - **Facturacion**: facturas/abonos de cliente (`out_invoice` / `out_refund`) en cuentas
   del grupo 70. Se muestra aparte; no entra en Ingresos.
-- **WIP**: acumulado del **ingreso reconocido** (arrastra el saldo anterior al rango).
-  Lo mueve el **asiento WIP**; una factura no lo mueve. Queda a 0 al facturar el
-  proyecto al 100% (dentro del flujo WIP).
+- **WIP**: **ingreso reconocido acumulado - facturacion acumulada** (arrastra el saldo
+  anterior al rango). Sube con los asientos WIP y baja al facturar; queda a 0 cuando lo
+  facturado alcanza lo reconocido, y negativo si se factura de mas.
 
 **Costes** (Horas internas, Horas externas, Pedidos, Materiales, Gastos) salen de las
 mismas fuentes que el panel de **Rentabilidad** del proyecto. **PM** se calcula a partir
 de Ingresos y Costes.
 
+- **Pedidos**: desde `19.0.14.0.0` sale de los **pedidos de compra confirmados**
+  (aceptados **aunque no esten facturados**), con la **fecha de confirmacion**
+  (`date_approve`) como referencia; importe = subtotal sin impuestos por el % analitico,
+  en negativo. En la **vista horizontal** se despliega en una **sub-fila por cada Tipo de
+  pedido** (`aunna.purchase.order.type`) que tenga datos (color mas claro y desplegable);
+  los pedidos sin tipo se suman en el total "Pedidos" pero no generan sub-fila. La fila
+  "Pedidos" (total) sigue siendo la que cuenta para "Total costes".
+
 > Historico: la fila **ER/OE** se retiro en `19.0.7.0.0`; en `19.0.8.0.0` se separo
 > Venta de servicios / Venta de productos y se retiro **Ingreso reconocido**. En
 > `19.0.12.0.0` los **Ingresos** dejaron de incluir las facturas de cliente (solo
-> asientos WIP), para que una factura no infle "Venta de productos". Las migraciones
-> adaptan los informes ya existentes.
+> asientos WIP), para que una factura no infle "Venta de productos". En `19.0.13.0.0`
+> el **WIP** volvio a la definicion `ingreso reconocido acumulado - facturacion
+> acumulada` (el ingreso reconocido se lee en bruto; al facturar baja el WIP). Las
+> migraciones adaptan los informes ya existentes.
 
 ## Notas
 

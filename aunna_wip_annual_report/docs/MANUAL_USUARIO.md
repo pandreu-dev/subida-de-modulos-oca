@@ -1,4 +1,4 @@
-# Manual de usuario — Informe WIP anual/mensual
+# Manual de usuario — Informe operativo financiero (WIP)
 
 Módulo: `aunna_wip_annual_report`
 
@@ -20,14 +20,14 @@ proyecto), agrupado como un P&L de obra:
 - **PM** (rentabilidad y % de margen)
 - **WIP** (facturación y obra en curso)
 
-Está en **Contabilidad → Informes → Informe WIP mensual** y en **Configuración informes
-WIP**.
+Está en **Contabilidad → Informes → Informe operativo financiero** y en **Configuración
+informe operativo financiero**.
 
 ---
 
 ## 2. Cómo se usa (paso a paso)
 
-1. **Contabilidad → Informes → Configuración informes WIP → Nuevo.**
+1. **Contabilidad → Informes → Configuración informe operativo financiero → Nuevo.**
 2. Rellena: **Ejercicio**, rango **Desde / Hasta**, **Compañía** y **Proyecto** (o
    directamente **Cuenta analítica**). Si eliges proyecto, la cuenta analítica se pone
    sola.
@@ -75,7 +75,7 @@ WIP**.
 |---|---|---|
 | **Horas internas** | Coste de horas de personal propio | Partes de horas (apuntes analíticos) del proyecto de empleados con **Tipo empleado = Interno**. |
 | **Horas externas** | Coste de horas de personal externo | Igual, con **Tipo empleado = Externo**. |
-| **Pedidos** | Compras a proveedor | Facturas de proveedor ligadas a un **pedido de compra**, imputadas a la analítica. |
+| **Pedidos** | Compras a proveedor | **Pedidos de compra confirmados** (aceptados, aunque **no** estén facturados), por su **fecha de confirmación**. En la vista horizontal se despliega en **una sub-fila por Tipo de pedido** (color más claro, plegable). |
 | **Materiales** | Material consumido | Apuntes analíticos de material (movimientos de stock valorados) imputados a la analítica. |
 | **Gastos** | Gastos de empleado | **Gastos** (`hr.expense`) imputados a la analítica. |
 | **Total costes** | Suma de costes | Suma de las filas anteriores (en negativo). |
@@ -96,13 +96,13 @@ WIP**.
 | Fila | Qué es | De dónde sale |
 |---|---|---|
 | **Facturación** | Lo facturado al cliente | Facturas/abonos de cliente en cuentas del grupo **70**. |
-| **WIP** | Obra en curso (reconocido no facturado) | Acumulado del **ingreso reconocido** (asientos WIP). |
+| **WIP** | Obra en curso (reconocido no facturado) | **Ingreso reconocido acumulado − Facturación acumulada.** |
 
-**Idea clave del WIP:** los **Ingresos** (apartado azul) se alimentan de los **asientos
-WIP** (ingreso reconocido), **no de las facturas**. El **WIP** es el acumulado de ese
-ingreso reconocido: lo mueve el **asiento WIP**, una **factura no lo mueve**. Cuando,
-dentro del flujo WIP, se factura contra lo reconocido, el asiento de cierre baja el WIP;
-queda a **0** al facturar el proyecto al 100%.
+**Idea clave del WIP:** los **Ingresos** (apartado azul) son el **ingreso reconocido**
+(asientos WIP) y **no** incluyen las facturas. El **WIP = ingreso reconocido acumulado −
+facturación acumulada**: **sube** con los asientos WIP y **baja** al facturar. Queda a
+**0** cuando lo facturado alcanza lo reconocido, y **negativo** si se factura de más
+(cobras por adelantado obra aún no reconocida).
 
 ---
 
@@ -119,7 +119,9 @@ periodo del informe**:
 - **Horas internas/externas**: que haya **partes de horas** en el proyecto **y** que los
   **empleados tengan "Tipo empleado" (Interno/Externo)** (una automatización les asigna
   la cuenta analítica "Horas internas"/"Horas externas").
-- **Pedidos**: **factura de proveedor** de un **pedido de compra** con la analítica.
+- **Pedidos**: **confirmar** un pedido de compra (estado *Pedido de compra*) con la
+  analítica del proyecto; **no hace falta facturarlo**. Sale con la **fecha de
+  confirmación** del pedido. Si el pedido tiene **Tipo pedido**, aparece su sub-fila.
 - **Materiales**: movimientos de **stock valorados** imputados a la analítica.
 - **Gastos**: **gastos de empleado** (`hr.expense`) imputados a la analítica.
 - **PM**: se calcula solo cuando hay Ingresos y Costes.
@@ -190,10 +192,12 @@ Para ver **Ingresos/WIP**, usa un proyecto al que le hayas **generado el asiento
 
 ## 8. Notas y limitaciones actuales
 
-- **Pedidos** es de momento **una línea** (el total). El **desglose por tipo de pedido**
-  (una línea por ALOJAMIENTO/EPI/MATERIAL/…) queda como mejora.
-- El coste mensual de **Pedidos** coge lo **facturado por el proveedor**; lo comprometido
-  de un pedido sin factura no tiene fecha contable y no se reparte por mes.
+- **Pedidos** se desglosa en la vista horizontal en **una sub-fila por Tipo de pedido**
+  (solo los tipos con datos; color más claro y plegable con el triángulo de "Pedidos").
+  Los pedidos **sin** tipo se suman en el total "Pedidos" pero no crean sub-fila.
+- El coste de **Pedidos** coge el **pedido de compra confirmado** (aceptado) por su fecha
+  de **confirmación**, aunque aún no esté facturado. En **Detalle mensual** y en el
+  **Excel** se ve el total "Pedidos" (el desglose por tipo es de la vista horizontal).
 - **Gastos** cuenta los gastos en estado *publicado/en pago/pagado*. Si tu versión usa
   otros estados y Gastos sale 0 teniendo gastos, hay que ajustar una constante en el
   código.

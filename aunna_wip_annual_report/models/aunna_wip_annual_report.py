@@ -71,8 +71,8 @@ REPORT_GROUPS = [
         "rows": [
             {"label": "Horas internas", "metric": "internal_hours"},
             {"label": "Horas externas", "metric": "external_hours"},
-            # "Pedidos" es de momento una linea unica; el desglose por tipo de
-            # pedido (aunna.purchase.order.type) queda como mejora.
+            # "Pedidos" = total; en la vista horizontal se despliega en una sub-fila
+            # por cada Tipo de pedido con datos (ver _build_purchase_type_rows).
             {"label": "Pedidos", "metric": "purchase_costs"},
             {"label": "Materiales", "metric": "materials"},
             {"label": "Gastos", "metric": "expenses"},
@@ -520,8 +520,10 @@ class AunnaWipAnnualReport(models.Model):
                 "Facturacion: facturas/abonos de cliente en cuentas del grupo 70."
             ),
             _(
-                "WIP: acumulado del ingreso reconocido. Lo mueve el asiento WIP; una "
-                "factura no lo mueve. El primer mes arrastra el saldo anterior al rango."
+                "WIP: ingreso reconocido acumulado - facturacion acumulada. Sube con los "
+                "asientos WIP y baja al facturar; queda a 0 cuando lo facturado alcanza lo "
+                "reconocido (y negativo si se factura de mas). El primer mes arrastra el "
+                "saldo anterior al rango."
             ),
         ]
         return "\n".join(notes) or False
@@ -533,6 +535,8 @@ class AunnaWipAnnualReport(models.Model):
             use_unsaved_lines=use_unsaved_lines
         )
         visible_months = self._get_horizontal_visible_months(months, active_lines)
+        # Sub-filas dinamicas de coste por Tipo de pedido (una por tipo con datos).
+        purchase_type_rows = self._build_purchase_type_rows(visible_months)
 
         lines_by_key = {
             (fields.Date.to_date(line.month_start), line.metric): line
@@ -649,6 +653,15 @@ class AunnaWipAnnualReport(models.Model):
             ".wv-grp-pm{background:#375623;}.wv-grp-wip{background:#bf6000;}",
             ".wv-concept-income{background:#dae3f3;}.wv-concept-cost{background:#f2dcdb;}"
             ".wv-concept-pm{background:#e2efda;}.wv-concept-wip{background:#fce4d6;}",
+            # Sub-filas de coste por tipo de pedido: color mas claro que Costes.
+            ".wv-concept-cost-sub{background:#faf0ef;font-weight:500;padding-left:28px;}",
+            # Desplegable de "Pedidos" (CSS puro; si el navegador no soporta :has,"
+            # se ven siempre desplegadas).
+            ".wv-ped-cb{position:absolute;opacity:0;width:0;height:0;}",
+            ".wv-ped-lbl{cursor:pointer;}",
+            ".wv-ped-lbl::before{content:'\\25BE  ';color:#843c39;font-size:11px;}",
+            ".o_aunna_wip_horizontal tbody tr:has(.wv-ped-cb:not(:checked)) .wv-ped-lbl::before{content:'\\25B8  ';}",
+            ".o_aunna_wip_horizontal tbody tr:has(.wv-ped-cb:not(:checked)) ~ tr.wv-type-row{display:none;}",
             ".wv-total-row{font-weight:700;}",
             ".wv-total-income{background:#1f4e79;color:#fff;}"
             ".wv-total-cost{background:#843c39;color:#fff;}",
@@ -681,6 +694,9 @@ class AunnaWipAnnualReport(models.Model):
             css = group["css"]
             data_metrics = [row["metric"] for row in group["rows"] if row.get("metric")]
             span = len(group["rows"]) + (1 if group.get("total_label") else 0)
+            # El grupo Costes incluye las sub-filas dinamicas por tipo de pedido.
+            if css == "cost":
+                span += len(purchase_type_rows)
             first = True
             for row in group["rows"]:
                 metric = row.get("metric")
@@ -694,10 +710,19 @@ class AunnaWipAnnualReport(models.Model):
                         % (css, span, escape(group["label"]))
                     )
                     first = False
-                html.append(
-                    "<td class='wv-concept wv-concept-%s'>%s</td>"
-                    % (css, escape(row["label"]))
-                )
+                if metric == "purchase_costs" and purchase_type_rows:
+                    # "Pedidos" con desglose: celda concepto con toggle (desplegable).
+                    html.append(
+                        "<td class='wv-concept wv-concept-%s'>"
+                        "<input type='checkbox' class='wv-ped-cb' id='wv_ped_cb' checked/>"
+                        "<label class='wv-ped-lbl' for='wv_ped_cb'>%s</label></td>"
+                        % (css, escape(row["label"]))
+                    )
+                else:
+                    html.append(
+                        "<td class='wv-concept wv-concept-%s'>%s</td>"
+                        % (css, escape(row["label"]))
+                    )
                 total_prev = total_real = 0.0
                 for month in visible_months:
                     if kind:
@@ -721,6 +746,20 @@ class AunnaWipAnnualReport(models.Model):
                 else:
                     html.append(cells(0.0, 0.0, blank=True))
                 html.append("</tr>")
+                # Sub-filas por tipo de pedido, justo debajo de "Pedidos".
+                if metric == "purchase_costs" and purchase_type_rows:
+                    for trow in purchase_type_rows:
+                        html.append("<tr class='wv-type-row'>")
+                        html.append(
+                            "<td class='wv-concept wv-concept-cost-sub'>%s</td>"
+                            % escape(trow["label"])
+                        )
+                        for month in visible_months:
+                            html.append(
+                                cells(0.0, trow["real_by_month"].get(month, 0.0))
+                            )
+                        html.append(cells(0.0, trow["total_real"]))
+                        html.append("</tr>")
             if group.get("total_label"):
                 html.append("<tr class='wv-total-row'>")
                 html.append(
@@ -978,9 +1017,10 @@ class AunnaWipAnnualReport(models.Model):
             invoice_amount = self._amount_invoices(
                 analytic_account, start_date, end_date
             )
-            # Ingresos = asientos WIP (sin facturas). WIP acumulado = acumulado del
-            # ingreso reconocido; una factura no lo mueve (solo lo mueve el asiento WIP).
-            running_wip += total_income
+            # WIP = ingreso reconocido acumulado - facturacion acumulada. El ingreso
+            # reconocido (asientos WIP) es bruto (no descuenta la factura); al facturar
+            # baja el WIP, y queda a 0 cuando lo facturado alcanza lo reconocido.
+            running_wip += total_income - invoice_amount
             values["services_income"][month_key] = services
             values["products_income"][month_key] = total_income - services
             values["internal_hours"][month_key] = self._amount_timesheet_cost(
@@ -1012,11 +1052,11 @@ class AunnaWipAnnualReport(models.Model):
 
         values = {}
         first_month_start = self._month_start(self._get_report_date_from())
-        # Saldo WIP inicial = acumulado del ingreso reconocido (asientos WIP) anterior
-        # al rango.
+        # Saldo WIP inicial = (ingreso reconocido acumulado - facturacion acumulada)
+        # anterior al rango.
         running_wip = self._amount_income_by_code_before(
             analytic_account, first_month_start, "70%"
-        )
+        ) - self._amount_invoices_before(analytic_account, first_month_start)
         for month_start in self._iter_month_starts():
             next_start = month_start + relativedelta(months=1)
             month_end = next_start - timedelta(days=1)
@@ -1029,7 +1069,8 @@ class AunnaWipAnnualReport(models.Model):
             invoice_amount = self._amount_invoices(
                 analytic_account, month_start, month_end
             )
-            running_wip += total_income
+            # WIP = ingreso reconocido acumulado - facturacion acumulada.
+            running_wip += total_income - invoice_amount
             values[(month_start, "services_income")] = services
             values[(month_start, "products_income")] = total_income - services
             values[(month_start, "internal_hours")] = self._amount_timesheet_cost(
@@ -1163,29 +1204,108 @@ class AunnaWipAnnualReport(models.Model):
             total += amount
         return -total
 
-    def _amount_purchase_costs(self, analytic_account, start_date, end_date):
-        """Pedidos: coste de pedidos de compra del panel de Rentabilidad = lineas de
-        factura de proveedor publicadas ligadas a un pedido de compra, imputadas a la
-        cuenta analitica del proyecto y ponderadas por su % analitico (en negativo).
+    def _purchase_order_costs_by_type(self, analytic_account, start_date, end_date):
+        """Coste de pedidos de compra CONFIRMADOS (aceptados) imputados a la cuenta
+        analitica del informe, agrupado por Tipo de pedido.
 
-        (De momento es una unica linea "Pedidos"; el desglose por tipo de pedido
-        queda como mejora.)"""
-        MoveLine = self.env["account.move.line"].sudo()
-        if "purchase_line_id" not in MoveLine._fields:
-            return 0.0
-        domain = [
-            ("move_id.move_type", "in", ["in_invoice", "in_refund"]),
-            ("company_id", "=", self.company_id.id),
-            ("analytic_distribution", "in", [analytic_account.id]),
-            ("purchase_line_id", "!=", False),
-            ("date", ">=", start_date),
-            ("date", "<=", end_date),
-        ]
-        extra = [self._posted_move_line_domain(MoveLine), self._display_type_domain(MoveLine)]
-        if "expense_id" in MoveLine._fields:
-            extra.append([("expense_id", "=", False)])
-        domain = expression.AND([domain] + extra)
-        return self._sum_move_lines(MoveLine.search(domain), analytic_account)
+        A diferencia de la version anterior (que tiraba de facturas de proveedor),
+        el coste sale del **pedido de compra aceptado aunque no este facturado**
+        (como el panel de Rentabilidad del proyecto): en cuanto se confirma un
+        pedido, su coste ya aparece. La **fecha de referencia** es la de
+        **confirmacion del pedido** (`date_approve`, o `date_order` si falta). El
+        importe es el subtotal sin impuestos de cada linea, ponderado por su % de
+        distribucion analitica y en negativo (coste).
+
+        Devuelve un dict ``{type_id (o False si el pedido no tiene tipo): importe}``.
+        """
+        if "purchase.order.line" not in self.env:
+            return {}
+        POL = self.env["purchase.order.line"].sudo()
+        if "analytic_distribution" not in POL._fields:
+            return {}
+        lines = POL.search(
+            [
+                ("order_id.state", "in", ["purchase", "done"]),
+                ("company_id", "=", self.company_id.id),
+                ("analytic_distribution", "in", [analytic_account.id]),
+            ]
+        )
+        result = {}
+        for line in lines:
+            order = line.order_id
+            ref = order.date_approve or order.date_order
+            ref_date = fields.Date.to_date(ref) if ref else False
+            if not ref_date or ref_date < start_date or ref_date > end_date:
+                continue
+            ratio = self._analytic_distribution_ratio(
+                line.analytic_distribution, analytic_account
+            )
+            if not ratio:
+                continue
+            amount = -(line.price_subtotal or 0.0) * ratio
+            if not amount:
+                continue
+            type_id = (
+                order.aunna_purchase_order_type_id.id
+                if "aunna_purchase_order_type_id" in order._fields
+                else False
+            )
+            result[type_id] = result.get(type_id, 0.0) + amount
+        return result
+
+    def _amount_purchase_costs(self, analytic_account, start_date, end_date):
+        """Pedidos: coste total de pedidos de compra confirmados en el mes = suma de
+        todos los tipos (ver ``_purchase_order_costs_by_type``)."""
+        return sum(
+            self._purchase_order_costs_by_type(
+                analytic_account, start_date, end_date
+            ).values()
+        )
+
+    def _build_purchase_type_rows(self, visible_months):
+        """Sub-filas dinamicas de coste por Tipo de pedido para la vista horizontal.
+
+        Una fila por cada tipo de pedido que tenga datos en los meses visibles
+        (solo tipos con registros; los pedidos **sin tipo** se agregan en el total
+        "Pedidos" pero no generan sub-fila). Se calcula en vivo (no se guarda como
+        metrica). Devuelve una lista de dicts ordenada por nombre de tipo, con
+        ``{"label", "real_by_month": {month: importe}, "total_real"}``.
+        """
+        self.ensure_one()
+        analytic = self._get_filter_analytic_account()
+        if not analytic or not visible_months:
+            return []
+        by_month = {}
+        type_ids = set()
+        for month in visible_months:
+            month_end = month + relativedelta(months=1) - timedelta(days=1)
+            amounts = self._purchase_order_costs_by_type(analytic, month, month_end)
+            by_month[month] = amounts
+            type_ids.update(type_id for type_id in amounts if type_id)
+        if not type_ids:
+            return []
+        types = (
+            self.env["aunna.purchase.order.type"]
+            .sudo()
+            .browse(sorted(type_ids))
+            .exists()
+            .sorted(lambda ptype: (ptype.name or "").lower())
+        )
+        rows = []
+        for ptype in types:
+            real_by_month = {
+                month: by_month[month].get(ptype.id, 0.0) for month in visible_months
+            }
+            if not any(real_by_month.values()):
+                continue
+            rows.append(
+                {
+                    "label": ptype.name or _("Sin nombre"),
+                    "real_by_month": real_by_month,
+                    "total_real": sum(real_by_month.values()),
+                }
+            )
+        return rows
 
     def _amount_income_by_code(self, analytic_account, start_date, end_date, code_like):
         """Ingreso (grupo 70) imputado a la cuenta analitica del informe, en el mes,

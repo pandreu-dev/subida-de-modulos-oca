@@ -1,7 +1,7 @@
 {
-    "name": "AUNNA WIP - Informe anual",
-    "summary": "Informe anual editable de prevision y reales WIP por proyecto o cuenta analitica",
-    "version": "19.0.12.1.0",
+    "name": "Informe operativo financiero",
+    "summary": "Informe operativo financiero (WIP) por proyecto o cuenta analitica: prevision y reales",
+    "version": "19.0.14.0.0",
     "category": "Accounting/Reporting",
     "author": "AUNNA",
     "license": "LGPL-3",
@@ -9,7 +9,9 @@
         "account",
         "analytic",
         "project",
+        "purchase",
         "aunna_wip_accounting",
+        "aunna_purchase_order_type",
     ],
     "data": [
         "security/ir.model.access.csv",

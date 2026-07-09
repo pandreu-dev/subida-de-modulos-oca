@@ -37,10 +37,26 @@ WIP), como el cuadro de referencia. Los conceptos con dato contable son:
 | Ingresos | Venta de productos  | Ingreso reconocido en el resto del grupo **70** (700...), SIN facturas.      |
 | Ingresos | *Total ingresos*    | Servicios + Productos = ingreso reconocido via asientos WIP.                 |
 | WIP      | Facturacion         | Facturas de cliente en cuentas del grupo **70** (aparte, no entra en Ingresos). |
-| WIP      | WIP                 | Acumulado del ingreso reconocido (lo mueve el asiento WIP, no la factura).   |
+| WIP      | WIP                 | Ingreso reconocido acumulado - facturacion acumulada.                        |
 
 Las filas de **Costes** (Horas internas, Horas externas, Pedidos, Materiales, Gastos)
-y **PM** aparecen en la estructura pero estan pendientes de conectar su fuente.
+salen de las mismas fuentes que el panel de **Rentabilidad** del proyecto, y **PM** se
+calcula a partir de Ingresos y Costes:
+
+- **Horas internas / externas**: coste de los **partes de horas** del proyecto, separados
+  por el plan analitico "Horas internas"/"Horas externas" (lo asigna una automatizacion
+  segun el Tipo empleado). Se busca esa cuenta en **cualquier** columna de plan de la
+  linea, no solo en `account_id`.
+- **Pedidos**: **pedidos de compra confirmados** (estado `purchase`/`done`), aceptados
+  **aunque no esten facturados**; fecha de referencia = **confirmacion del pedido**
+  (`date_approve`, o `date_order`); importe = subtotal sin impuestos x % analitico, en
+  negativo. En la vista horizontal se **desglosa en una sub-fila por Tipo de pedido**
+  (`aunna.purchase.order.type`) con datos (`_build_purchase_type_rows`); los sin tipo van
+  al total pero no generan sub-fila. La fila "Pedidos" (total) es la que cuenta para
+  "Total costes".
+- **Materiales**: apuntes analiticos `timesheet_invoice_type = other_costs` (excluyendo
+  gastos y facturas de proveedor para no duplicar).
+- **Gastos**: `hr.expense` imputados a la analitica.
 
 Las filas de dato editable/almacenado las define `METRICS` en
 [models/aunna_wip_annual_report.py](../models/aunna_wip_annual_report.py):
@@ -127,13 +143,14 @@ Es cuanto se ha **facturado** del proyecto en el mes.
 Metodo: dentro de `_collect_period_real_values` / `_collect_real_values`.
 
 - Formula mensual (definicion del negocio):
-  `WIP_mes = WIP_mes_anterior + Total ingresos_mes`, donde `Total ingresos` es el
-  **ingreso reconocido** del mes (asientos WIP, sin facturas).
-- Es un **acumulado** del ingreso reconocido. Lo mueve el **asiento WIP**; una factura
-  **no lo mueve** (la factura solo aparece en Facturacion). En el flujo WIP, el asiento
-  de cierre contra lo reconocido lo deja a 0 al facturar el 100%.
+  `WIP_mes = WIP_mes_anterior + Total ingresos_mes - Facturacion_mes`, donde
+  `Total ingresos` es el **ingreso reconocido** del mes (asientos WIP, sin facturas) y
+  `Facturacion` son las facturas de cliente del mes.
+- Es un **acumulado** de `ingreso reconocido - facturacion`. El ingreso reconocido se lee
+  en **bruto** (no descuenta la factura), asi que al facturar el WIP **baja**; queda a 0
+  cuando lo facturado alcanza lo reconocido, y **negativo** si se factura de mas.
 - **Saldo inicial**: el primer mes visible arrastra lo anterior al rango, con
-  `_amount_income_by_code_before(..., "70%")` (ingreso reconocido previo, sin facturas).
+  `_amount_income_by_code_before(..., "70%") - _amount_invoices_before(...)`.
 - En el **Total** de la matriz horizontal, el WIP muestra el valor del **ultimo mes**
   (no la suma), por ser un acumulado.
 
