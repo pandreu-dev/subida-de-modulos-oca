@@ -20,14 +20,14 @@ proyecto), agrupado como un P&L de obra:
 - **PM** (rentabilidad y % de margen)
 - **WIP** (facturación y obra en curso)
 
-Está en **Contabilidad → Informes → Informe operativo financiero** y en **Configuración
-informe operativo financiero**.
+Está en el app **Proyectos → Informe operativo financiero** y en **Proyectos →
+Configuración informe operativo financiero** (visible para usuarios de Contabilidad).
 
 ---
 
 ## 2. Cómo se usa (paso a paso)
 
-1. **Contabilidad → Informes → Configuración informe operativo financiero → Nuevo.**
+1. **Proyectos → Configuración informe operativo financiero → Nuevo.**
 2. Rellena: **Ejercicio**, rango **Desde / Hasta**, **Compañía** y **Proyecto** (o
    directamente **Cuenta analítica**). Si eliges proyecto, la cuenta analítica se pone
    sola.
@@ -96,7 +96,6 @@ informe operativo financiero**.
 | Fila | Qué es | De dónde sale |
 |---|---|---|
 | **Facturación** | Lo facturado al cliente | Facturas/abonos de cliente en cuentas del grupo **70**. |
-| **Reconocido acumulado** | Ingreso reconocido acumulado (sin restar facturación) | Suma acumulada de Total ingresos. Para ver cuánto se ha reconocido en total y **no reconocer de menos** el mes siguiente. |
 | **WIP** | Obra en curso (reconocido no facturado) | **Ingreso reconocido acumulado − Facturación acumulada.** |
 
 **Idea clave del WIP:** los **Ingresos** (apartado azul) son el **ingreso reconocido**

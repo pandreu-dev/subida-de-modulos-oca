@@ -51,13 +51,14 @@ de los **asientos WIP (ingreso reconocido)**, **NO de las facturas de cliente**:
 
 - **Facturacion**: facturas/abonos de cliente (`out_invoice` / `out_refund`) en cuentas
   del grupo 70. Se muestra aparte; no entra en Ingresos.
-- **Reconocido acumulado** (desde `19.0.15.0.0`): ingreso reconocido acumulado (suma
-  acumulada de Total ingresos, **sin** restar facturacion). Sirve para ver cuanto se ha
-  reconocido en total y no reconocer de menos el mes siguiente. En el Total muestra el
-  ultimo mes.
 - **WIP**: **ingreso reconocido acumulado - facturacion acumulada** (arrastra el saldo
   anterior al rango). Sube con los asientos WIP y baja al facturar; queda a 0 cuando lo
   facturado alcanza lo reconocido, y negativo si se factura de mas.
+
+> Desde `19.0.16.0.0`: el menu del informe cuelga del app **Proyectos** (antes en
+> Contabilidad > Informes). Los **ingresos reconocidos SI muestran el negativo** de una
+> reversion del WIP en el mes: es un chivato: si un mes se reconoce menos que el
+> anterior, aparece en negativo y el responsable puede detectarlo.
 
 **Costes** (Horas internas, Horas externas, Pedidos, Materiales, Gastos) salen de las
 mismas fuentes que el panel de **Rentabilidad** del proyecto. **PM** se calcula a partir

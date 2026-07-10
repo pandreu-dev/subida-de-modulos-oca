@@ -285,7 +285,7 @@
     <menuitem
         id="menu_aunna_wip_annual_report"
         name="Informe operativo financiero"
-        parent="account.menu_finance_reports"
+        parent="project.menu_main_pm"
         action="action_aunna_wip_annual_report_period_line"
         groups="account.group_account_user"
         sequence="85"
@@ -294,7 +294,7 @@
     <menuitem
         id="menu_aunna_wip_annual_report_config"
         name="Configuracion informe operativo financiero"
-        parent="account.menu_finance_reports"
+        parent="project.menu_main_pm"
         action="action_aunna_wip_annual_report"
         groups="account.group_account_user"
         sequence="86"
