@@ -34,8 +34,12 @@ METRICS = [
     ("materials", "Materiales", 60),
     ("expenses", "Gastos", 70),
     ("invoice", "Facturacion", 80),
+    ("recognized_acc", "Reconocido acumulado", 85),
     ("real_wip", "WIP", 90),
 ]
+
+# Metricas cuyo valor es un ACUMULADO (no se suman: el Total muestra el ultimo mes).
+ACCUMULATED_METRICS = {"real_wip", "recognized_acc"}
 
 # Cuentas analiticas de coste de horas: las asigna la automatizacion
 # "Horas internas/externas Apuntes analiticos" a cada parte de horas segun el
@@ -94,6 +98,7 @@ REPORT_GROUPS = [
         "css": "wip",
         "rows": [
             {"label": "Facturacion", "metric": "invoice"},
+            {"label": "Reconocido acumulado", "metric": "recognized_acc"},
             {"label": "WIP", "metric": "real_wip"},
         ],
         "total_label": None,
@@ -525,6 +530,11 @@ class AunnaWipAnnualReport(models.Model):
                 "reconocido (y negativo si se factura de mas). El primer mes arrastra el "
                 "saldo anterior al rango."
             ),
+            _(
+                "Reconocido acumulado: ingreso reconocido acumulado (sin restar "
+                "facturacion). Sirve para ver cuanto se ha reconocido en total y no "
+                "reconocer de menos en el mes siguiente."
+            ),
         ]
         return "\n".join(notes) or False
 
@@ -701,7 +711,7 @@ class AunnaWipAnnualReport(models.Model):
             for row in group["rows"]:
                 metric = row.get("metric")
                 kind = row.get("kind")
-                is_accumulated = metric == "real_wip"
+                is_accumulated = metric in ACCUMULATED_METRICS
                 is_pct = kind in ("pm_pct", "pm_pct_acc")
                 html.append("<tr>")
                 if first:
@@ -955,7 +965,7 @@ class AunnaWipAnnualReport(models.Model):
         return not any([prev_amount, real_amount, diff_amount])
 
     def _horizontal_metric_totals(self, metric, prev_values, real_values):
-        if metric == "real_wip":
+        if metric in ACCUMULATED_METRICS:
             return (
                 prev_values[-1] if prev_values else 0.0,
                 real_values[-1] if real_values else 0.0,
@@ -1006,6 +1016,7 @@ class AunnaWipAnnualReport(models.Model):
             for metric, _label, _sequence in METRICS
         }
         running_wip = 0.0
+        running_recognized = 0.0
         for month_key, _month_label, month_number in MONTHS:
             start_date, end_date, next_start_date = self._month_period(month_number)
             services = self._amount_income_by_code(
@@ -1021,6 +1032,7 @@ class AunnaWipAnnualReport(models.Model):
             # reconocido (asientos WIP) es bruto (no descuenta la factura); al facturar
             # baja el WIP, y queda a 0 cuando lo facturado alcanza lo reconocido.
             running_wip += total_income - invoice_amount
+            running_recognized += total_income
             values["services_income"][month_key] = services
             values["products_income"][month_key] = total_income - services
             values["internal_hours"][month_key] = self._amount_timesheet_cost(
@@ -1039,6 +1051,7 @@ class AunnaWipAnnualReport(models.Model):
                 analytic_account, start_date, end_date
             )
             values["invoice"][month_key] = invoice_amount
+            values["recognized_acc"][month_key] = running_recognized
             values["real_wip"][month_key] = running_wip
         return values
 
@@ -1057,6 +1070,10 @@ class AunnaWipAnnualReport(models.Model):
         running_wip = self._amount_income_by_code_before(
             analytic_account, first_month_start, "70%"
         ) - self._amount_invoices_before(analytic_account, first_month_start)
+        # Reconocido acumulado inicial = ingreso reconocido anterior al rango.
+        running_recognized = self._amount_income_by_code_before(
+            analytic_account, first_month_start, "70%"
+        )
         for month_start in self._iter_month_starts():
             next_start = month_start + relativedelta(months=1)
             month_end = next_start - timedelta(days=1)
@@ -1071,6 +1088,7 @@ class AunnaWipAnnualReport(models.Model):
             )
             # WIP = ingreso reconocido acumulado - facturacion acumulada.
             running_wip += total_income - invoice_amount
+            running_recognized += total_income
             values[(month_start, "services_income")] = services
             values[(month_start, "products_income")] = total_income - services
             values[(month_start, "internal_hours")] = self._amount_timesheet_cost(
@@ -1089,6 +1107,7 @@ class AunnaWipAnnualReport(models.Model):
                 analytic_account, month_start, month_end
             )
             values[(month_start, "invoice")] = invoice_amount
+            values[(month_start, "recognized_acc")] = running_recognized
             values[(month_start, "real_wip")] = running_wip
         return values
 

@@ -37,6 +37,7 @@ WIP), como el cuadro de referencia. Los conceptos con dato contable son:
 | Ingresos | Venta de productos  | Ingreso reconocido en el resto del grupo **70** (700...), SIN facturas.      |
 | Ingresos | *Total ingresos*    | Servicios + Productos = ingreso reconocido via asientos WIP.                 |
 | WIP      | Facturacion         | Facturas de cliente en cuentas del grupo **70** (aparte, no entra en Ingresos). |
+| WIP      | Reconocido acumulado| Ingreso reconocido acumulado (suma de Total ingresos, SIN restar facturacion). |
 | WIP      | WIP                 | Ingreso reconocido acumulado - facturacion acumulada.                        |
 
 Las filas de **Costes** (Horas internas, Horas externas, Pedidos, Materiales, Gastos)

@@ -51,6 +51,10 @@ de los **asientos WIP (ingreso reconocido)**, **NO de las facturas de cliente**:
 
 - **Facturacion**: facturas/abonos de cliente (`out_invoice` / `out_refund`) en cuentas
   del grupo 70. Se muestra aparte; no entra en Ingresos.
+- **Reconocido acumulado** (desde `19.0.15.0.0`): ingreso reconocido acumulado (suma
+  acumulada de Total ingresos, **sin** restar facturacion). Sirve para ver cuanto se ha
+  reconocido en total y no reconocer de menos el mes siguiente. En el Total muestra el
+  ultimo mes.
 - **WIP**: **ingreso reconocido acumulado - facturacion acumulada** (arrastra el saldo
   anterior al rango). Sube con los asientos WIP y baja al facturar; queda a 0 cuando lo
   facturado alcanza lo reconocido, y negativo si se factura de mas.
