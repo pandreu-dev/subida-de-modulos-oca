@@ -15,6 +15,10 @@
             <xpath expr="//field[@name='company_id']" position="before">
                 <field name="wip_auto_accounting" readonly="state != 'draft'"/>
             </xpath>
+            <!-- Columna "Reconocido acumulado" en las lineas del presupuesto, junto a Alcanzado. -->
+            <xpath expr="//field[@name='budget_line_ids']//field[@name='achieved_amount']" position="after">
+                <field name="aunnna_wip_recognized_amount" optional="show"/>
+            </xpath>
         </field>
     </record>
 </odoo>

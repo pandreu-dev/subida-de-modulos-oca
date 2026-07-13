@@ -71,6 +71,10 @@ de Ingresos y Costes.
   pedido** (`aunna.purchase.order.type`) que tenga datos (color mas claro y desplegable);
   los pedidos sin tipo se suman en el total "Pedidos" pero no generan sub-fila. La fila
   "Pedidos" (total) sigue siendo la que cuenta para "Total costes".
+- **Materiales**: desde `19.0.17.0.0` los costes estan **capados** para NO coger apuntes
+  imputados a cuentas de **ingreso** (grupo **7** / naturaleza ingreso). Esos importes no
+  son coste: son "menos venta" y ya se reflejan en **Facturacion**. Las demas filas de
+  coste (Horas, Pedidos, Gastos) no leen de cuentas 7 por construccion.
 
 > Historico: la fila **ER/OE** se retiro en `19.0.7.0.0`; en `19.0.8.0.0` se separo
 > Venta de servicios / Venta de productos y se retiro **Ingreso reconocido**. En

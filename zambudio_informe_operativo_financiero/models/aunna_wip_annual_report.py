@@ -1166,7 +1166,21 @@ class AunnaWipAnnualReport(models.Model):
             domain += ["|", ("move_line_id", "=", False), ("move_line_id.expense_id", "=", False)]
         if "move_line_id" in AAL._fields and "purchase_line_id" in AML._fields:
             domain += ["|", ("move_line_id", "=", False), ("move_line_id.purchase_line_id", "=", False)]
-        return sum(AAL.search(domain).mapped("amount"))
+        # Capar costes: excluir apuntes cuya cuenta contable sea de INGRESO (grupo 7 /
+        # naturaleza ingreso). Esos importes NO son coste: son "menos venta" y ya se
+        # reflejan en Facturacion. (Peticion de negocio.)
+        has_move_line = "move_line_id" in AAL._fields
+        total = 0.0
+        for line in AAL.search(domain):
+            account = (
+                line.move_line_id.account_id
+                if has_move_line and line.move_line_id
+                else False
+            )
+            if account and self._is_income_account(account):
+                continue
+            total += line.amount
+        return total
 
     def _amount_expenses(self, analytic_account, start_date, end_date):
         """Gastos: gastos de empleado (`hr.expense`) imputados a la cuenta analitica
@@ -1428,6 +1442,23 @@ class AunnaWipAnnualReport(models.Model):
         if "code" in Account._fields:
             domains.append([("account_id.code", "=like", "7%")])
         return expression.OR(domains) if domains else []
+
+    def _is_income_account(self, account):
+        """True si la cuenta contable es de INGRESO (grupo 7 / naturaleza ingreso).
+
+        Se usa para **capar los costes**: un apunte imputado a una cuenta de ingreso
+        (7xx) no es un coste, es "menos venta" (ya lo recoge Facturacion), asi que no
+        debe sumar en Materiales/costes.
+        """
+        if not account:
+            return False
+        if "account_type" in account._fields and account.account_type in (
+            "income",
+            "income_other",
+        ):
+            return True
+        code = account.code if "code" in account._fields else ""
+        return bool(code) and str(code).startswith("7")
 
     def _display_type_domain(self, Model):
         if "display_type" not in Model._fields:
