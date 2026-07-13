@@ -26,6 +26,39 @@ class BudgetLine(models.Model):
         for line in self:
             line.aunnna_wip_recognized_amount = line._aunnna_wip_recognized_to_date()
 
+    def _compute_all(self):
+        """Override del compute base (committed/achieved). Para presupuestos WIP de
+        INGRESO, "Alcanzado" (achieved_amount) debe ser SOLO lo facturado, excluyendo
+        los asientos WIP de ingreso reconocido (que el compute base si cuenta al leer
+        toda la analitica). Se reutiliza la logica del calculo WIP
+        (``_aunna_wip_get_income_achieved_amount``, que excluye el diario WIP)."""
+        super()._compute_all()
+        for line in self:
+            budget = line.budget_analytic_id
+            if not budget or not budget._aunna_wip_is_income_budget_line(line):
+                continue
+            analytic_dimensions = budget._aunna_wip_get_analytic_dimensions(line)
+            if not analytic_dimensions:
+                continue
+            try:
+                date_from, date_to = budget._aunna_wip_get_line_dates(line)
+            except UserError:
+                continue
+            # Cota superior = fin del periodo del presupuesto (como el "Alcanzado"
+            # base), no la fecha de corte del WIP: asi cuenta TODAS las facturas del
+            # periodo (incluidas las de fecha futura dentro del ejercicio).
+            cutoff = date_to or budget.wip_recalculation_date or fields.Date.context_today(budget)
+            company = budget._aunna_wip_get_company()
+            achieved, _note = budget.with_company(
+                company
+            )._aunna_wip_get_income_achieved_amount(
+                analytic_dimensions, date_from, cutoff, company, line
+            )
+            line.achieved_amount = achieved
+            line.achieved_percentage = (
+                achieved / line.budget_amount if line.budget_amount else 0.0
+            )
+
     def _aunnna_wip_recognized_to_date(self):
         """Ingreso reconocido acumulado (neto) en la cuenta 705 del diario WIP para la
         analitica de la linea, hasta la fecha de corte. Reutiliza los helpers de

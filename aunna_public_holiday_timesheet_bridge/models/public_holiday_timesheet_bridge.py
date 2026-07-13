@@ -186,6 +186,9 @@ class PublicHolidayTimesheetBridge(models.Model):
 
         desired_keys = set()
         holidays = self._get_public_holiday_lines(employee, date_from, date_to)
+        # No generar festivos fuera del periodo de empleo (antes del alta / despues de
+        # la salida). Al recalcular, el reconciliador borra los ya generados mal.
+        holidays = self._filter_holidays_by_employment(employee, holidays)
         if not holidays:
             partner = self._get_employee_partner(employee)
             message = _("No se han encontrado festivos OCA aplicables en el rango indicado.")
@@ -232,6 +235,14 @@ class PublicHolidayTimesheetBridge(models.Model):
                 date_from=date_from,
                 date_to=date_to,
                 desired_keys=desired_keys,
+                dry_run=dry_run,
+            )
+        )
+        results.extend(
+            self._dedupe_generated_lines(
+                employee=employee,
+                date_from=date_from,
+                date_to=date_to,
                 dry_run=dry_run,
             )
         )
@@ -435,6 +446,46 @@ class PublicHolidayTimesheetBridge(models.Model):
         return False
 
     @api.model
+    def _filter_holidays_by_employment(self, employee, holidays):
+        """Descarta festivos fuera del periodo de empleo del trabajador: anteriores a
+        su fecha de ALTA, o posteriores a su fecha de SALIDA (baja). Si la fecha de
+        salida no esta definida, el empleado sigue en la empresa (sin cota superior);
+        si no hay fecha de alta, no se aplica cota inferior. Asi no se generan festivos
+        de cuando el empleado no estaba en la compania, y al recalcular el reconciliador
+        elimina los que ya se hubieran generado mal (si no estan validados/bloqueados)."""
+        hire_date = self._get_employee_hire_date(employee)
+        leave_date = self._get_employee_leave_date(employee)
+        if not hire_date and not leave_date:
+            return holidays
+        kept = []
+        for holiday in holidays:
+            holiday_date = self._get_holiday_date(holiday)
+            if holiday_date:
+                if hire_date and holiday_date < hire_date:
+                    continue
+                if leave_date and holiday_date > leave_date:
+                    continue
+            kept.append(holiday)
+        return kept
+
+    @api.model
+    def _get_employee_hire_date(self, employee):
+        """Fecha de alta del empleado (campo a medida ``x_studio_fecha_de_alta_1``)."""
+        for field_name in ("x_studio_fecha_de_alta_1",):
+            if field_name in employee._fields and employee[field_name]:
+                return fields.Date.to_date(employee[field_name])
+        return False
+
+    @api.model
+    def _get_employee_leave_date(self, employee):
+        """Fecha de salida/baja del empleado (``departure_date`` estandar). Si no esta
+        definida, el empleado sigue en la empresa (sin cota superior)."""
+        for field_name in ("departure_date",):
+            if field_name in employee._fields and employee[field_name]:
+                return fields.Date.to_date(employee[field_name])
+        return False
+
+    @api.model
     def _get_employee_location(self, employee):
         partner = self._get_employee_partner(employee)
         country = employee.country_id if "country_id" in employee._fields else False
@@ -595,6 +646,75 @@ class PublicHolidayTimesheetBridge(models.Model):
             if not dry_run:
                 line.unlink()
 
+        return results
+
+    @api.model
+    def _dedupe_generated_lines(self, employee, date_from, date_to, dry_run=False):
+        """Elimina DUPLICADOS de lineas generadas por el puente para el mismo empleado
+        y dia. Comprobacion estricta antes de borrar un parte de horas: solo se tocan
+        lineas generadas por el puente (``x_generated_by_public_holiday_bridge``), y se
+        agrupan por (fecha, proyecto, tarea, nombre); si un grupo tiene 2+ lineas, se
+        conserva UNA (preferiblemente una validada/bloqueada si existe, si no la mas
+        antigua) y se borran las demas SOLO si son editables. Nunca toca lineas manuales
+        ni validadas/bloqueadas/facturadas."""
+        AnalyticLine = self.env["account.analytic.line"].sudo()
+        lines = AnalyticLine.search(
+            [
+                ("employee_id", "=", employee.id),
+                ("date", ">=", date_from),
+                ("date", "<=", date_to),
+                ("x_generated_by_public_holiday_bridge", "=", True),
+            ],
+            order="id asc",
+        )
+        groups = {}
+        for line in lines:
+            key = (
+                fields.Date.to_string(line.date),
+                line.project_id.id,
+                line.task_id.id,
+                line.name or "",
+            )
+            groups.setdefault(key, AnalyticLine)
+            groups[key] |= line
+
+        results = []
+        for group in groups.values():
+            if len(group) < 2:
+                continue
+            # Conservar una: si alguna esta validada/bloqueada, se conserva esa (no se
+            # puede borrar); si no, la primera (id mas bajo, ya ordenado asc).
+            locked = group.filtered(lambda line: not self._is_line_editable(line))
+            keep = locked[:1] if locked else group[:1]
+            for line in group - keep:
+                if not self._is_line_editable(line):
+                    results.append(
+                        self._make_result(
+                            employee=employee,
+                            holiday=line.x_public_holiday_line_id,
+                            holiday_date=line.date,
+                            hours=line.unit_amount,
+                            analytic_line=line,
+                            action="skip_locked_duplicate",
+                            message=_("Duplicado detectado pero validado/bloqueado; no se borra."),
+                        )
+                    )
+                    continue
+                results.append(
+                    self._make_result(
+                        employee=employee,
+                        holiday=line.x_public_holiday_line_id,
+                        holiday_date=line.date,
+                        hours=line.unit_amount,
+                        analytic_line=line,
+                        action="delete_duplicate",
+                        message=_("Se eliminaria una linea duplicada del mismo festivo/dia.")
+                        if dry_run
+                        else _("Linea duplicada eliminada (mismo festivo/dia)."),
+                    )
+                )
+                if not dry_run:
+                    line.unlink()
         return results
 
     @api.model

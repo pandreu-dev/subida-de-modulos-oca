@@ -64,6 +64,16 @@ de los **asientos WIP (ingreso reconocido)**, **NO de las facturas de cliente**:
 mismas fuentes que el panel de **Rentabilidad** del proyecto. **PM** se calcula a partir
 de Ingresos y Costes.
 
+- **Horas internas / externas**: desde `19.0.19.0.0` solo se cuentan los partes de horas
+  **VALIDADOS**. Un parte en borrador no se refleja en el informe (mismo criterio que el
+  asiento de coste "COSTE TH").
+- **Materiales**: desde `19.0.19.0.0` cada movimiento de entrega (albaran) se cuenta **una
+  sola vez** y en su **fecha efectiva** de validacion. De los varios apuntes analiticos que
+  genera un mismo movimiento se cuenta solo la linea SIN `move_line_id` (la canonica, como
+  el panel de Rentabilidad); las lineas con `move_line_id` (valoracion de stock en fecha
+  prevista y asiento tecnico COSTE STOCK) son el mismo coste y se descartan. Esto subsume el
+  capado de cuentas de ingreso de `19.0.17.0.0`.
+
 - **Pedidos**: desde `19.0.14.0.0` sale de los **pedidos de compra confirmados**
   (aceptados **aunque no esten facturados**), con la **fecha de confirmacion**
   (`date_approve`) como referencia; importe = subtotal sin impuestos por el % analitico,

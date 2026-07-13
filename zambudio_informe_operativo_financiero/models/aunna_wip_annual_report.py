@@ -1135,18 +1135,42 @@ class AunnaWipAnnualReport(models.Model):
         )
         total = 0.0
         for line in lines:
+            # Solo se imputan los partes de horas VALIDADOS (peticion de negocio: un
+            # parte en borrador no debe reflejarse en el informe). Mismo criterio que
+            # aunna_project_cost_account_moves para que el informe y el asiento de
+            # coste (COSTE TH) cuenten lo mismo.
+            if not self._is_timesheet_line_validated(line):
+                continue
             if any(line[name].name == account_name for name in plan_fields):
                 total += line.amount
         return total
 
-    def _amount_materials(self, analytic_account, start_date, end_date):
-        """Materiales: coste de material del panel de Rentabilidad del proyecto.
+    def _is_timesheet_line_validated(self, line):
+        """True si el parte de horas esta validado. Replica el criterio de
+        ``aunna_project_cost_account_moves._aunna_timesheet_is_validated``: campo
+        estandar ``validated`` (hr_timesheet) en Odoo 19; si no existe, ``state``; y
+        si no hay ninguno (validacion no instalada), no filtra (cuenta todo)."""
+        for field_name in ("validated", "is_validated", "timesheet_validated"):
+            if field_name in line._fields:
+                return bool(line[field_name])
+        if "state" in line._fields and line.state:
+            return line.state in ("validated", "approved", "done", "posted")
+        return True
 
-        Son apuntes analiticos (`account.analytic.line`) del bucket "other_costs"
-        (p.ej. movimientos de stock valorados) imputados a la cuenta analitica del
-        proyecto, en negativo. Se filtra por la cuenta (no por proyecto: estas lineas
-        no llevan project_id) y se replica la deduplicacion del panel (se excluyen las
-        lineas que en realidad son gastos o pedidos, para no contarlas dos veces).
+    def _amount_materials(self, analytic_account, start_date, end_date):
+        """Materiales: coste de material de entrega (albaran) imputado a la cuenta
+        analitica del proyecto, en el mes, igual que la fila "Materiales" del panel de
+        Rentabilidad.
+
+        Un mismo movimiento fisico de entrega genera VARIOS apuntes analiticos: la
+        linea manual canonica (SIN ``move_line_id``, fechada en la fecha EFECTIVA de
+        validacion del albaran) y, ademas, con ``move_line_id``, la de la valoracion
+        de stock nativa (fechada en la fecha contable/prevista) y la del asiento
+        tecnico COSTE STOCK. Sumarlas todas duplicaba el coste y lo imputaba tambien
+        en la fecha prevista. Se replica la deduplicacion del panel nativo
+        (``_get_domain_aal_with_no_move_line``): contar SOLO las lineas SIN
+        ``move_line_id``. Eso ademas subsume el capado de cuentas de INGRESO (esos
+        apuntes siempre llevan ``move_line_id``) y las exclusiones de gasto/compra.
         """
         AAL = self.env["account.analytic.line"].sudo()
         if "timesheet_invoice_type" not in AAL._fields:
@@ -1161,26 +1185,14 @@ class AunnaWipAnnualReport(models.Model):
         ]
         if "category" in AAL._fields:
             domain.append(("category", "!=", "vendor_bill"))
-        AML = self.env["account.move.line"]
-        if "move_line_id" in AAL._fields and "expense_id" in AML._fields:
-            domain += ["|", ("move_line_id", "=", False), ("move_line_id.expense_id", "=", False)]
-        if "move_line_id" in AAL._fields and "purchase_line_id" in AML._fields:
-            domain += ["|", ("move_line_id", "=", False), ("move_line_id.purchase_line_id", "=", False)]
-        # Capar costes: excluir apuntes cuya cuenta contable sea de INGRESO (grupo 7 /
-        # naturaleza ingreso). Esos importes NO son coste: son "menos venta" y ya se
-        # reflejan en Facturacion. (Peticion de negocio.)
-        has_move_line = "move_line_id" in AAL._fields
-        total = 0.0
-        for line in AAL.search(domain):
-            account = (
-                line.move_line_id.account_id
-                if has_move_line and line.move_line_id
-                else False
-            )
-            if account and self._is_income_account(account):
-                continue
-            total += line.amount
-        return total
+        # Deduplicacion (clave del arreglo): del mismo movimiento de entrega solo se
+        # cuenta la linea manual SIN move_line_id (fecha efectiva de validacion). Las
+        # lineas CON move_line_id (valoracion de stock en fecha prevista y asiento
+        # tecnico COSTE STOCK) son el MISMO coste fisico -> se descartan, como en el
+        # panel de Rentabilidad.
+        if "move_line_id" in AAL._fields:
+            domain.append(("move_line_id", "=", False))
+        return sum(AAL.search(domain).mapped("amount"))
 
     def _amount_expenses(self, analytic_account, start_date, end_date):
         """Gastos: gastos de empleado (`hr.expense`) imputados a la cuenta analitica
@@ -1338,7 +1350,10 @@ class AunnaWipAnnualReport(models.Model):
         los **asientos WIP** (ingreso reconocido, 705001) y de otros apuntes que NO
         sean facturas. Lo facturado se ve en la fila "Facturacion".
         """
-        MoveLine = self.env["account.move.line"].sudo()
+        # En Odoo 19 el codigo de cuenta es dependiente de compania: se resuelve en la
+        # compania DEL INFORME (no en la activa del usuario), para que el filtro por
+        # codigo (7xx) funcione tenga la compania que tenga activa el usuario.
+        MoveLine = self.env["account.move.line"].with_company(self.company_id).sudo()
         domain = [
             ("date", ">=", start_date),
             ("date", "<=", end_date),
@@ -1359,7 +1374,10 @@ class AunnaWipAnnualReport(models.Model):
     def _amount_income_by_code_before(self, analytic_account, before_date, code_like):
         """Igual que ``_amount_income_by_code`` pero acumulado hasta antes de una
         fecha (saldo inicial para el WIP acumulado)."""
-        MoveLine = self.env["account.move.line"].sudo()
+        # En Odoo 19 el codigo de cuenta es dependiente de compania: se resuelve en la
+        # compania DEL INFORME (no en la activa del usuario), para que el filtro por
+        # codigo (7xx) funcione tenga la compania que tenga activa el usuario.
+        MoveLine = self.env["account.move.line"].with_company(self.company_id).sudo()
         domain = [
             ("date", "<", before_date),
             ("company_id", "=", self.company_id.id),
@@ -1387,7 +1405,10 @@ class AunnaWipAnnualReport(models.Model):
     def _amount_invoices(self, analytic_account, start_date, end_date):
         """Facturacion: facturas/abonos de cliente en cuentas del grupo 70 (700 y
         705.0) imputados a la cuenta analitica del informe, en el mes."""
-        MoveLine = self.env["account.move.line"].sudo()
+        # En Odoo 19 el codigo de cuenta es dependiente de compania: se resuelve en la
+        # compania DEL INFORME (no en la activa del usuario), para que el filtro por
+        # codigo (7xx) funcione tenga la compania que tenga activa el usuario.
+        MoveLine = self.env["account.move.line"].with_company(self.company_id).sudo()
         domain = [
             ("date", ">=", start_date),
             ("date", "<=", end_date),
@@ -1406,7 +1427,10 @@ class AunnaWipAnnualReport(models.Model):
         return self._sum_move_lines(MoveLine.search(domain), analytic_account)
 
     def _amount_invoices_before(self, analytic_account, before_date):
-        MoveLine = self.env["account.move.line"].sudo()
+        # En Odoo 19 el codigo de cuenta es dependiente de compania: se resuelve en la
+        # compania DEL INFORME (no en la activa del usuario), para que el filtro por
+        # codigo (7xx) funcione tenga la compania que tenga activa el usuario.
+        MoveLine = self.env["account.move.line"].with_company(self.company_id).sudo()
         domain = [
             ("date", "<", before_date),
             ("company_id", "=", self.company_id.id),
@@ -1457,7 +1481,11 @@ class AunnaWipAnnualReport(models.Model):
             "income_other",
         ):
             return True
-        code = account.code if "code" in account._fields else ""
+        # Fallback por codigo: en Odoo 19 el codigo es dependiente de compania, se
+        # resuelve en la compania del informe (no en la activa del usuario).
+        if "code" not in account._fields:
+            return False
+        code = account.with_company(self.company_id).code
         return bool(code) and str(code).startswith("7")
 
     def _display_type_domain(self, Model):
