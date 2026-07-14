@@ -1,10 +1,16 @@
 <odoo>
     <!-- "Tipo de proyecto" a la derecha, justo debajo de "Tiempo asignado"
-         (allocated_hours) en el formulario de proyecto. -->
+         (allocated_hours) en el formulario de proyecto.
+
+         allocated_hours NO esta en la vista base project.edit_project: lo anade una
+         vista heredada de hr_timesheet. Por eso esta vista lleva priority alta (900):
+         asi Odoo la aplica la ULTIMA, cuando allocated_hours ya existe en el arch
+         combinado. Con la prioridad por defecto fallaba ("no puede ser localizado"). -->
     <record id="view_project_project_form_zambudio_type" model="ir.ui.view">
         <field name="name">project.project.form.zambudio.type</field>
         <field name="model">project.project</field>
         <field name="inherit_id" ref="project.edit_project"/>
+        <field name="priority">900</field>
         <field name="arch" type="xml">
             <field name="allocated_hours" position="after">
                 <field name="zambudio_project_type"/>
