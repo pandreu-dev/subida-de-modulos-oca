@@ -4,7 +4,7 @@
         <field name="model">aunna.wip.annual.report.period.line</field>
         <field name="arch" type="xml">
             <list
-                string="Informe operativo financiero"
+                string="Apuntes informe operativo financiero"
                 editable="bottom"
                 create="0"
                 delete="0"
@@ -40,7 +40,7 @@
         <field name="name">aunna.wip.annual.report.period.line.form</field>
         <field name="model">aunna.wip.annual.report.period.line</field>
         <field name="arch" type="xml">
-            <form string="Linea mensual WIP">
+            <form string="Linea mensual">
                 <sheet>
                     <group>
                         <group>
@@ -68,7 +68,7 @@
         <field name="name">aunna.wip.annual.report.period.line.pivot</field>
         <field name="model">aunna.wip.annual.report.period.line</field>
         <field name="arch" type="xml">
-            <pivot string="Informe operativo financiero">
+            <pivot string="Apuntes informe operativo financiero">
                 <field name="month_start" type="row" interval="month"/>
                 <field name="metric" type="row"/>
                 <field name="prev_amount" type="measure"/>
@@ -82,7 +82,7 @@
         <field name="name">aunna.wip.annual.report.period.line.search</field>
         <field name="model">aunna.wip.annual.report.period.line</field>
         <field name="arch" type="xml">
-            <search string="Informe operativo financiero">
+            <search string="Apuntes informe operativo financiero">
                 <field name="report_id"/>
                 <field name="month_start"/>
                 <field name="period_year"/>
@@ -129,7 +129,7 @@
         <field name="name">aunna.wip.annual.report.list</field>
         <field name="model">aunna.wip.annual.report</field>
         <field name="arch" type="xml">
-            <list string="Configuracion informe operativo financiero">
+            <list string="Informe operativo financiero">
                 <field name="name"/>
                 <field name="date_from"/>
                 <field name="date_to"/>
@@ -226,7 +226,7 @@
         <field name="name">aunna.wip.annual.report.search</field>
         <field name="model">aunna.wip.annual.report</field>
         <field name="arch" type="xml">
-            <search string="Configuracion informe operativo financiero">
+            <search string="Informe operativo financiero">
                 <field name="name"/>
                 <field name="date_from"/>
                 <field name="date_to"/>
@@ -251,14 +251,14 @@
     </record>
 
     <record id="action_aunna_wip_annual_report_period_line" model="ir.actions.act_window">
-        <field name="name">Informe operativo financiero</field>
+        <field name="name">Apuntes informe operativo financiero</field>
         <field name="res_model">aunna.wip.annual.report.period.line</field>
         <field name="view_mode">list,pivot,form</field>
         <field name="search_view_id" ref="view_aunna_wip_annual_report_period_line_search"/>
         <field name="context">{'search_default_current_range': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
-                Crea un informe WIP desde Configuracion informes WIP.
+                Crea un informe operativo financiero desde su configuracion.
             </p>
             <p>
                 Esta lista permite filtrar por periodo, proyecto, cuenta analitica y exportar a Excel.
@@ -267,14 +267,14 @@
     </record>
 
     <record id="action_aunna_wip_annual_report" model="ir.actions.act_window">
-        <field name="name">Configuracion informe operativo financiero</field>
+        <field name="name">Informe operativo financiero</field>
         <field name="res_model">aunna.wip.annual.report</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_aunna_wip_annual_report_search"/>
         <field name="context">{}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
-                Crea un informe WIP por proyecto o cuenta analitica.
+                Crea un informe operativo financiero por proyecto o cuenta analitica.
             </p>
             <p>
                 Define el rango de meses, recalcula los reales y abre el detalle mensual.
@@ -284,7 +284,7 @@
 
     <menuitem
         id="menu_aunna_wip_annual_report"
-        name="Informe operativo financiero"
+        name="Apuntes informe operativo financiero"
         parent="project.menu_main_pm"
         action="action_aunna_wip_annual_report_period_line"
         groups="account.group_account_user"
@@ -293,7 +293,7 @@
 
     <menuitem
         id="menu_aunna_wip_annual_report_config"
-        name="Configuracion informe operativo financiero"
+        name="Informe operativo financiero"
         parent="project.menu_main_pm"
         action="action_aunna_wip_annual_report"
         groups="account.group_account_user"

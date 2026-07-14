@@ -4,7 +4,7 @@ from odoo.exceptions import UserError
 
 class AunnaWipCalculateWizard(models.TransientModel):
     _name = "aunna.wip.calculate.wizard"
-    _description = "Asistente calculo WIP"
+    _description = "Asistente calculo Avance"
 
     budget_id = fields.Many2one(
         "budget.analytic",
@@ -27,7 +27,7 @@ class AunnaWipCalculateWizard(models.TransientModel):
         )
         return {
             "type": "ir.actions.act_window",
-            "name": _("Calculo WIP"),
+            "name": _("Calculo Avance"),
             "res_model": "aunna.wip.calculation",
             "view_mode": "form",
             "res_id": calculation.id,

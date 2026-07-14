@@ -4,7 +4,7 @@ from odoo.exceptions import UserError
 
 class AunnaWipCalculation(models.Model):
     _name = "aunna.wip.calculation"
-    _description = "Calculo WIP"
+    _description = "Calculo Avance"
     _order = "cutoff_date desc, id desc"
 
     name = fields.Char(compute="_compute_name", store=True)
@@ -56,7 +56,7 @@ class AunnaWipCalculation(models.Model):
         string="Lineas",
     )
     calculated_theoretical_amount = fields.Monetary(
-        string="Teorico calculado",
+        string="Avance teorico",
         currency_field="currency_id",
         compute="_compute_amounts",
         store=True,
@@ -70,21 +70,21 @@ class AunnaWipCalculation(models.Model):
         readonly=True,
     )
     achieved_amount = fields.Monetary(
-        string="Alcanzado",
+        string="Facturado",
         currency_field="currency_id",
         compute="_compute_amounts",
         store=True,
         readonly=True,
     )
     calculated_wip_amount = fields.Monetary(
-        string="WIP calculado",
+        string="Avance calculado",
         currency_field="currency_id",
         compute="_compute_amounts",
         store=True,
         readonly=True,
     )
     wip_amount = fields.Monetary(
-        string="WIP a contabilizar",
+        string="Avance reconocido total",
         currency_field="currency_id",
         compute="_compute_amounts",
         store=True,
@@ -95,7 +95,7 @@ class AunnaWipCalculation(models.Model):
     @api.depends("budget_id", "cutoff_date")
     def _compute_name(self):
         for record in self:
-            record.name = _("%s - WIP %s") % (
+            record.name = _("%s - Avance %s") % (
                 record.budget_id.display_name or _("Presupuesto"),
                 record.cutoff_date or "",
             )
@@ -123,7 +123,7 @@ class AunnaWipCalculation(models.Model):
         for calculation in self:
             if "move_id" in calculation._fields and calculation.move_id:
                 raise UserError(
-                    _("No se puede cancelar un calculo WIP que ya tiene un asiento contable.")
+                    _("No se puede cancelar un calculo Avance que ya tiene un asiento contable.")
                 )
         self.write({"state": "cancelled"})
         return True
@@ -141,7 +141,7 @@ class AunnaWipCalculation(models.Model):
 
 class AunnaWipCalculationLine(models.Model):
     _name = "aunna.wip.calculation.line"
-    _description = "Linea de calculo WIP"
+    _description = "Linea de calculo Avance"
     _order = "id"
 
     calculation_id = fields.Many2one(
@@ -182,22 +182,22 @@ class AunnaWipCalculationLine(models.Model):
         currency_field="currency_id",
     )
     calculated_theoretical_amount = fields.Monetary(
-        string="Teorico calculado",
+        string="Avance teorico",
         currency_field="currency_id",
         readonly=True,
     )
     achieved_amount = fields.Monetary(
-        string="Alcanzado",
+        string="Facturado",
         currency_field="currency_id",
         readonly=True,
     )
     calculated_wip_amount = fields.Monetary(
-        string="WIP calculado",
+        string="Avance calculado",
         currency_field="currency_id",
         readonly=True,
     )
     wip_amount = fields.Monetary(
-        string="WIP a contabilizar",
+        string="Avance reconocido total",
         currency_field="currency_id",
     )
     adjustment_note = fields.Char(string="Motivo del ajuste")
@@ -229,15 +229,15 @@ class AunnaWipCalculationLine(models.Model):
     def _check_manual_adjustment_allowed(self):
         if not self.env.su and not self.env.user.has_group("project.group_project_manager"):
             raise UserError(
-                _("Solo un jefe de proyecto puede modificar el importe WIP a contabilizar.")
+                _("Solo un jefe de proyecto puede modificar el importe de Avance a contabilizar.")
             )
         for line in self:
             calculation = line.calculation_id
             if calculation.state == "cancelled":
-                raise UserError(_("No se puede modificar un calculo WIP cancelado."))
+                raise UserError(_("No se puede modificar un calculo Avance cancelado."))
             if "move_id" in calculation._fields and calculation.move_id:
                 raise UserError(
-                    _("No se puede modificar el WIP despues de crear el asiento contable.")
+                    _("No se puede modificar el Avance despues de crear el asiento contable.")
                 )
 
     def write(self, vals):

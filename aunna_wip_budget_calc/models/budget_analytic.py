@@ -12,18 +12,18 @@ class BudgetAnalytic(models.Model):
     _inherit = "budget.analytic"
 
     wip_recalculation_date = fields.Date(
-        string="Fecha recalculo WIP",
+        string="Fecha recalculo Avance",
         copy=False,
-        help="Fecha de corte usada para recalcular teorico, alcanzado y WIP.",
+        help="Fecha de corte usada para recalcular teorico, alcanzado y Avance.",
     )
     wip_last_calculation_id = fields.Many2one(
         "aunna.wip.calculation",
-        string="Ultimo calculo WIP",
+        string="Ultimo calculo Avance",
         readonly=True,
         copy=False,
     )
     wip_calculation_count = fields.Integer(
-        string="Calculos WIP",
+        string="Calculos Avance",
         compute="_compute_wip_calculation_count",
     )
 
@@ -45,7 +45,7 @@ class BudgetAnalytic(models.Model):
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
-            "name": _("Calcular WIP"),
+            "name": _("Calcular Avance"),
             "res_model": "aunna.wip.calculate.wizard",
             "view_mode": "form",
             "target": "new",
@@ -62,7 +62,7 @@ class BudgetAnalytic(models.Model):
         calculation = self._aunna_wip_calculate_to_date(cutoff_date, source="manual")
         return {
             "type": "ir.actions.act_window",
-            "name": _("Calculo WIP"),
+            "name": _("Calculo Avance"),
             "res_model": "aunna.wip.calculation",
             "view_mode": "form",
             "res_id": calculation.id,
@@ -74,7 +74,7 @@ class BudgetAnalytic(models.Model):
         calculation = self._aunna_wip_calculate_to_date(today, source="manual")
         return {
             "type": "ir.actions.act_window",
-            "name": _("Calculo WIP"),
+            "name": _("Calculo Avance"),
             "res_model": "aunna.wip.calculation",
             "view_mode": "form",
             "res_id": calculation.id,
@@ -84,7 +84,7 @@ class BudgetAnalytic(models.Model):
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
-            "name": _("Calculos WIP"),
+            "name": _("Calculos Avance"),
             "res_model": "aunna.wip.calculation",
             "view_mode": "list,form",
             "domain": [("budget_id", "=", self.id)],
@@ -99,7 +99,7 @@ class BudgetAnalytic(models.Model):
 
         budget_lines = self._aunna_wip_get_budget_lines()
         if not budget_lines:
-            raise UserError(_("No se han encontrado lineas de presupuesto para calcular WIP."))
+            raise UserError(_("No se han encontrado lineas de presupuesto para calcular Avance."))
 
         company = self._aunna_wip_get_company()
         line_commands = []

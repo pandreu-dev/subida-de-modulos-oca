@@ -3,7 +3,7 @@
         <field name="name">aunna.wip.calculate.wizard.form</field>
         <field name="model">aunna.wip.calculate.wizard</field>
         <field name="arch" type="xml">
-            <form string="Calcular WIP">
+            <form string="Calcular Avance">
                 <group>
                     <field name="budget_id" readonly="1"/>
                     <field name="cutoff_date"/>

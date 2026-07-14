@@ -7,13 +7,13 @@
             <xpath expr="//form/header/field[@name='state']" position="before">
                 <button
                     name="action_open_wip_calculation_wizard"
-                    string="Calcular WIP"
+                    string="Calcular Avance"
                     type="object"
                     class="oe_highlight"
                 />
                 <button
                     name="action_view_wip_calculations"
-                    string="Calculos WIP"
+                    string="Calculos Avance"
                     type="object"
                 />
             </xpath>

@@ -60,13 +60,13 @@ METRIC_SEQUENCE = {metric: sequence for metric, _label, sequence in METRICS}
 # se vea el formato sin numeros enganosos hasta que se definan.
 REPORT_GROUPS = [
     {
-        "label": "Ingresos",
+        "label": "Avance",
         "css": "income",
         "rows": [
             {"label": "Venta de servicios", "metric": "services_income"},
             {"label": "Venta de productos", "metric": "products_income"},
         ],
-        "total_label": "Total ingresos",
+        "total_label": "Total avance",
     },
     {
         "label": "Costes",
@@ -112,7 +112,7 @@ MONTH_AMOUNT_DEPENDS = [
 
 class AunnaWipAnnualReport(models.Model):
     _name = "aunna.wip.annual.report"
-    _description = "Informe anual WIP por proyecto o cuenta analitica"
+    _description = "Informe operativo financiero por proyecto o cuenta analitica"
     _order = "year desc, company_id, id desc"
     _rec_name = "name"
 
@@ -201,7 +201,7 @@ class AunnaWipAnnualReport(models.Model):
                 or report.analytic_account_id.display_name
                 or _("Sin filtro")
             )
-            report.name = _("Informe WIP %(year)s - %(target)s") % {
+            report.name = _("Informe operativo financiero %(year)s - %(target)s") % {
                 "year": report.year,
                 "target": target,
             }
@@ -430,7 +430,7 @@ class AunnaWipAnnualReport(models.Model):
         last_month = self._month_start(self._get_report_date_to())
         return {
             "type": "ir.actions.act_window",
-            "name": _("Detalle WIP mensual"),
+            "name": _("Detalle mensual"),
             "res_model": "aunna.wip.annual.report.period.line",
             "view_mode": "list,form,pivot",
             "domain": [
@@ -467,7 +467,7 @@ class AunnaWipAnnualReport(models.Model):
         workbook.close()
         output.seek(0)
 
-        filename = "%s.xlsx" % self._xlsx_safe_filename(self.name or _("Informe WIP"))
+        filename = "%s.xlsx" % self._xlsx_safe_filename(self.name or _("Informe operativo financiero"))
         attachment = self.env["ir.attachment"].sudo().create(
             {
                 "name": filename,
@@ -789,10 +789,14 @@ class AunnaWipAnnualReport(models.Model):
 
     def _write_horizontal_xlsx_workbook(self, workbook):
         self.ensure_one()
-        worksheet = workbook.add_worksheet(_("Informe WIP")[:31])
+        worksheet = workbook.add_worksheet(_("Informe operativo financiero")[:31])
         months = list(self._iter_month_starts())
         active_lines = self._get_horizontal_period_lines()
         visible_months = self._get_horizontal_visible_months(months, active_lines)
+        # Sub-filas por Tipo de pedido, desplegables bajo "Pedidos" (outline de Excel:
+        # symbols_below=False -> el control +/- queda en la fila resumen "Pedidos").
+        purchase_type_rows = self._build_purchase_type_rows(visible_months)
+        worksheet.outline_settings(True, False, True, False)
         lines_by_key = {
             (fields.Date.to_date(line.month_start), line.metric): line
             for line in active_lines
@@ -838,6 +842,9 @@ class AunnaWipAnnualReport(models.Model):
                 "bold": True,
                 "border": 1,
             }
+        )
+        subconcept_format = workbook.add_format(
+            {"italic": True, "bg_color": "#FFFFFF", "border": 1, "indent": 1}
         )
 
         total_columns = 1 + (len(visible_months) * 3) + 3
@@ -909,6 +916,35 @@ class AunnaWipAnnualReport(models.Model):
                 negative_format if total_diff < 0 else total_format,
             )
             row += 1
+            # Desglose desplegable por Tipo de pedido, justo debajo de "Pedidos".
+            if metric == "purchase_costs" and purchase_type_rows:
+                for trow in purchase_type_rows:
+                    worksheet.write(row, 0, trow["label"], subconcept_format)
+                    column = 1
+                    for month in visible_months:
+                        real_amount = trow["real_by_month"].get(month, 0.0)
+                        worksheet.write_number(row, column, 0.0, prev_format)
+                        worksheet.write_number(
+                            row, column + 1, real_amount, real_format
+                        )
+                        worksheet.write_number(
+                            row,
+                            column + 2,
+                            real_amount,
+                            negative_format if real_amount < 0 else diff_format,
+                        )
+                        column += 3
+                    type_total = trow["total_real"]
+                    worksheet.write_number(row, column, 0.0, total_format)
+                    worksheet.write_number(row, column + 1, type_total, total_format)
+                    worksheet.write_number(
+                        row,
+                        column + 2,
+                        type_total,
+                        negative_format if type_total < 0 else total_format,
+                    )
+                    worksheet.set_row(row, None, None, {"level": 1})
+                    row += 1
 
         worksheet.freeze_panes(start_row + 2, 1)
         worksheet.set_column(0, 0, 28)
@@ -994,7 +1030,7 @@ class AunnaWipAnnualReport(models.Model):
     def _xlsx_safe_filename(self, filename):
         invalid_chars = '<>:"/\\|?*'
         safe = "".join("_" if char in invalid_chars else char for char in filename)
-        return safe.strip().strip(".") or "Informe WIP"
+        return safe.strip().strip(".") or "Informe operativo financiero"
 
     def _collect_real_values(self):
         self.ensure_one()
@@ -1536,7 +1572,7 @@ class AunnaWipAnnualReport(models.Model):
 
 class AunnaWipAnnualReportLine(models.Model):
     _name = "aunna.wip.annual.report.line"
-    _description = "Linea informe anual WIP"
+    _description = "Linea informe operativo financiero"
     _order = "report_id, sequence, id"
 
     report_id = fields.Many2one(
@@ -1623,7 +1659,7 @@ class AunnaWipAnnualReportLine(models.Model):
 
 class AunnaWipAnnualReportPeriodLine(models.Model):
     _name = "aunna.wip.annual.report.period.line"
-    _description = "Detalle mensual informe WIP"
+    _description = "Detalle mensual informe operativo financiero"
     _order = "report_id, month_start, sequence, id"
 
     report_id = fields.Many2one(

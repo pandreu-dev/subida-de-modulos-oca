@@ -11,14 +11,14 @@ class AccountMoveLine(models.Model):
 
     aunna_wip_calculation_line_id = fields.Many2one(
         "aunna.wip.calculation.line",
-        string="Linea calculo WIP",
+        string="Linea calculo Avance",
         copy=False,
         index=True,
         ondelete="set null",
     )
     aunna_wip_project_id = fields.Many2one(
         "project.project",
-        string="Proyecto WIP",
+        string="Proyecto Avance",
         copy=False,
         index=True,
         ondelete="set null",
@@ -48,14 +48,14 @@ class AccountAnalyticLine(models.Model):
 
     aunna_wip_calculation_line_id = fields.Many2one(
         "aunna.wip.calculation.line",
-        string="Linea calculo WIP",
+        string="Linea calculo Avance",
         copy=False,
         index=True,
         ondelete="set null",
     )
     aunna_wip_project_id = fields.Many2one(
         "project.project",
-        string="Proyecto WIP",
+        string="Proyecto Avance",
         copy=False,
         index=True,
         ondelete="set null",

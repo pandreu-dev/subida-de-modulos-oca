@@ -1,7 +1,7 @@
 {
     "name": "Aunnna WIP - Calculo de presupuesto analitico",
     "summary": "Calcula teorico, alcanzado y WIP de presupuestos analiticos a una fecha",
-    "version": "19.0.2.2.0",
+    "version": "19.0.2.3.0",
     "category": "Accounting/Accounting",
     "author": "Aunnna",
     "license": "LGPL-3",
