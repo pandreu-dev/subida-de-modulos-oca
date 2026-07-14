@@ -1,0 +1,5 @@
+<odoo>
+    <!-- Se ejecuta en cada instalacion/actualizacion del modulo: reaplica el filtro
+         a las acciones de Partes de horas (por si hr_timesheet repusiera el dominio). -->
+    <function model="ir.actions.act_window" name="_zambudio_hide_move_lines_from_timesheets"/>
+</odoo>

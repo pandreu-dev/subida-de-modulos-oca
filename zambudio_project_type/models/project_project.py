@@ -11,6 +11,4 @@ class ProjectProject(models.Model):
             ("recurring", "Recurrente"),
         ],
         string="Tipo de proyecto",
-        help="Tipologia comercial del proyecto: cerrado (precio cerrado), por tiempo y "
-        "materiales, o recurrente.",
     )
