@@ -201,8 +201,7 @@ class AunnaWipAnnualReport(models.Model):
                 or report.analytic_account_id.display_name
                 or _("Sin filtro")
             )
-            report.name = _("Informe operativo financiero %(year)s - %(target)s") % {
-                "year": report.year,
+            report.name = _("Informe operativo financiero - %(target)s") % {
                 "target": target,
             }
 
