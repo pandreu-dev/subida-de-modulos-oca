@@ -12,25 +12,25 @@ class ResCompany(models.Model):
     )
     aunnna_wip_income_account_id = fields.Many2one(
         "account.account",
-        string="Cuenta ingreso WIP",
+        string="Cuenta ingreso avance",
     )
     aunnna_wip_deferred_account_id = fields.Many2one(
         "account.account",
         string="Cuenta ingresos anticipados",
     )
     aunnna_wip_auto_post_moves = fields.Boolean(
-        string="Publicar asientos WIP automaticamente",
+        string="Publicar asientos de avance automaticamente",
         default=True,
     )
     aunnna_wip_auto_accounting_enabled = fields.Boolean(
-        string="Habilitar contabilizacion automatica del WIP",
+        string="Habilitar contabilizacion automatica del avance",
     )
     aunnna_wip_auto_accounting_grace_days = fields.Integer(
         string="Dias de espera para contabilizacion automatica",
         default=5,
     )
     aunnna_wip_allow_negative_amounts = fields.Boolean(
-        string="Permitir WIP negativo",
+        string="Permitir avance negativo",
     )
 
     @api.constrains("aunnna_wip_journal_id")

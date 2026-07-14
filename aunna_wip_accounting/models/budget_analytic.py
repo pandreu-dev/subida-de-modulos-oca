@@ -6,12 +6,12 @@ class BudgetAnalytic(models.Model):
     _inherit = "budget.analytic"
 
     wip_auto_accounting = fields.Boolean(
-        string="Contabilizacion WIP automatica",
+        string="Contabilizacion avance automatica",
         copy=False,
         help="Si esta marcado, el proceso diario calculara y contabilizara el WIP cuando corresponda.",
     )
     wip_account_move_count = fields.Integer(
-        string="Asientos WIP",
+        string="Asientos de avance",
         compute="_compute_wip_account_move_count",
     )
 
@@ -33,7 +33,7 @@ class BudgetAnalytic(models.Model):
         calculation = self.wip_last_calculation_id
         if not calculation:
             if not self.wip_recalculation_date:
-                raise UserError(_("Calcula primero el WIP o indica una fecha de recalculo."))
+                raise UserError(_("Calcula primero el avance o indica una fecha de recalculo."))
             calculation = self._aunna_wip_calculate_to_date(
                 self.wip_recalculation_date,
                 source="manual",
@@ -45,7 +45,7 @@ class BudgetAnalytic(models.Model):
         moves = self._aunna_wip_get_account_moves()
         return {
             "type": "ir.actions.act_window",
-            "name": _("Asientos WIP"),
+            "name": _("Asientos de avance"),
             "res_model": "account.move",
             "view_mode": "list,form",
             "domain": [("id", "in", moves.ids)],

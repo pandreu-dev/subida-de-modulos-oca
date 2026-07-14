@@ -1,6 +1,6 @@
 <odoo>
     <record id="ir_cron_aunna_wip_monthly_accounting" model="ir.cron">
-        <field name="name">WIP - Contabilizacion mensual automatica</field>
+        <field name="name">Avance - Contabilizacion mensual automatica</field>
         <field name="model_id" ref="aunna_wip_budget_calc.model_aunna_wip_calculation"/>
         <field name="state">code</field>
         <field name="code">model._cron_monthly_auto_accounting()</field>

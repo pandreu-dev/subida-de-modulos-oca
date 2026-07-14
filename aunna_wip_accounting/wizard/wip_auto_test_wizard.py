@@ -43,7 +43,7 @@ class AunnaWipAutoTestWizard(models.TransientModel):
             raise UserError(message)
         return {
             "type": "ir.actions.act_window",
-            "name": _("Calculos WIP de prueba"),
+            "name": _("Calculos de avance de prueba"),
             "res_model": "aunna.wip.calculation",
             "view_mode": "list,form",
             "domain": [("id", "in", calculations.ids)],

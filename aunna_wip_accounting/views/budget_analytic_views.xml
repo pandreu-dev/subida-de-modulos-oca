@@ -8,7 +8,7 @@
                 <field name="wip_auto_accounting" invisible="1"/>
                 <button
                     name="action_view_wip_account_moves"
-                    string="Asientos WIP"
+                    string="Asientos de avance"
                     type="object"
                 />
             </xpath>

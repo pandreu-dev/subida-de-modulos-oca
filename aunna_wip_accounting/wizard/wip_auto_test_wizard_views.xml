@@ -3,7 +3,7 @@
         <field name="name">aunna.wip.auto.test.wizard.form</field>
         <field name="model">aunna.wip.auto.test.wizard</field>
         <field name="arch" type="xml">
-            <form string="Probar contabilizacion automatica WIP">
+            <form string="Probar contabilizacion automatica de avance">
                 <group>
                     <field name="execution_date"/>
                     <field name="budget_id"/>

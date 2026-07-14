@@ -27,6 +27,36 @@ class BudgetAnalytic(models.Model):
         compute="_compute_wip_calculation_count",
     )
 
+    @api.model
+    def default_get(self, fields_list):
+        """Peticion de negocio: los presupuestos analiticos se crean por defecto como
+        de INGRESOS (revenue), no de gasto. Se respeta un default explicito por
+        contexto (``default_budget_type``) si lo hubiera."""
+        defaults = super().default_get(fields_list)
+        if "budget_type" in self._fields and not self.env.context.get(
+            "default_budget_type"
+        ):
+            income_value = self._aunna_wip_income_budget_type_value()
+            if income_value:
+                defaults["budget_type"] = income_value
+        return defaults
+
+    @api.model
+    def _aunna_wip_income_budget_type_value(self):
+        """Clave tecnica del valor "Ingresos" del campo ``budget_type`` (por si en esta
+        version de Odoo no es exactamente ``revenue``)."""
+        field = self._fields.get("budget_type")
+        selection = getattr(field, "selection", None) if field else None
+        if callable(selection):
+            selection = selection(self)
+        for key, label in selection or []:
+            if key in ("revenue", "income") or any(
+                token in str(label).lower()
+                for token in ("ingreso", "revenue", "income", "venta")
+            ):
+                return key
+        return "revenue"
+
     def _compute_wip_calculation_count(self):
         grouped = self.env["aunna.wip.calculation"].read_group(
             [("budget_id", "in", self.ids)],

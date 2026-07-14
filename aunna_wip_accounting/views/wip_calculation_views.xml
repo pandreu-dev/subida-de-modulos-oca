@@ -22,7 +22,7 @@
                 <field name="reversal_move_id" invisible="1"/>
                 <button
                     name="action_create_wip_move"
-                    string="Crear asiento WIP"
+                    string="Crear asiento avance"
                     type="object"
                     class="btn-primary"
                     invisible="move_id or state == 'cancelled'"
@@ -44,7 +44,7 @@
                 <attribute name="invisible">state == 'cancelled' or move_id</attribute>
             </xpath>
             <xpath expr="//group[@name='main_info']" position="after">
-                <group string="Contabilizacion WIP" name="accounting_info">
+                <group string="Contabilizacion avance" name="accounting_info">
                     <group>
                         <field name="accounting_state"/>
                         <field name="journal_id"/>

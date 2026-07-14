@@ -20,7 +20,7 @@ class AunnaWipCalculation(models.Model):
     )
     move_id = fields.Many2one(
         "account.move",
-        string="Asiento WIP",
+        string="Asiento avance",
         readonly=True,
         copy=False,
     )
@@ -44,7 +44,7 @@ class AunnaWipCalculation(models.Model):
         copy=False,
     )
     budget_wip_auto_accounting = fields.Boolean(
-        string="Presupuesto con WIP automatico",
+        string="Presupuesto con avance automatico",
         related="budget_id.wip_auto_accounting",
         readonly=True,
     )
@@ -76,12 +76,12 @@ class AunnaWipCalculation(models.Model):
         if not settings["journal"]:
             missing.append(_("Diario WIP"))
         if not settings["income_account"]:
-            missing.append(_("Cuenta ingreso WIP"))
+            missing.append(_("Cuenta ingreso avance"))
         if not settings["deferred_account"]:
             missing.append(_("Cuenta ingresos anticipados"))
         if missing:
             raise UserError(
-                _("Configura antes los siguientes valores WIP: %s.")
+                _("Configura antes los siguientes valores de avance: %s.")
                 % ", ".join(missing)
             )
         company = self.company_id
@@ -93,7 +93,7 @@ class AunnaWipCalculation(models.Model):
         if settings["journal"].type != "general":
             raise UserError(_("El diario WIP configurado debe ser de tipo Miscelanea."))
         for account, label in [
-            (settings["income_account"], _("Cuenta ingreso WIP")),
+            (settings["income_account"], _("Cuenta ingreso avance")),
             (settings["deferred_account"], _("Cuenta ingresos anticipados")),
         ]:
             account_companies = (
@@ -368,7 +368,7 @@ class AunnaWipCalculation(models.Model):
     def action_create_wip_move(self, reversal_date=False):
         self.ensure_one()
         if self.state == "cancelled":
-            raise UserError(_("No se puede contabilizar un calculo WIP cancelado."))
+            raise UserError(_("No se puede contabilizar un calculo de avance cancelado."))
         self._aunna_wip_lock_budget()
         self.invalidate_recordset(["move_id"])
         if self.move_id:
@@ -421,7 +421,7 @@ class AunnaWipCalculation(models.Model):
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
-            "name": _("Asiento WIP"),
+            "name": _("Asiento avance"),
             "res_model": "account.move",
             "view_mode": "form",
             "res_id": self.move_id.id,
@@ -431,7 +431,7 @@ class AunnaWipCalculation(models.Model):
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
-            "name": _("Asiento reversion WIP"),
+            "name": _("Asiento reversion avance"),
             "res_model": "account.move",
             "view_mode": "form",
             "res_id": self.reversal_move_id.id,
@@ -518,7 +518,7 @@ class AunnaWipCalculation(models.Model):
             )
             if existing and create_moves:
                 messages.append(
-                    _("Ya existe un asiento WIP para %s a fecha %s.")
+                    _("Ya existe un asiento de avance para %s a fecha %s.")
                     % (current_budget.display_name, cutoff_date)
                 )
                 continue
