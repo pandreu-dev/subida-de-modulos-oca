@@ -31,7 +31,7 @@ METRICS = [
     ("internal_hours", "Horas internas", 30),
     ("external_hours", "Horas externas", 40),
     ("purchase_costs", "Pedidos", 50),
-    ("materials", "Materiales", 60),
+    ("materials", "Stock interno", 60),
     ("expenses", "Gastos", 70),
     ("invoice", "Facturacion", 80),
     ("real_wip", "WIP", 90),
@@ -77,7 +77,7 @@ REPORT_GROUPS = [
             # "Pedidos" = total; en la vista horizontal se despliega en una sub-fila
             # por cada Tipo de pedido con datos (ver _build_purchase_type_rows).
             {"label": "Pedidos", "metric": "purchase_costs"},
-            {"label": "Materiales", "metric": "materials"},
+            {"label": "Stock interno", "metric": "materials"},
             {"label": "Gastos", "metric": "expenses"},
         ],
         "total_label": "Total costes",

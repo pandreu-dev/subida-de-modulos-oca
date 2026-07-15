@@ -219,6 +219,12 @@ class AunnaWipCalculation(models.Model):
         }
         if analytic_distribution:
             vals["analytic_distribution"] = analytic_distribution
+            # quantity=0 -> el apunte analitico nativo que Odoo genera para esta linea
+            # de ingreso hereda unit_amount=0. Asi el ingreso reconocido (son EUROS, no
+            # horas) NO se cuenta como horas de parte en el tablero / Rentabilidad del
+            # proyecto (partes, tiempo extra, "Partes de horas precio fijo"). No afecta
+            # a debe/haber/saldo.
+            vals["quantity"] = 0.0
         return vals
 
     def _aunna_wip_move_line_abs_amount(self, move_line):

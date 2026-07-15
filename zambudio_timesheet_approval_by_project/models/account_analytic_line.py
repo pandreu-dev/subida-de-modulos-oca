@@ -42,6 +42,9 @@ class AccountAnalyticLine(models.Model):
         candidates = self.filtered(
             lambda line: line.project_id
             and not line.validated
+            # Excluir apuntes generados desde asientos (ingreso reconocido WIP): tienen
+            # project_id pero NO son partes de horas reales (nunca tienen move_line_id).
+            and not (("move_line_id" in line._fields) and line.move_line_id)
             and not getattr(line, "x_generated_by_public_holiday_bridge", False)
         )
         if is_manager:

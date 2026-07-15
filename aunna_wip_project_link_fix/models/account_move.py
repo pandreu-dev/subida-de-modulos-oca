@@ -163,6 +163,11 @@ class AccountMove(models.Model):
                     vals["aunna_wip_project_id"] = project.id or False
                 if project and has_project_field and analytic_line.project_id != project:
                     vals["project_id"] = project.id
+                # Poner horas a 0: el ingreso reconocido son EUROS, no horas; asi deja de
+                # contar como parte de horas en el tablero/Rentabilidad del proyecto. El
+                # importe contable (`amount`) se restaura justo despues, mas abajo.
+                if "unit_amount" in analytic_line._fields and analytic_line.unit_amount:
+                    vals["unit_amount"] = 0.0
                 if vals:
                     line_sudo.write(vals)
                 # Al escribir project_id, hr_timesheet inyecta account_id en los
