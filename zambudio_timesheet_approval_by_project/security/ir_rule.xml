@@ -1,0 +1,20 @@
+<odoo>
+    <!-- Regla ADITIVA (OR): el responsable de un proyecto puede VER los partes de
+         horas imputados a sus proyectos, para poder revisarlos y validarlos desde el
+         menu "A validar (mis proyectos)".
+
+         Es solo lectura: no puede editar los partes de otros; la validacion se hace
+         por el metodo controlado del modulo. Al ser una regla de grupo mas, se combina
+         en OR con la regla nativa (cada usuario ve SUS partes O los de proyectos que
+         gestiona): no restringe ni quita acceso a nadie. -->
+    <record id="timesheet_line_rule_project_manager_read" model="ir.rule">
+        <field name="name">Partes de horas: el responsable ve los de sus proyectos</field>
+        <field name="model_id" ref="analytic.model_account_analytic_line"/>
+        <field name="domain_force">[('project_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('hr_timesheet.group_hr_timesheet_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+</odoo>

@@ -47,6 +47,13 @@ de los **asientos WIP (ingreso reconocido)**, **NO de las facturas de cliente**:
   factura de cliente.
 - **Total ingresos** = servicios + productos = ingreso reconocido via asientos WIP.
 
+> Desde `19.0.20.2.0`: los Ingresos **excluyen los asientos del motor de INGRESO
+> DIFERIDO nativo de Odoo** (diferimiento y reconocimientos mensuales, identificados por
+> `account.move.deferred_original_move_ids`). El reconocimiento va por los asientos WIP
+> (705); el diferido nativo es un mecanismo paralelo y contaminaba "Venta de productos"
+> con importes negativos (p. ej. un diferimiento de suscripcion que debita 700 restaba
+> ingreso).
+
 **WIP**:
 
 - **Facturacion**: facturas/abonos de cliente (`out_invoice` / `out_refund`) en cuentas

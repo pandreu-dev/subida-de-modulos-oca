@@ -1401,6 +1401,7 @@ class AunnaWipAnnualReport(models.Model):
                 domain,
                 self._posted_move_line_domain(MoveLine),
                 self._non_customer_invoice_domain(),
+                self._exclude_deferred_move_domain(),
                 self._display_type_domain(MoveLine),
             ]
         )
@@ -1424,6 +1425,7 @@ class AunnaWipAnnualReport(models.Model):
                 domain,
                 self._posted_move_line_domain(MoveLine),
                 self._non_customer_invoice_domain(),
+                self._exclude_deferred_move_domain(),
                 self._display_type_domain(MoveLine),
             ]
         )
@@ -1436,6 +1438,20 @@ class AunnaWipAnnualReport(models.Model):
         if "move_type" not in Move._fields:
             return []
         return [("move_id.move_type", "not in", ["out_invoice", "out_refund"])]
+
+    def _exclude_deferred_move_domain(self):
+        """Excluye los asientos generados por el motor de INGRESO DIFERIDO nativo de
+        Odoo (el asiento de diferimiento y sus reconocimientos mensuales). Son
+        `move_type='entry'` (no factura, por eso no los filtra `_non_customer_invoice_domain`),
+        tocan cuentas 70x con distribucion analitica y meterian importes negativos que
+        NO son ingreso reconocido del WIP (contaminaban "Venta de productos"/WIP). Se
+        identifican por el campo nativo `deferred_original_move_ids`, poblado solo en
+        esos asientos. El reconocimiento de ingreso del informe va por los asientos WIP
+        (705), no por el diferido nativo."""
+        Move = self.env["account.move"]
+        if "deferred_original_move_ids" not in Move._fields:
+            return []
+        return [("move_id.deferred_original_move_ids", "=", False)]
 
     def _amount_invoices(self, analytic_account, start_date, end_date):
         """Facturacion: facturas/abonos de cliente en cuentas del grupo 70 (700 y
