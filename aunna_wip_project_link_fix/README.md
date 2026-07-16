@@ -4,9 +4,19 @@
 
 Los asientos WIP ya llevan distribucion analitica y aparecen en PyG, pero las lineas analiticas creadas desde esos apuntes pueden quedar sin `project_id`. Al agrupar apuntes analiticos por proyecto aparecen como `Ninguno`.
 
+> **Cambio jul-2026 (Opcion B):** rellenar el `project_id` estandar hacia que Odoo
+> tratara estos apuntes de ingreso reconocido como **partes de horas** (aparecian en el
+> tablero del proyecto, en Rentabilidad y en las listas de partes, contando incluso como
+> horas). Por eso, **desde `19.0.3.0.0` el modulo ya NO pone el `project_id` estandar en
+> esas lineas (y lo retira de las existentes via migracion)**. El vinculo con el proyecto
+> se conserva por la **cuenta analitica** (1:1 con el proyecto) y por el campo propio
+> `aunna_wip_project_id`; en *Apuntes analiticos* se agrupan por **cuenta analitica** en
+> vez de por proyecto. El informe operativo financiero y los asientos de coste no se ven
+> afectados.
+
 ## Solucion
 
-El modulo marca las lineas contables WIP con la linea de calculo WIP y su proyecto origen. Despues de crear/publicar el asiento, localiza las lineas analiticas generadas desde esas lineas contables y rellena el proyecto cuando el campo existe.
+El modulo marca las lineas contables WIP con la linea de calculo WIP y su proyecto origen. Despues de crear/publicar el asiento, localiza las lineas analiticas generadas desde esas lineas contables y (desde `19.0.3.0.0`) se asegura de que NO lleven el `project_id` estandar, ademas de normalizar su distribucion analitica.
 
 Tambien vuelve a revisar los asientos WIP ya existentes al abrirlos desde el calculo, para completar el enlace si el asiento se creo antes de instalar este modulo.
 

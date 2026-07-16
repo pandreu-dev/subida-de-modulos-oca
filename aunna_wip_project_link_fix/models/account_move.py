@@ -90,8 +90,8 @@ class AccountMove(models.Model):
         return self.env["account.analytic.account"]
 
     def _aunna_wip_link_analytic_lines_to_projects(self):
-        """Enlaza con su proyecto los apuntes analiticos que Odoo genera de forma
-        NATIVA para las lineas de ingreso WIP.
+        """Normaliza los apuntes analiticos que Odoo genera de forma NATIVA para las
+        lineas de ingreso WIP.
 
         En Odoo 19:
 
@@ -101,11 +101,11 @@ class AccountMove(models.Model):
           NO se reescribe (evita disparar en vano el ``inverse`` nativo, que borra y
           recrea los apuntes analiticos).
         - El nucleo crea el apunte analitico correcto (cuenta e importe) al postear.
-          Este metodo solo lo enriquece con el proyecto para poder agruparlo por
-          proyecto: escribe ``project_id`` (campo de ``hr_timesheet``) SIN tocar
-          ``analytic_distribution`` ni borrar/recrear apuntes. Escribir el proyecto
-          es el ultimo paso, porque volver a escribir la distribucion despues lo
-          borraria.
+          Este metodo lo etiqueta (``aunna_wip_calculation_line_id`` /
+          ``aunna_wip_project_id``) y, desde jul-2026 (Opcion B), se asegura de que NO
+          lleve el ``project_id`` estandar de ``hr_timesheet`` (para que Odoo no lo
+          trate como parte de horas). El vinculo con el proyecto queda por la cuenta
+          analitica y por el campo propio ``aunna_wip_project_id``.
         """
         AnalyticLine = self.env["account.analytic.line"]
         has_project_field = "project_id" in AnalyticLine._fields
@@ -161,11 +161,22 @@ class AccountMove(models.Model):
                     vals["aunna_wip_calculation_line_id"] = calc_line.id
                 if analytic_line.aunna_wip_project_id != project:
                     vals["aunna_wip_project_id"] = project.id or False
-                if project and has_project_field and analytic_line.project_id != project:
-                    vals["project_id"] = project.id
-                # Poner horas a 0: el ingreso reconocido son EUROS, no horas; asi deja de
-                # contar como parte de horas en el tablero/Rentabilidad del proyecto. El
-                # importe contable (`amount`) se restaura justo despues, mas abajo.
+                # Opcion B (peticion de negocio, jul-2026): estas lineas de ingreso
+                # reconocido WIP NO deben enlazarse al proyecto por el campo estandar
+                # `project_id`, porque eso hacia que Odoo las tratara como PARTES DE
+                # HORAS (aparecian en el tablero del proyecto, en Rentabilidad y en las
+                # listas de partes). Se LIMPIA si viniera puesto de antes. El vinculo al
+                # proyecto se conserva en el campo propio `aunna_wip_project_id` y por la
+                # cuenta analitica: en Contabilidad > Apuntes analiticos se agrupan por
+                # cuenta analitica (1:1 con el proyecto) en vez de por proyecto.
+                if has_project_field and analytic_line.project_id:
+                    vals["project_id"] = False
+                # Higiene: si un jefe de proyecto llego a validarla cuando aparecia como
+                # parte de horas, se desmarca (ya no es un parte).
+                if "validated" in analytic_line._fields and analytic_line.validated:
+                    vals["validated"] = False
+                # Horas a 0 por si en algun momento volviera a tener project_id (defensa);
+                # el importe contable (`amount`) se restaura justo despues, mas abajo.
                 if "unit_amount" in analytic_line._fields and analytic_line.unit_amount:
                     vals["unit_amount"] = 0.0
                 if vals:

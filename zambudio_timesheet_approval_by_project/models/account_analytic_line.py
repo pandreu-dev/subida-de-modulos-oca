@@ -1,64 +1,151 @@
-from odoo import _, models
-from odoo.exceptions import UserError
-
-# Grupo "administrador de partes de horas": puede validar CUALQUIER parte (bypass de
-# la restriccion por proyecto).
-_MANAGER_GROUP_XMLIDS = ("hr_timesheet.group_timesheet_manager",)
+from odoo import _, api, models
+from odoo.exceptions import UserError, ValidationError
 
 
 class AccountAnalyticLine(models.Model):
     _inherit = "account.analytic.line"
 
-    def _zambudio_user_is_timesheet_manager(self):
-        """True si el usuario es Administrador de partes de horas (puede validar
-        todo). Robusto ante xmlid inexistente (no rompe si cambia el nombre)."""
+    # ------------------------------------------------------------------
+    # Quien puede validar un parte de horas
+    # ------------------------------------------------------------------
+    def _zambudio_user_can_validate_timesheet(self):
+        """True si el usuario actual puede validar ESTE parte de horas:
+
+        - es el RESPONSABLE del proyecto (``project_id.user_id``), o
+        - es el aprobador designado del empleado
+          (``employee_id.timesheet_manager_id`` -> "si alguien se pone como validador
+          es otra historia").
+
+        Peticion de negocio (jul-2026): NADIE mas -ni siquiera un Administrador de
+        partes de horas- puede validar partes de proyectos que no son suyos.
+        """
+        self.ensure_one()
         user = self.env.user
-        for xmlid in _MANAGER_GROUP_XMLIDS:
-            group = self.env.ref(xmlid, raise_if_not_found=False)
-            if group and user in group.sudo().users:
+        project = self.project_id
+        if project and project.user_id and project.user_id == user:
+            return True
+        employee = self.employee_id if "employee_id" in self._fields else False
+        approver = (
+            employee.timesheet_manager_id
+            if employee and "timesheet_manager_id" in employee._fields
+            else False
+        )
+        if approver and approver == user:
+            return True
+        # Valvula de escape SOLO para datos huerfanos: si el proyecto no tiene
+        # responsable Y el empleado no tiene aprobador, para no bloquear del todo la
+        # validacion la puede hacer un administrador de SISTEMA (no el administrador de
+        # partes, que sigue restringido a sus proyectos).
+        if not (project and project.user_id) and not approver:
+            if user.has_group("base.group_system"):
                 return True
         return False
 
-    def action_zambudio_validate_project_timesheets(self):
-        """Valida (``validated=True``) los partes de horas seleccionados que
-        pertenezcan a proyectos de los que el usuario actual es RESPONSABLE
-        (``project_id.user_id``). Un Administrador de partes de horas valida
-        cualquiera.
+    # ------------------------------------------------------------------
+    # 1) Restringir la validacion NATIVA de timesheet_grid
+    # ------------------------------------------------------------------
+    def _zambudio_forbidden_to_toggle_validation(self):
+        """Subconjunto de partes CON proyecto que el usuario actual NO puede
+        validar/des-validar. Los partes sin proyecto quedan fuera (los gestiona el
+        flujo nativo con sus reglas de siempre)."""
+        return self.filtered(
+            lambda line: line.project_id
+            and not line._zambudio_user_can_validate_timesheet()
+        )
 
-        NO toca el flujo nativo de validacion de timesheet_grid: es una via paralela
-        para que el jefe de proyecto apruebe lo suyo. El campo ``validated`` es el
-        mismo de siempre; solo cambia QUIEN lo marca.
-        """
+    def action_validate_timesheet(self, *args, **kwargs):
+        """Restringe el boton "Validar" nativo: un usuario (incluido un Administrador
+        de partes de horas) solo puede validar partes de proyectos de los que es
+        responsable, o de empleados de los que es aprobador. Los partes que no le
+        corresponden se omiten; si no queda ninguno validable, se avisa.
+
+        No cambia el campo ``validated`` ni el resto del flujo: solo filtra el conjunto
+        antes de delegar en el metodo nativo (que corre despues, ya con el subconjunto
+        permitido)."""
+        forbidden = self._zambudio_forbidden_to_toggle_validation()
+        if not forbidden:
+            return super().action_validate_timesheet(*args, **kwargs)
+        allowed = self - forbidden
+        if not allowed:
+            raise UserError(
+                _(
+                    "Solo puedes validar partes de horas de proyectos de los que eres "
+                    "responsable (o de empleados de los que eres aprobador)."
+                )
+            )
+        return super(AccountAnalyticLine, allowed).action_validate_timesheet(
+            *args, **kwargs
+        )
+
+    def action_invalidate_timesheet(self, *args, **kwargs):
+        """Misma restriccion al DES-validar: solo el responsable del proyecto (o el
+        aprobador del empleado) puede quitar la validacion de un parte."""
+        forbidden = self._zambudio_forbidden_to_toggle_validation()
+        if not forbidden:
+            return super().action_invalidate_timesheet(*args, **kwargs)
+        allowed = self - forbidden
+        if not allowed:
+            raise UserError(
+                _(
+                    "Solo puedes des-validar partes de horas de proyectos de los que "
+                    "eres responsable (o de empleados de los que eres aprobador)."
+                )
+            )
+        return super(AccountAnalyticLine, allowed).action_invalidate_timesheet(
+            *args, **kwargs
+        )
+
+    # ------------------------------------------------------------------
+    # 2) Barrera de datos (refuerzo, independiente de la accion)
+    # ------------------------------------------------------------------
+    @api.constrains("validated")
+    def _zambudio_check_project_manager_validation(self):
+        """Refuerzo: impide marcar como validado un parte de un proyecto que el usuario
+        no gestiona en escrituras NO-sudo (import, XML-RPC, acciones de servidor de
+        usuarios sin privilegio). El boton "Validar" nativo lo cubre el override de
+        action_validate_timesheet (filtra antes del sudo del nucleo). Se salta en
+        escrituras de sistema (sudo/migraciones) y para partes sin proyecto."""
+        if self.env.su:
+            return
+        for line in self:
+            if not line.validated or not line.project_id:
+                continue
+            if not line._zambudio_user_can_validate_timesheet():
+                raise ValidationError(
+                    _(
+                        "Solo el responsable del proyecto (o el aprobador del empleado) "
+                        "puede validar los partes de horas de '%s'."
+                    )
+                    % (line.project_id.display_name or "")
+                )
+
+    # ------------------------------------------------------------------
+    # 3) Via propia "A validar (mis proyectos)"
+    # ------------------------------------------------------------------
+    def action_zambudio_validate_project_timesheets(self):
+        """Valida (``validated=True``) los partes seleccionados que el usuario puede
+        validar (responsable del proyecto o aprobador del empleado). Es la via para que
+        el jefe de proyecto apruebe lo suyo sin ser Administrador de partes."""
         if "validated" not in self._fields:
             raise UserError(
                 _("La validacion de partes de horas (timesheet_grid) no esta disponible.")
             )
-        user = self.env.user
-        is_manager = self._zambudio_user_is_timesheet_manager()
-        # Solo partes de horas (con proyecto) que aun no esten validados. Se excluyen
-        # de forma defensiva los partes generados por el puente de festivos: si un PM
-        # los validara quedarian bloqueados e impedirian su re-sincronizacion. El
-        # getattr protege si ese modulo no esta instalado.
+        # Solo partes de horas (con proyecto) que aun no esten validados. Se excluyen de
+        # forma defensiva los apuntes generados desde asientos (ingreso reconocido WIP:
+        # llevan move_line_id) y los partes generados por el puente de festivos.
         candidates = self.filtered(
             lambda line: line.project_id
             and not line.validated
-            # Excluir apuntes generados desde asientos (ingreso reconocido WIP): tienen
-            # project_id pero NO son partes de horas reales (nunca tienen move_line_id).
             and not (("move_line_id" in line._fields) and line.move_line_id)
             and not getattr(line, "x_generated_by_public_holiday_bridge", False)
         )
-        if is_manager:
-            allowed = candidates
-        else:
-            allowed = candidates.filtered(
-                lambda line: line.project_id.user_id == user
-            )
+        allowed = candidates.filtered(
+            lambda line: line._zambudio_user_can_validate_timesheet()
+        )
         skipped = self - allowed
         if allowed:
-            # sudo: el jefe de proyecto no es necesariamente aprobador de timesheets a
-            # nivel de empleado. La restriccion real (solo SUS proyectos) ya se ha
-            # comprobado arriba por project_id.user_id, asi que el sudo solo sirve para
-            # poder escribir la marca, no para saltarse el control de acceso funcional.
+            # sudo: el jefe de proyecto no es necesariamente aprobador nativo; la
+            # restriccion real (solo lo suyo) ya se ha comprobado arriba.
             allowed.sudo().write({"validated": True})
         return self._zambudio_validation_notification(len(allowed), len(skipped))
 
