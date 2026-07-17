@@ -1,5 +1,4 @@
 from odoo import models
-from odoo.exceptions import ValidationError
 
 
 class SaleOrderLine(models.Model):
@@ -9,48 +8,37 @@ class SaleOrderLine(models.Model):
         """Nombre del proyecto (y de su cuenta analitica) creados desde esta linea de
         pedido de venta: "<numero de pedido> - <descripcion de la linea>".
 
-        Se usa la PRIMERA linea de la descripcion (``name``) para evitar nombres con
-        saltos de linea/notas; si no hubiera descripcion, cae al nombre del producto.
+        Odoo suele anteponer el nombre del producto a la descripcion de la linea; en
+        ese caso se descarta ese prefijo y se usa el texto que anadio el usuario. Si no
+        hubiera descripcion, se cae al nombre del producto.
         """
         self.ensure_one()
         order_name = (self.order_id.name or "").strip()
-        description = (self.name or "").split("\n")[0].strip()
+        description = (self.name or "").strip()
+        # La descripcion (name) se computa en el idioma del CLIENTE y suele traer delante
+        # el nombre del producto (a veces con la referencia interna: "[COD] ..."). Se
+        # quita ese prefijo comparando con display_name y name EN EL IDIOMA DEL CLIENTE,
+        # para quedarse con el texto que escribio el usuario.
+        partner = self.order_id.partner_id
+        lang = (partner.lang if partner else False) or self.env.lang
+        product = self.product_id.with_context(lang=lang) if self.product_id else False
+        prefixes = (product.display_name, product.name) if product else ()
+        for prefix in prefixes:
+            prefix = (prefix or "").strip()
+            if prefix and description.startswith(prefix):
+                description = description[len(prefix):].strip(" \n\t-:·").strip()
+                break
+        description = description.split("\n")[0].strip() if description else ""
         if not description:
-            description = self.product_id.display_name or ""
+            description = (self.product_id.display_name or "") if self.product_id else ""
         if order_name and description:
             return "%s - %s" % (order_name, description)
         return order_name or description
 
     def _timesheet_create_project(self):
-        """Tras crear el proyecto de forma nativa, se fuerza el nombre pedido +
-        descripcion de la linea, y se renombra su cuenta analitica con el MISMO nombre.
-
-        Se hace sobre el proyecto ya creado (y no solo en los valores de preparacion)
-        para cubrir tambien el caso de plantilla de proyecto, que puede alterar el
-        nombre despues. Renombrar la cuenta analitica es cosmetico (el WIP y los costes
-        la usan por id, no por nombre)."""
+        # Respaldo por si este metodo es el que crea el proyecto en esta version: el
+        # renombrado real lo hace project.project.create (mas robusto). Es idempotente.
         project = super()._timesheet_create_project()
-        name = self._zambudio_project_name()
-        if not project or not name:
-            return project
-        # Si el nombre chocara con el control de nombre unico (p.ej. dos lineas del
-        # mismo pedido con la misma descripcion), NO se bloquea la confirmacion del
-        # pedido: se conserva el nombre nativo. El savepoint evita dejar la transaccion
-        # en estado abortado al capturar la ValidationError.
-        try:
-            with self.env.cr.savepoint():
-                if project.name != name:
-                    project.sudo().write({"name": name})
-                account = (
-                    project.account_id if "account_id" in project._fields else False
-                )
-                # La cuenta analitica se comparte por pedido: solo se renombra si es
-                # DEDICADA a este proyecto (no la usan otros proyectos del pedido), para
-                # no pisar el nombre de unos con otros.
-                if account and account.name != name:
-                    Project = self.env["project.project"].sudo()
-                    if Project.search_count([("account_id", "=", account.id)]) <= 1:
-                        account.sudo().write({"name": name})
-        except ValidationError:
-            pass
+        if project:
+            project._zambudio_apply_sale_line_naming()
         return project
