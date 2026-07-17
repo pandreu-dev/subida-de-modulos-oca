@@ -1,8 +1,8 @@
 {
     "name": "Zambudio - Aprobacion de partes por responsable de proyecto",
-    "summary": "El jefe de proyecto valida los partes de horas imputados a sus "
-    "proyectos, sin tocar el flujo de validacion nativo",
-    "version": "19.0.2.0.0",
+    "summary": "Solo el responsable del proyecto (o el aprobador del empleado) puede "
+    "validar los partes de horas de un proyecto",
+    "version": "19.0.3.0.0",
     "category": "Human Resources/Timesheets",
     "author": "Zambudio",
     "license": "LGPL-3",
@@ -12,7 +12,6 @@
     ],
     "data": [
         "security/ir_rule.xml",
-        "views/timesheet_approval_views.xml",
     ],
     "installable": True,
     "application": False,

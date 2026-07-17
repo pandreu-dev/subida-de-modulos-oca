@@ -6,16 +6,16 @@ que usa Odoo de serie.
 
 ## Como funciona
 
-- **No cambia el campo de validacion** (`account.analytic.line.validated`). Anade una
-  **via propia**: menu **Proyecto > A validar (mis proyectos)**, donde el responsable ve
-  sus partes sin validar y pulsa **Validar**.
-- **Desde `19.0.2.0.0` RESTRINGE ademas la validacion nativa** (`timesheet_grid`): un
-  usuario -incluido un **Administrador de partes de horas**- solo puede **validar** (y
-  **des-validar**) partes de proyectos de los que es **responsable**
+- **No cambia el campo de validacion** (`account.analytic.line.validated`) ni anade
+  menus: usa el **flujo nativo** de `timesheet_grid`, pero lo **RESTRINGE**.
+- Un usuario -incluido un **Administrador de partes de horas**- solo puede **validar**
+  (y **des-validar**) partes de proyectos de los que es **responsable**
   (`project.user_id`), o de empleados de los que es el **aprobador** designado
   (`hr.employee.timesheet_manager_id`, "si alguien se pone como validador es otra
   historia"). Se implementa con un override de `action_validate_timesheet` /
   `action_invalidate_timesheet` (filtra antes del write) y una `constrains` de refuerzo.
+- (Nota: en `19.0.2.0.0` hubo un menu propio "A validar (mis proyectos)"; se **retiro**
+  en `19.0.3.0.0` — se usa la vista nativa de Partes de horas.)
 - **Valvula de escape** solo para datos huerfanos: si un proyecto no tiene responsable Y
   el empleado no tiene aprobador, para no bloquear del todo la validacion la puede hacer
   un **administrador de sistema** (`base.group_system`) — no el administrador de partes.
