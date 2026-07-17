@@ -1,0 +1,5 @@
+<odoo>
+    <!-- Se ejecuta en cada instalacion/actualizacion: filtra la vista "A validar" de
+         Partes de horas por responsable de proyecto (cada usuario ve solo lo suyo). -->
+    <function model="ir.actions.act_window" name="_zambudio_scope_validation_to_project_manager"/>
+</odoo>
