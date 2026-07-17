@@ -1269,18 +1269,21 @@ class AunnaWipAnnualReport(models.Model):
         return -total
 
     def _purchase_order_costs_by_type(self, analytic_account, start_date, end_date):
-        """Coste de pedidos de compra CONFIRMADOS (aceptados) imputados a la cuenta
-        analitica del informe, agrupado por Tipo de pedido.
+        """Coste de pedidos de compra imputados a la cuenta analitica del informe,
+        agrupado por Tipo de pedido. Devuelve ``{type_id (o False): importe}``.
 
-        A diferencia de la version anterior (que tiraba de facturas de proveedor),
-        el coste sale del **pedido de compra aceptado aunque no este facturado**
-        (como el panel de Rentabilidad del proyecto): en cuanto se confirma un
-        pedido, su coste ya aparece. La **fecha de referencia** es la de
-        **confirmacion del pedido** (`date_approve`, o `date_order` si falta). El
-        importe es el subtotal sin impuestos de cada linea, ponderado por su % de
-        distribucion analitica y en negativo (coste).
+        Criterio (peticion de negocio, jul-2026):
 
-        Devuelve un dict ``{type_id (o False si el pedido no tiene tipo): importe}``.
+        - **Bienes (lineas que generan recepcion de albaran):** se imputa lo que se
+          **RECIBE en cada albaran**, en la **FECHA de la recepcion** (recepciones
+          parciales, cada una en su mes). El valor es el **precio del pedido**
+          (cantidad recibida x precio unitario del pedido), NO el coste de valoracion
+          del almacen. Las devoluciones (salidas) restan en su fecha.
+        - **Servicios / sin recepcion (lineas que NO generan albaran):** se mantiene el
+          criterio anterior: subtotal del pedido en la **fecha de confirmacion**
+          (``date_approve``), para no perder ese coste.
+
+        Todo ponderado por el % de distribucion analitica de la linea y en negativo.
         """
         if "purchase.order.line" not in self.env:
             return {}
@@ -1296,26 +1299,84 @@ class AunnaWipAnnualReport(models.Model):
         )
         result = {}
         for line in lines:
-            order = line.order_id
-            ref = order.date_approve or order.date_order
-            ref_date = fields.Date.to_date(ref) if ref else False
-            if not ref_date or ref_date < start_date or ref_date > end_date:
-                continue
             ratio = self._analytic_distribution_ratio(
                 line.analytic_distribution, analytic_account
             )
             if not ratio:
                 continue
-            amount = -(line.price_subtotal or 0.0) * ratio
-            if not amount:
-                continue
+            order = line.order_id
             type_id = (
                 order.aunna_purchase_order_type_id.id
                 if "aunna_purchase_order_type_id" in order._fields
                 else False
             )
-            result[type_id] = result.get(type_id, 0.0) + amount
+            product = line.product_id
+            if product and product.type != "service":
+                # BIENES: imputar lo recibido en albaran, en la fecha de cada recepcion.
+                # Discrimina por TIPO de producto (no por si hay movimientos): asi un
+                # bien con recepciones canceladas no cae al criterio de servicio e imputa
+                # un coste que nunca entro. Un bien sin recepciones vivas no impacta nada
+                # hasta que se recibe.
+                qty_ordered = line.product_qty or 0.0
+                unit_cost = (
+                    (line.price_subtotal or 0.0) / qty_ordered
+                    if qty_ordered
+                    else (line.price_unit or 0.0)
+                )
+                if not unit_cost:
+                    continue
+                for move in self._purchase_line_stock_moves(line):
+                    if move.state != "done":
+                        continue
+                    move_date = fields.Date.to_date(move.date) if move.date else False
+                    if not move_date or move_date < start_date or move_date > end_date:
+                        continue
+                    code = move.picking_id.picking_type_code if move.picking_id else False
+                    if code == "incoming":
+                        sign = -1.0  # recepcion -> coste (negativo)
+                    elif code == "outgoing":
+                        sign = 1.0  # devolucion -> resta coste
+                    else:
+                        continue
+                    qty = self._purchase_move_qty_in_line_uom(move, line)
+                    amount = sign * qty * unit_cost * ratio
+                    if amount:
+                        result[type_id] = result.get(type_id, 0.0) + amount
+            else:
+                # SERVICIOS (o linea sin producto): subtotal en fecha de confirmacion.
+                ref = order.date_approve or order.date_order
+                ref_date = fields.Date.to_date(ref) if ref else False
+                if not ref_date or ref_date < start_date or ref_date > end_date:
+                    continue
+                amount = -(line.price_subtotal or 0.0) * ratio
+                if amount:
+                    result[type_id] = result.get(type_id, 0.0) + amount
         return result
+
+    def _purchase_line_stock_moves(self, line):
+        """Movimientos de stock (no cancelados) de una linea de pedido de compra. Si la
+        linea tiene alguno, es un BIEN que se recibe por albaran; si no, es un servicio
+        / linea sin recepcion."""
+        if "move_ids" not in line._fields:
+            return self.env["stock.move"]
+        return line.move_ids.filtered(lambda move: move.state != "cancel")
+
+    def _purchase_move_qty_in_line_uom(self, move, line):
+        """Cantidad realizada del movimiento, convertida a la UdM de la linea de pedido
+        (para poder multiplicarla por el precio unitario del pedido)."""
+        qty = move.quantity if "quantity" in move._fields else 0.0
+
+        def _uom(record):
+            for name in ("product_uom", "product_uom_id"):
+                if name in record._fields and record[name]:
+                    return record[name]
+            return False
+
+        move_uom = _uom(move)
+        line_uom = _uom(line)
+        if move_uom and line_uom and move_uom != line_uom:
+            return move_uom._compute_quantity(qty, line_uom)
+        return qty
 
     def _amount_purchase_costs(self, analytic_account, start_date, end_date):
         """Pedidos: coste total de pedidos de compra confirmados en el mes = suma de

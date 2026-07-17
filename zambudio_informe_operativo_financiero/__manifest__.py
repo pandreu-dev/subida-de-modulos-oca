@@ -1,7 +1,7 @@
 {
     "name": "Informe operativo financiero",
     "summary": "Informe operativo financiero (WIP) por proyecto o cuenta analitica: prevision y reales",
-    "version": "19.0.20.3.0",
+    "version": "19.0.21.0.0",
     "category": "Accounting/Reporting",
     "author": "Zambudio",
     "license": "LGPL-3",

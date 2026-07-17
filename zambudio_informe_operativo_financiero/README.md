@@ -81,10 +81,13 @@ de Ingresos y Costes.
   prevista y asiento tecnico COSTE STOCK) son el mismo coste y se descartan. Esto subsume el
   capado de cuentas de ingreso de `19.0.17.0.0`.
 
-- **Pedidos**: desde `19.0.14.0.0` sale de los **pedidos de compra confirmados**
-  (aceptados **aunque no esten facturados**), con la **fecha de confirmacion**
-  (`date_approve`) como referencia; importe = subtotal sin impuestos por el % analitico,
-  en negativo. En la **vista horizontal** se despliega en una **sub-fila por cada Tipo de
+- **Pedidos**: desde `19.0.21.0.0` el coste de los **bienes** se imputa por lo que se
+  **recibe en cada albaran, en su fecha** (cantidad recibida x precio unitario del
+  pedido — no el coste de valoracion del almacen; recepciones parciales, cada una en su
+  mes; devoluciones restan). Los **servicios / lineas sin recepcion** mantienen el
+  criterio anterior: subtotal en la **fecha de confirmacion** (`date_approve`). Todo por
+  el % analitico y en negativo. (Antes, desde `19.0.14.0.0`, todo iba por la fecha de
+  confirmacion.) En la **vista horizontal** se despliega en una **sub-fila por cada Tipo de
   pedido** (`aunna.purchase.order.type`) que tenga datos (color mas claro y desplegable);
   los pedidos sin tipo se suman en el total "Pedidos" pero no generan sub-fila. La fila
   "Pedidos" (total) sigue siendo la que cuenta para "Total costes".
