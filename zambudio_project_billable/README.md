@@ -28,6 +28,15 @@ Pequenas reglas de negocio sobre el formulario de **Proyecto** (`project.project
 > `ir.default` guardado en la BD (no lo genera este modulo); la migracion
 > `19.0.1.1.0` lo elimina. El valor por defecto se aporta por codigo.
 
+## Requisito de configuracion
+
+Este modulo **depende de un campo de Studio** que debe existir en la base de datos (no
+viaja con el modulo): el campo **Productividad** en `project.project`
+(`x_studio_selection_field_3ib_1j1am422d`) con una opcion cuya etiqueta sea exactamente
+**"Actividad facturable"**. Si ese campo/opcion no existe (p.ej. en una base nueva), la
+sincronizacion no encuentra el valor y no actua. Al desplegar en otra instancia, asegurar
+que el campo Studio esta creado igual.
+
 ## Detalles tecnicos
 
 - El check Facturable es el campo estandar `allow_billable` (modulo `sale_project`).

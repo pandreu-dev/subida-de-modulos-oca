@@ -1,13 +1,38 @@
-# Zambudio Tipo de proyecto
+# Zambudio - Tipo de proyecto
 
-Anade el campo **Tipo de proyecto** a `project.project`, mostrado en el formulario de
-proyecto a la derecha, justo debajo de **Tiempo asignado**.
+Añade el campo **Tipo de proyecto** a los proyectos: un desplegable con la tipología
+comercial del proyecto.
 
-Es un desplegable con tres valores:
+## Qué resuelve
 
-- **Proyecto cerrado** (`closed`)
-- **Tiempo & Materiales** (`time_materials`)
-- **Recurrente** (`recurring`)
+Poder clasificar cada proyecto por su modelo comercial (precio cerrado, por tiempo y
+materiales, o recurrente), para filtros, informes y (a futuro) lógica de negocio que
+dependa de ese tipo.
 
-Modulo independiente (concepto propio: tipologia comercial del proyecto), separado de
-`zambudio_project_billable` (que gestiona solo el check Facturable).
+## Cómo funciona
+
+- Hereda `project.project` y añade el campo `zambudio_project_type` (Selection):
+  - `closed` — **Proyecto cerrado** (precio cerrado)
+  - `time_materials` — **Tiempo & Materiales**
+  - `recurring` — **Recurrente**
+- Se muestra en el formulario del proyecto (columna derecha). La vista se ancla con
+  `priority` alta para que aparezca junto al resto de campos aunque los añadan otras
+  vistas heredadas.
+
+## Configuración
+
+No requiere configuración. El campo queda disponible al instalar.
+
+## Cómo probar
+
+1. Abre cualquier proyecto.
+2. Comprueba que aparece **Tipo de proyecto** y que puedes elegir uno de los tres valores.
+
+## Notas
+
+- Es un módulo **independiente** a propósito: su concepto (tipología del proyecto) no
+  tiene que ver con `zambudio_project_billable` (check Facturable) ni con
+  `zambudio_project_unique_name` (nombre único). Cada módulo hace una sola cosa.
+- El campo se crea **sin valor por defecto** (vacío hasta que el usuario lo informe).
+
+**Depende de:** `project`.

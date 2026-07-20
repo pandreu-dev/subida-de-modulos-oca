@@ -1,42 +1,62 @@
-# AUNNA WIP - Enlace de proyecto analitico
+# AUNNA WIP - Enlace de proyecto analítico
 
-## Problema
+Normaliza los apuntes analíticos que Odoo genera para los asientos de **ingreso
+reconocido WIP** (cuenta 705), para que queden bien imputados a la analítica del proyecto
+y **sin comportarse como partes de horas**.
 
-Los asientos WIP ya llevan distribucion analitica y aparecen en PyG, pero las lineas analiticas creadas desde esos apuntes pueden quedar sin `project_id`. Al agrupar apuntes analiticos por proyecto aparecen como `Ninguno`.
+## Qué resuelve
 
-> **Cambio jul-2026 (Opcion B):** rellenar el `project_id` estandar hacia que Odoo
-> tratara estos apuntes de ingreso reconocido como **partes de horas** (aparecian en el
-> tablero del proyecto, en Rentabilidad y en las listas de partes, contando incluso como
-> horas). Por eso, **desde `19.0.3.0.0` el modulo ya NO pone el `project_id` estandar en
-> esas lineas (y lo retira de las existentes via migracion)**. El vinculo con el proyecto
-> se conserva por la **cuenta analitica** (1:1 con el proyecto) y por el campo propio
-> `aunna_wip_project_id`; en *Apuntes analiticos* se agrupan por **cuenta analitica** en
-> vez de por proyecto. El informe operativo financiero y los asientos de coste no se ven
-> afectados.
+Los asientos WIP llevan distribución analítica y aparecen en PyG, pero las líneas
+analíticas que Odoo genera desde ellos pueden quedar mal: sin importe (`0,00`), con la
+distribución al `0%`, o sin quedar bien asociadas al proyecto en la analítica.
 
-## Solucion
+> **Cambio jul-2026 (Opción B).** Antes el módulo rellenaba el `project_id` estándar en
+> esas líneas para poder agruparlas por proyecto en *Apuntes analíticos*. Pero en Odoo
+> **cualquier apunte con `project_id` se trata como parte de horas**, así que esas líneas
+> "WIP…" aparecían en el tablero del proyecto, en Rentabilidad y en las listas de partes,
+> **contando incluso como horas**. Por eso, **desde `19.0.3.0.0` el módulo YA NO pone el
+> `project_id` estándar** (y lo retira de las existentes vía migración). El vínculo con el
+> proyecto se conserva por la **cuenta analítica** (1:1 con el proyecto) y por el campo
+> propio `aunna_wip_project_id`. En *Apuntes analíticos* se agrupan por **cuenta
+> analítica** en vez de por proyecto. El informe operativo financiero y los asientos de
+> coste **no** se ven afectados (verificado).
 
-El modulo marca las lineas contables WIP con la linea de calculo WIP y su proyecto origen. Despues de crear/publicar el asiento, localiza las lineas analiticas generadas desde esas lineas contables y (desde `19.0.3.0.0`) se asegura de que NO lleven el `project_id` estandar, ademas de normalizar su distribucion analitica.
+## Cómo funciona
 
-Tambien vuelve a revisar los asientos WIP ya existentes al abrirlos desde el calculo, para completar el enlace si el asiento se creo antes de instalar este modulo.
+Al crear/publicar el asiento WIP (y al reparar asientos existentes), sobre las líneas
+analíticas de ingreso reconocido:
 
-No cambia importes ni cuentas. Si una linea WIP tiene distribucion analitica al proyecto con porcentaje `0%`, la normaliza a la cuenta analitica del calculo con `100%`.
-Si el asiento ya estaba publicado y el apunte analitico se habia generado a `0,00`, el modulo reconstruye el apunte desde la linea contable WIP corregida, usando el importe real del debe/haber.
-La reconstruccion no informa cantidad/horas a cero en el apunte analitico WIP, para evitar que el importe contable quede anulado.
+- **Etiqueta** cada línea con su línea de cálculo WIP (`aunna_wip_calculation_line_id`) y
+  su proyecto de origen (`aunna_wip_project_id`, campo propio).
+- **Normaliza la distribución analítica**: si estuviera al `0%`, la deja al `100%` en la
+  cuenta analítica del cálculo. Si ya es correcta, no la reescribe (evita disparar en
+  vano el mecanismo nativo, que borra y recrea el apunte).
+- **Reconstruye el importe** si el apunte se había generado a `0,00`, usando el importe
+  real del debe/haber de la línea contable.
+- **(Opción B) Retira el `project_id` estándar** y pone las horas (`unit_amount`) a 0 (y
+  desmarca `validated` si viniera puesto), para que la línea deje de ser parte de horas.
 
-## Prueba
+**No cambia importes ni cuentas contables** (debe/haber/saldo intactos).
 
-1. Calcular WIP de un presupuesto con proyecto.
-2. Crear asiento WIP.
-3. Abrir el asiento y comprobar que la linea con analitica tiene proyecto WIP.
-4. Comprobar que la distribucion analitica no aparece al `0%`.
-5. Ir a apuntes analiticos y agrupar por proyecto.
-6. Confirmar que las lineas WIP aparecen bajo el proyecto correcto y con importe.
+## Reparación de asientos existentes
 
-Para reparar un asiento antiguo, abrir el calculo WIP desde `Calculos WIP` y entrar en el asiento con `Abrir asiento WIP`. Esa accion vuelve a normalizar la distribucion y reconstruye el apunte analitico si estaba a cero.
+- **Migración `19.0.3.0.0`**: al actualizar, reprocesa los asientos WIP existentes para
+  retirarles el `project_id` (reutiliza la reparación idempotente del módulo).
+- **Manual**: abrir el cálculo WIP desde `Cálculos` y entrar con `Abrir asiento` vuelve a
+  normalizar y reconstruir el apunte si estaba a cero.
 
-## Estado de la incidencia
+## Cómo probar
 
-La incidencia de distribucion analitica WIP sigue pendiente de validacion funcional en Odoo. El historial completo de pruebas, sintomas y comprobaciones recomendadas esta documentado en:
+1. Calcular el avance/WIP de un presupuesto con proyecto y crear el asiento.
+2. En **Contabilidad > Apuntes analíticos**, agrupar por **cuenta analítica**: las líneas
+   WIP aparecen bajo la cuenta del proyecto, con su importe (no a `0,00` ni al `0%`).
+3. En **Partes de horas** y en el **tablero del proyecto**: las líneas "WIP…" **NO**
+   aparecen (ya no son partes de horas) y no suman horas.
 
-`docs/INCIDENCIA_DISTRIBUCION_ANALITICA_WIP.md`
+## Notas y dependencias
+
+- **Depende de:** `aunna_wip_accounting`, `project`.
+- Tras la Opción B, `zambudio_wip_hide_timesheets` deja de ser imprescindible (ya no hay
+  líneas WIP con `project_id` que ocultar), pero puede mantenerse como red de seguridad.
+- Historial completo de la incidencia de distribución analítica WIP:
+  `docs/INCIDENCIA_DISTRIBUCION_ANALITICA_WIP.md`.

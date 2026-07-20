@@ -1,22 +1,41 @@
-# Zambudio - Nombre de proyecto unico
+# Zambudio - Nombre de proyecto único
 
-Impide **crear** o **renombrar** un proyecto con un nombre **identico** al de otro.
+Impide **crear** o **renombrar** un proyecto con un nombre **idéntico** al de otro.
 
-## Detalles
+## Qué resuelve
 
-- Valida sobre `project.project.name` con un `@api.constrains` (salta al crear y al
-  renombrar).
-- La comparacion **ignora mayusculas/minusculas y espacios** al principio/final: asi
-  pilla duplicados reales (`Proyecto A`, `proyecto a`, `PROYECTO A `... se consideran el
-  mismo).
-- **Ambito por compania**: dos companias distintas si pueden tener un proyecto con el
-  mismo nombre. Si se quisiera unicidad **global** (en toda la base), es quitar del
-  dominio el filtro por `company_id`.
-- El control usa `sudo()` en la busqueda, para que no dependa de lo que el usuario vea
-  por reglas de acceso.
+Evita proyectos duplicados por nombre, que generan confusión (dos "Mantenimiento X",
+imputaciones al proyecto equivocado, etc.).
 
-## Nota
+## Cómo funciona
 
-Al instalar NO falla aunque ya existan proyectos duplicados; la validacion actua a
-partir de ese momento (al crear uno nuevo o al editar uno existente). Si hay duplicados
-previos, conviene renombrarlos.
+- Hereda `project.project` y valida `name` con `@api.constrains("name", "company_id")`
+  → salta tanto al **crear** como al **renombrar**.
+- La comparación **ignora mayúsculas/minúsculas y espacios** al principio/final: detecta
+  duplicados reales: `Proyecto A`, `proyecto a` o `PROYECTO A` con espacios sobrantes se
+  consideran el mismo nombre.
+- **Ámbito por compañía**: dos compañías distintas SÍ pueden repetir nombre.
+- La búsqueda usa `sudo()` para que el control no dependa de lo que el usuario vea por
+  reglas de acceso (si no, podría duplicar un proyecto que no ve).
+
+## Configuración
+
+No requiere configuración.
+
+## Cómo probar
+
+1. Crea un proyecto "Prueba".
+2. Intenta crear otro "prueba" (o "PRUEBA ") → debe **impedirlo** con un mensaje.
+3. Con otra compañía activa, el mismo nombre SÍ se permite.
+
+## Notas y límites
+
+- Al instalar **NO falla** aunque ya existan duplicados previos; la validación actúa a
+  partir de ese momento. Si hay duplicados antiguos, conviene renombrarlos.
+- Para unicidad **global** (toda la base, no por compañía): quitar el filtro `company_id`
+  del dominio.
+- Interacción con `zambudio_project_sale_naming`: si dos líneas del mismo pedido crean
+  proyecto con la misma descripción, chocarían; ese módulo captura el error para no
+  bloquear la confirmación del pedido.
+
+**Depende de:** `project`.

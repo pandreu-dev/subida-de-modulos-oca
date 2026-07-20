@@ -1,37 +1,46 @@
 # Zambudio - Ocultar apuntes WIP de partes de horas
 
-## Problema
+Oculta de las listas de **Partes de horas** los apuntes analíticos generados desde
+asientos (el **ingreso reconocido WIP**, cuenta 705), que no son partes de horas reales.
 
-El modulo `aunna_wip_project_link_fix` rellena el `project_id` en los apuntes
-analiticos generados por los asientos de **ingreso reconocido WIP** (cuenta 705), para
-que en **Apuntes analiticos** se agrupen bajo su proyecto (y no como "Ninguno").
+## Qué resuelve
 
-Efecto colateral: en Odoo, cualquier `account.analytic.line` con `project_id` se
-considera un **parte de horas**, por lo que esas lineas "WIP ..." aparecen en la vista
-de **Partes de horas** y confunden (no son partes reales, no se pueden validar).
+En Odoo, cualquier `account.analytic.line` con `project_id` se considera un **parte de
+horas**. Los apuntes del asiento WIP, si llevan proyecto, aparecen en Partes de horas
+(app, pedido de venta, tablero del proyecto) y confunden: no son partes reales, no se
+pueden validar, e incluso llegaban a contar como horas.
 
-## Solucion
+## Cómo funciona
 
-Se anade `('move_line_id', '=', False)` al dominio de las acciones de Partes de horas.
+Discriminador seguro: un parte **real** nunca se genera desde un asiento, así que su
+`move_line_id` siempre está vacío. Los apuntes de asiento (WIP, etc.) **sí** llevan
+`move_line_id`. El módulo añade `('move_line_id','=',False)` en las vistas de partes:
 
-- Un parte de horas **real** nunca se genera desde un asiento, asi que su
-  `move_line_id` siempre esta vacio -> **no se oculta ningun parte real**.
-- Los apuntes generados desde asientos (WIP y similares) **si** llevan `move_line_id`
-  -> se ocultan de Partes de horas.
-- La vista de **Apuntes analiticos** (dominio sin `project_id`) **no se toca**: las
-  lineas WIP siguen visibles ahi, agrupadas por proyecto (no se rompe lo de
-  `aunna_wip_project_link_fix`).
+- **Acciones almacenadas** de `account.analytic.line` que filtran por `project_id` (app
+  Partes de horas): se parchean en cada instalación/actualización, vía `<function>`
+  (`ir.actions.act_window._zambudio_hide_move_lines_from_timesheets`). Idempotente.
+- **Botón "Partes de horas" del pedido de venta** (`sale.order.action_view_timesheet`) y
+  **del tablero del proyecto** (`project.project.action_project_timesheets`): construyen
+  su dominio en Python, así que se reinyecta el marcador heredando esos métodos.
 
-El parcheo lo hace `ir.actions.act_window._zambudio_hide_move_lines_from_timesheets`,
-que se ejecuta en cada instalacion/actualizacion (via `<function>`) sobre todas las
-acciones de `account.analytic.line` cuyo dominio filtra por `project_id`. Es
-idempotente.
+La vista de **Apuntes analíticos** (sin filtro por `project_id`) **no se toca**: no oculta
+ningún parte real y no afecta a la contabilidad.
 
-## Prueba
+## Configuración
 
-1. Instalar el modulo.
-2. Ir a **Partes de horas** (Todos / A validar / Mis partes).
-3. Comprobar que ya NO aparecen las lineas con descripcion "WIP ..." (ingreso
-   reconocido), pero SI siguen los partes de horas reales.
-4. Ir a **Contabilidad > Apuntes analiticos**, agrupar por proyecto: las lineas WIP
-   siguen ahi bajo su proyecto.
+No requiere configuración.
+
+## Cómo probar
+
+1. Partes de horas (Todos / A validar / Mis partes), botón Partes de horas de un pedido de
+   venta, y tablero del proyecto → NO deben aparecer las líneas "WIP ...".
+2. Los partes de horas reales siguen apareciendo.
+
+## Nota importante
+
+Desde que `aunna_wip_project_link_fix` (Opción B, jul-2026) **quita el `project_id`** de
+los apuntes WIP, esas líneas **ya no son partes de horas de raíz**, así que este módulo
+**deja de ser imprescindible**. Se puede mantener instalado como **red de seguridad** (no
+hace daño: si no hay líneas WIP con proyecto, no oculta nada).
+
+**Depende de:** `hr_timesheet`, `sale_timesheet`.

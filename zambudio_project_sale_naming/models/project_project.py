@@ -1,5 +1,9 @@
+import logging
+
 from odoo import api, models
 from odoo.exceptions import ValidationError
+
+_logger = logging.getLogger(__name__)
 
 
 class ProjectProject(models.Model):
@@ -42,7 +46,16 @@ class ProjectProject(models.Model):
                             account.sudo().write({"name": name})
             except ValidationError:
                 # Choque de nombre unico: se conserva el nombre nativo, sin abortar la
-                # confirmacion del pedido. Se limpia la cache tras el rollback del
-                # savepoint para no dejar el nombre no persistido en memoria.
+                # confirmacion del pedido. Se deja traza en el log porque si no, desde la
+                # interfaz solo se ve "no ha cogido el nombre" y no hay forma de saber
+                # por que. Se limpia la cache tras el rollback del savepoint para no
+                # dejar el nombre no persistido en memoria.
+                _logger.warning(
+                    "zambudio_project_sale_naming: no se pudo renombrar el proyecto %s a "
+                    "'%s' (ya existe otro proyecto con ese nombre). Se conserva el "
+                    "nombre nativo.",
+                    project.id,
+                    name,
+                )
                 project.invalidate_recordset(["name"])
                 continue
