@@ -14,12 +14,22 @@ class ProjectProject(models.Model):
         Ambito: dentro de la MISMA compania (dos companias distintas si pueden repetir
         nombre). Se usa `sudo()` en la busqueda para que el control no dependa de lo que
         el usuario pueda ver por reglas de acceso."""
+        has_template = "is_template" in self._fields
         for project in self:
+            # Las PLANTILLAS de proyecto quedan fuera del control: Odoo crea la plantilla
+            # COPIANDO un proyecto existente (con el mismo nombre), asi que exigir nombre
+            # unico romperia la funcionalidad estandar de "crear plantilla desde
+            # proyecto". Solo se controla la unicidad entre proyectos reales.
+            if has_template and project.is_template:
+                continue
             name = (project.name or "").strip()
             if not name:
                 continue
             key = name.casefold()
             domain = [("id", "!=", project.id)]
+            if has_template:
+                # No dejar que una plantilla bloquee a un proyecto real con ese nombre.
+                domain.append(("is_template", "=", False))
             if "company_id" in project._fields:
                 domain.append(("company_id", "=", project.company_id.id))
             others = self.sudo().search(domain)
