@@ -1,7 +1,7 @@
 {
-    "name": "Zambudio - Proyecto Facturable por defecto",
-    "summary": "Proyecto facturable por defecto, sincronizado con Productividad y con cliente obligatorio si es facturable",
-    "version": "19.0.1.3.0",
+    "name": "Zambudio - Facturable sincronizado con Productividad",
+    "summary": "Sincroniza Facturable con Productividad y exige cliente si el proyecto es facturable (ya NO fuerza facturable por defecto)",
+    "version": "19.0.1.4.0",
     "category": "Services/Project",
     "author": "Zambudio",
     "license": "LGPL-3",

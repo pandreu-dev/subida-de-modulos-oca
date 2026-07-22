@@ -1,4 +1,4 @@
-from odoo import api, fields, models
+from odoo import api, models
 
 
 # Campo "Productividad" (creado con Studio) en project.project y valor de la
@@ -14,21 +14,11 @@ BILLABLE_ACTIVITY = "Actividad facturable"
 class ProjectProject(models.Model):
     _inherit = "project.project"
 
-    # Por defecto, los proyectos se crean como Facturables.
-    allow_billable = fields.Boolean(default=True)
-
-    @api.model
-    def default_get(self, fields_list):
-        """Por defecto, un proyecto nuevo tiene Productividad = "Actividad
-        facturable" (coherente con que se cree Facturable por defecto).
-        """
-        defaults = super().default_get(fields_list)
-        if PRODUCTIVITY_FIELD in self._fields and not defaults.get(PRODUCTIVITY_FIELD):
-            billable_values = self._zambudio_billable_values()
-            defaults[PRODUCTIVITY_FIELD] = (
-                next(iter(billable_values), False) or BILLABLE_ACTIVITY
-            )
-        return defaults
+    # NOTA (jul-2026, peticion de negocio): se RETIRO el "facturable por defecto".
+    # Antes este modulo forzaba allow_billable=True y Productividad="Actividad
+    # facturable" en los proyectos nuevos; ya no lo hace. Un proyecto nuevo queda con
+    # el valor nativo de Odoo (no facturable). Se conserva solo la SINCRONIZACION al
+    # cambiar los campos y el cliente obligatorio si es facturable.
 
     def _zambudio_billable_values(self):
         """Valores tecnicos de Productividad cuya opcion es "Actividad facturable".
