@@ -8,11 +8,11 @@ Modulo Odoo 19 Enterprise para facturar suscripciones a periodo vencido por plan
 - La misma documentacion describe `Align to Period Start`: las suscripciones alineadas facturan el primer dia del siguiente periodo y aplican prorrateo en el primer ciclo.
 - La accion programada "Sale Subscription: generate recurring invoices and payments" factura cuando la fecha actual coincide con `Date of Next Invoice`, y Odoo actualiza esa fecha usando el plan recurrente.
 - En el codigo publico de Odoo 19 Community, `sale.order` mantiene `_get_invoiceable_lines`, `_prepare_invoice`, `_create_invoices`; `sale.order.line` mantiene `_prepare_invoice_lines_vals_list` y `_prepare_invoice_line`; las lineas de factura se enlazan con `sale_line_ids`.
-- No se ha podido inspeccionar `odoo/enterprise/19.0/sale_subscription` desde este equipo: el repositorio Enterprise devuelve 404 sin credenciales. Por eso el modulo usa herencia y llamadas a `super()`, evita copiar metodos Enterprise completos y crea la vista de forma dinamica para no depender de un XML id concreto.
+- No se ha podido inspeccionar `odoo/enterprise/19.0/sale_subscription` desde este equipo: el repositorio Enterprise devuelve 404 sin credenciales. La vista del plan se hereda desde `sale_subscription.sale_subscription_plan_view_form`, confirmada en preproduccion por el usuario.
 
 ## Punto de intervencion
 
-- `sale.subscription.plan`: anade el booleano `invoice_in_arrears`.
+- `sale.subscription.plan`: anade el booleano `invoice_in_arrears` como checkbox debajo de `Periodo de facturacion`.
 - `sale.order`: inicializa la facturacion vencida, desplaza `next_invoice_date` una sola vez, evita facturas recurrentes antes de la fecha debida y guarda el ultimo periodo procesado para no duplicarlo.
 - `sale.order.line`: solo para lineas recurrentes (`recurring_invoice` si existe), sustituye la descripcion del periodo por el periodo inmediatamente anterior y rellena campos estandar de diferimiento si existen (`deferred_start_date` / `deferred_end_date`, o equivalentes detectados).
 
