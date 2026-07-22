@@ -22,15 +22,16 @@ class SaleSubscriptionPlan(models.Model):
     def install_invoice_in_arrears_view(self):
         """Create a small inherited view without depending on a brittle XML id."""
         View = self.env["ir.ui.view"].sudo()
-        base_view = View.search(
-            [
-                ("model", "=", "sale.subscription.plan"),
-                ("type", "=", "form"),
-                ("inherit_id", "=", False),
-            ],
-            order="priority, id",
-            limit=1,
-        )
+        view_domain = [
+            ("model", "=", "sale.subscription.plan"),
+            ("type", "=", "form"),
+            ("active", "=", True),
+        ]
+        if "mode" in View._fields:
+            view_domain.append(("mode", "!=", "extension"))
+
+        form_views = View.search(view_domain, order="priority, id")
+        base_view = self._get_invoice_in_arrears_target_form_view(form_views)
         if not base_view:
             _logger.warning(
                 "No primary sale.subscription.plan form view found; invoice_in_arrears "
@@ -96,3 +97,16 @@ class SaleSubscriptionPlan(models.Model):
         else:
             IrModelData.create(xml_values)
         return True
+
+    @api.model
+    def _get_invoice_in_arrears_target_form_view(self, form_views):
+        for field_name in ("billing_period_unit", "billing_period_value", "auto_close_limit"):
+            view = form_views.filtered(lambda candidate: self._view_arch_has_field(candidate, field_name))[:1]
+            if view:
+                return view
+        return form_views[:1]
+
+    @api.model
+    def _view_arch_has_field(self, view, field_name):
+        arch = view.arch_db or ""
+        return f'name="{field_name}"' in arch or f"name='{field_name}'" in arch
