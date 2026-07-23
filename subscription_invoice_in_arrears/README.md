@@ -19,9 +19,10 @@ Modulo Odoo 19 Enterprise para facturar suscripciones a periodo vencido por plan
 ## Compatibilidad y limites
 
 - Los planes sin `Facturar a periodo vencido` no se modifican.
-- `Align to Period Start` se respeta en fechas: si Odoo deja la primera `next_invoice_date` despues de la fecha de inicio, el modulo no la desplaza otra vez. El primer periodo se recorta desde la fecha real de inicio.
+- `Align to Period Start` se respeta en fechas: con facturacion vencida, la primera `next_invoice_date` se lleva al siguiente inicio de periodo. Por ejemplo, inicio `22/07/2026` en plan mensual alineado => primera factura `01/08/2026` por `22/07/2026 - 31/07/2026`.
 - El prorrateo economico queda en manos del estandar; este modulo corrige calendario, descripcion y fechas de servicio/diferimiento.
 - Para suscripciones existentes con facturas recurrentes previas, al inicializar se considera consumido el periodo inmediatamente anterior a la `next_invoice_date` actual y se mueve la siguiente fecha un periodo mas para evitar refacturar lo ya facturado.
+- Al actualizar a `19.0.1.0.1`, se corrigen las suscripciones vencidas alineadas que estuvieran inicializadas sin periodo facturado previo, para que la primera fecha sea el siguiente inicio de periodo.
 
 ## Instalacion
 
@@ -53,7 +54,9 @@ python odoo-bin -d <base_test> --addons-path=<odoo_addons>,<enterprise_addons>,<
 6. Ejecutar la facturacion recurrente con fecha de contexto `01/08/2026` o ajustar la fecha de prueba en la base.
 7. Validar que la factura indica `01/07/2026 - 31/07/2026` en la linea recurrente y que la siguiente fecha queda en `01/09/2026`.
 8. Repetir con una linea no recurrente en el mismo pedido: antes del `01/08/2026` solo debe poder facturarse la linea no recurrente.
-9. Repetir con plan trimestral/anual y con febrero de anno bisiesto y no bisiesto.
+9. Repetir con `Alinear al inicio del periodo` activado e inicio `22/07/2026`: no debe facturar la linea recurrente al confirmar; la proxima factura debe quedar en `01/08/2026`.
+10. Al facturar el `01/08/2026`, la linea recurrente debe indicar `22/07/2026 - 31/07/2026` y la siguiente factura debe quedar en `01/09/2026`.
+11. Repetir con plan trimestral/anual y con febrero de anno bisiesto y no bisiesto.
 
 ## Nota de validacion
 

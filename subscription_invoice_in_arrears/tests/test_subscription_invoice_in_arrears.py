@@ -12,12 +12,14 @@ class TestSubscriptionInvoiceInArrears(TransactionCase):
         cls.Order = cls.env["sale.order"]
         cls.partner = cls.env["res.partner"].create({"name": "Cliente pruebas vencido"})
 
-    def _create_plan(self, name, value=1, unit="month", arrears=True):
+    def _create_plan(self, name, value=1, unit="month", arrears=True, aligned=False):
         vals = {"name": name, "invoice_in_arrears": arrears}
         if "billing_period_value" in self.Plan._fields:
             vals["billing_period_value"] = value
         if "billing_period_unit" in self.Plan._fields:
             vals["billing_period_unit"] = unit
+        if "billing_first_day" in self.Plan._fields:
+            vals["billing_first_day"] = aligned
         return self.Plan.create(vals)
 
     def _create_order(self, plan, start, next_invoice):
@@ -125,3 +127,38 @@ class TestSubscriptionInvoiceInArrears(TransactionCase):
         self.assertTrue(context_values["subscription_invoice_in_arrears"])
         self.assertEqual(context_values["subscription_invoice_in_arrears_period_start"], "2026-07-01")
         self.assertEqual(context_values["subscription_invoice_in_arrears_period_end"], "2026-07-31")
+
+    def test_09_aligned_monthly_first_cycle_starts_next_month(self):
+        plan = self._create_plan("Mensual vencido alineado", aligned=True)
+        order = self._create_order(plan, date(2026, 7, 22), date(2026, 7, 22))
+
+        order._ensure_invoice_in_arrears_initialized()
+        period_start, period_end = order._get_invoice_in_arrears_period(date(2026, 8, 1))
+
+        self.assertEqual(order.next_invoice_date, date(2026, 8, 1))
+        self.assertEqual(period_start, date(2026, 7, 22))
+        self.assertEqual(period_end, date(2026, 7, 31))
+
+        order._mark_invoice_in_arrears_period(period_start, period_end, date(2026, 8, 1))
+
+        self.assertEqual(order.next_invoice_date, date(2026, 9, 1))
+
+    def test_10_aligned_monthly_existing_buggy_first_date_is_corrected(self):
+        plan = self._create_plan("Mensual vencido alineado corregible", aligned=True)
+        order = self._create_order(plan, date(2026, 7, 22), date(2026, 8, 22))
+        order.write({"invoice_in_arrears_initialized": True})
+
+        order._ensure_invoice_in_arrears_initialized(force=True)
+
+        self.assertEqual(order.next_invoice_date, date(2026, 8, 1))
+
+    def test_11_aligned_annual_first_cycle_ends_on_year_boundary(self):
+        plan = self._create_plan("Anual vencido alineado", unit="year", aligned=True)
+        order = self._create_order(plan, date(2026, 7, 22), date(2026, 7, 22))
+
+        order._ensure_invoice_in_arrears_initialized()
+        period_start, period_end = order._get_invoice_in_arrears_period(date(2027, 1, 1))
+
+        self.assertEqual(order.next_invoice_date, date(2027, 1, 1))
+        self.assertEqual(period_start, date(2026, 7, 22))
+        self.assertEqual(period_end, date(2026, 12, 31))

@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 
 from dateutil.relativedelta import relativedelta
 
@@ -194,11 +194,27 @@ class SaleOrder(models.Model):
                 or start_date
                 or order._get_invoice_in_arrears_today()
             )
+            first_due_date = order._get_invoice_in_arrears_first_due_date(
+                start_date or current_next_date
+            )
 
             if order.invoice_in_arrears_initialized:
-                if force and start_date and current_next_date <= start_date:
+                needs_first_due = bool(
+                    force
+                    and first_due_date
+                    and not order.invoice_in_arrears_last_period_end
+                    and not order._has_previous_invoice_in_arrears_relevant_invoice()
+                    and (
+                        (start_date and current_next_date <= start_date)
+                        or (
+                            order._is_invoice_in_arrears_aligned_to_period_start()
+                            and current_next_date != first_due_date
+                        )
+                    )
+                )
+                if needs_first_due:
                     order.with_context(skip_invoice_in_arrears_init=True).write(
-                        {"next_invoice_date": order._add_invoice_in_arrears_period(start_date)}
+                        {"next_invoice_date": first_due_date}
                     )
                 continue
 
@@ -212,8 +228,16 @@ class SaleOrder(models.Model):
                         "next_invoice_date": order._add_invoice_in_arrears_period(current_next_date),
                     }
                 )
-            elif not order.next_invoice_date or (start_date and current_next_date <= start_date):
-                vals["next_invoice_date"] = order._add_invoice_in_arrears_period(start_date or current_next_date)
+            elif (
+                not order.next_invoice_date
+                or (start_date and current_next_date <= start_date)
+                or (
+                    order._is_invoice_in_arrears_aligned_to_period_start()
+                    and first_due_date
+                    and current_next_date > first_due_date
+                )
+            ):
+                vals["next_invoice_date"] = first_due_date
             else:
                 vals["next_invoice_date"] = current_next_date
 
@@ -259,28 +283,8 @@ class SaleOrder(models.Model):
 
     def _get_invoice_in_arrears_period_delta(self, periods=1):
         self.ensure_one()
-        plan = self.plan_id
-        value = 1
-        for field_name in ("billing_period_value", "recurring_interval", "interval", "duration"):
-            if field_name in plan._fields and plan[field_name]:
-                value = plan[field_name]
-                break
-
-        try:
-            value = int(value)
-        except (TypeError, ValueError):
-            value = 1
+        value, unit = self._get_invoice_in_arrears_period_value_unit()
         value = max(value, 1) * periods
-
-        unit = False
-        for field_name in ("billing_period_unit", "recurring_rule_type", "unit", "duration_unit"):
-            if field_name in plan._fields and plan[field_name]:
-                unit = plan[field_name]
-                break
-
-        unit = (unit or "month").lower()
-        if unit.endswith("s"):
-            unit = unit[:-1]
 
         if unit in ("week", "weekly"):
             return relativedelta(weeks=value)
@@ -293,17 +297,95 @@ class SaleOrder(models.Model):
         if unit in ("day", "daily"):
             return relativedelta(days=value)
 
-        raise UserError(
+        raise self._get_invoice_in_arrears_unsupported_unit_error(unit)
+
+    def _get_invoice_in_arrears_period_value_unit(self):
+        self.ensure_one()
+        plan = self.plan_id
+        value = 1
+        for field_name in ("billing_period_value", "recurring_interval", "interval", "duration"):
+            if field_name in plan._fields and plan[field_name]:
+                value = plan[field_name]
+                break
+
+        try:
+            value = int(value)
+        except (TypeError, ValueError):
+            value = 1
+        value = max(value, 1)
+
+        unit = False
+        for field_name in ("billing_period_unit", "recurring_rule_type", "unit", "duration_unit"):
+            if field_name in plan._fields and plan[field_name]:
+                unit = plan[field_name]
+                break
+
+        unit = (unit or "month").lower()
+        if unit.endswith("s"):
+            unit = unit[:-1]
+
+        return value, unit
+
+    def _get_invoice_in_arrears_unsupported_unit_error(self, unit):
+        self.ensure_one()
+        return UserError(
             _(
                 "No se puede calcular el periodo vencido para el plan %(plan)s "
                 "porque la unidad de facturacion %(unit)s no esta soportada."
             )
-            % {"plan": plan.display_name, "unit": unit}
+            % {"plan": self.plan_id.display_name, "unit": unit}
         )
 
     def _add_invoice_in_arrears_period(self, date_value):
         self.ensure_one()
         return fields.Date.to_date(date_value) + self._get_invoice_in_arrears_period_delta()
+
+    def _get_invoice_in_arrears_first_due_date(self, date_value):
+        self.ensure_one()
+        date_value = fields.Date.to_date(date_value)
+        if not date_value:
+            return False
+
+        aligned_due_date = self._get_invoice_in_arrears_aligned_next_period_start(date_value)
+        if aligned_due_date:
+            return aligned_due_date
+
+        return self._add_invoice_in_arrears_period(date_value)
+
+    def _is_invoice_in_arrears_aligned_to_period_start(self):
+        self.ensure_one()
+        plan = self.plan_id
+        return bool("billing_first_day" in plan._fields and plan.billing_first_day)
+
+    def _get_invoice_in_arrears_aligned_next_period_start(self, date_value):
+        self.ensure_one()
+        if not self._is_invoice_in_arrears_aligned_to_period_start():
+            return False
+
+        value, unit = self._get_invoice_in_arrears_period_value_unit()
+        if unit in ("month", "monthly"):
+            return self._get_invoice_in_arrears_next_month_boundary(date_value, value)
+        if unit in ("quarter", "quarterly"):
+            return self._get_invoice_in_arrears_next_month_boundary(date_value, 3 * value)
+        if unit in ("year", "yearly", "annual", "annually"):
+            return self._get_invoice_in_arrears_next_year_boundary(date_value, value)
+        if unit in ("week", "weekly", "day", "daily"):
+            return False
+
+        raise self._get_invoice_in_arrears_unsupported_unit_error(unit)
+
+    @staticmethod
+    def _get_invoice_in_arrears_next_month_boundary(date_value, month_step):
+        month_step = max(int(month_step or 1), 1)
+        current_month_index = date_value.year * 12 + date_value.month - 1
+        next_month_index = ((current_month_index // month_step) + 1) * month_step
+        return date(next_month_index // 12, (next_month_index % 12) + 1, 1)
+
+    @staticmethod
+    def _get_invoice_in_arrears_next_year_boundary(date_value, year_step):
+        year_step = max(int(year_step or 1), 1)
+        current_group_start = ((date_value.year - 1) // year_step) * year_step + 1
+        return date(current_group_start + year_step, 1, 1)
 
     def _invoice_in_arrears_period_already_processed(self, period_end):
         self.ensure_one()
