@@ -13,14 +13,14 @@ Modulo Odoo 19 Enterprise para facturar suscripciones a periodo vencido por plan
 ## Punto de intervencion
 
 - `sale.subscription.plan`: anade el booleano `invoice_in_arrears` como checkbox debajo de `Periodo de facturacion`.
-- `sale.order`: inicializa la facturacion vencida, desplaza `next_invoice_date` una sola vez, evita facturas recurrentes antes de la fecha debida y guarda el ultimo periodo procesado para no duplicarlo.
-- `sale.order.line`: solo para lineas recurrentes (`recurring_invoice` si existe), sustituye la descripcion del periodo por el periodo inmediatamente anterior y rellena campos estandar de diferimiento si existen (`deferred_start_date` / `deferred_end_date`, o equivalentes detectados).
+- `sale.order`: inicializa la facturacion vencida, desplaza `next_invoice_date` una sola vez, evita facturas recurrentes antes de la fecha debida, calcula el factor de prorrateo del primer periodo vencido parcial y guarda el ultimo periodo procesado para no duplicarlo.
+- `sale.order.line`: solo para lineas recurrentes (`recurring_invoice` si existe), sustituye la descripcion del periodo por el periodo inmediatamente anterior, prorratea el precio cuando el periodo vencido real es parcial y rellena campos estandar de diferimiento si existen (`deferred_start_date` / `deferred_end_date`, o equivalentes detectados).
 
 ## Compatibilidad y limites
 
 - Los planes sin `Facturar a periodo vencido` no se modifican.
 - `Align to Period Start` se respeta en fechas: con facturacion vencida, la primera `next_invoice_date` se lleva al siguiente inicio de periodo. Por ejemplo, inicio `22/07/2026` en plan mensual alineado => primera factura `01/08/2026` por `22/07/2026 - 31/07/2026`.
-- El prorrateo economico queda en manos del estandar; este modulo corrige calendario, descripcion y fechas de servicio/diferimiento.
+- En periodos vencidos parciales, el modulo aplica prorrateo economico sobre el precio de la linea recurrente. Por ejemplo, inicio `29/07/2026` en plan mensual alineado => factura `01/08/2026` por `29/07/2026 - 31/07/2026` con factor `3/31`.
 - Para suscripciones existentes con facturas recurrentes previas, al inicializar se considera consumido el periodo inmediatamente anterior a la `next_invoice_date` actual y se mueve la siguiente fecha un periodo mas para evitar refacturar lo ya facturado.
 - Al actualizar a `19.0.1.0.1`, se corrigen las suscripciones vencidas alineadas que estuvieran inicializadas sin periodo facturado previo, para que la primera fecha sea el siguiente inicio de periodo.
 
@@ -55,8 +55,9 @@ python odoo-bin -d <base_test> --addons-path=<odoo_addons>,<enterprise_addons>,<
 7. Validar que la factura indica `01/07/2026 - 31/07/2026` en la linea recurrente y que la siguiente fecha queda en `01/09/2026`.
 8. Repetir con una linea no recurrente en el mismo pedido: antes del `01/08/2026` solo debe poder facturarse la linea no recurrente.
 9. Repetir con `Alinear al inicio del periodo` activado e inicio `22/07/2026`: no debe facturar la linea recurrente al confirmar; la proxima factura debe quedar en `01/08/2026`.
-10. Al facturar el `01/08/2026`, la linea recurrente debe indicar `22/07/2026 - 31/07/2026` y la siguiente factura debe quedar en `01/09/2026`.
-11. Repetir con plan trimestral/anual y con febrero de anno bisiesto y no bisiesto.
+10. Al facturar el `01/08/2026`, la linea recurrente debe indicar `22/07/2026 - 31/07/2026`, aplicar prorrateo economico del primer periodo parcial y dejar la siguiente factura en `01/09/2026`.
+11. Repetir con inicio `29/07/2026` e importe mensual: la factura del `01/08/2026` debe prorratear `29/07/2026 - 31/07/2026` con factor `3/31`.
+12. Repetir con plan trimestral/anual y con febrero de anno bisiesto y no bisiesto.
 
 ## Nota de validacion
 

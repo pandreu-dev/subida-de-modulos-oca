@@ -1,7 +1,7 @@
 {
     "name": "Subscription Invoice In Arrears",
     "summary": "Permite facturar suscripciones al periodo vencido por plan recurrente",
-    "version": "19.0.1.0.1",
+    "version": "19.0.1.0.2",
     "category": "Sales/Subscriptions",
     "author": "Aunnna",
     "license": "LGPL-3",

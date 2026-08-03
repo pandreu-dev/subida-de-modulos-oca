@@ -23,6 +23,7 @@ class SaleOrderLine(models.Model):
         if not period_start or not period_end:
             return vals_list
 
+        proration_factor = self._get_invoice_in_arrears_proration_factor_from_context()
         for vals in vals_list:
             if vals.get("display_type") not in (False, None, "product"):
                 continue
@@ -31,6 +32,8 @@ class SaleOrderLine(models.Model):
                     period_start,
                     period_end,
                     vals.get("name"),
+                    vals,
+                    proration_factor,
                 )
             )
         return vals_list
@@ -59,11 +62,24 @@ class SaleOrderLine(models.Model):
             fields.Date.to_date(self.env.context.get("subscription_invoice_in_arrears_period_end")),
         )
 
-    def _prepare_invoice_in_arrears_line_update(self, period_start, period_end, current_name=None):
+    def _prepare_invoice_in_arrears_line_update(
+        self,
+        period_start,
+        period_end,
+        current_name=None,
+        current_vals=None,
+        proration_factor=1.0,
+    ):
         self.ensure_one()
         vals = {
             "name": self._get_invoice_in_arrears_line_name(current_name, period_start, period_end),
         }
+        vals.update(
+            self._prepare_invoice_in_arrears_proration_update(
+                current_vals or {},
+                proration_factor,
+            )
+        )
 
         start_field, end_field = self._get_invoice_in_arrears_deferred_fields()
         if start_field and end_field:
@@ -71,6 +87,49 @@ class SaleOrderLine(models.Model):
             vals[end_field] = fields.Date.to_string(period_end)
 
         return vals
+
+    def _get_invoice_in_arrears_proration_factor_from_context(self):
+        self.ensure_one()
+        factor = self.env.context.get("subscription_invoice_in_arrears_proration_factor", 1.0)
+        try:
+            factor = float(factor)
+        except (TypeError, ValueError):
+            return 1.0
+        if factor < 0.0:
+            return 0.0
+        if factor > 1.0:
+            return 1.0
+        return factor
+
+    def _prepare_invoice_in_arrears_proration_update(self, current_vals, proration_factor):
+        self.ensure_one()
+        if proration_factor >= 1.0:
+            return {}
+        price_unit = current_vals.get("price_unit")
+        if price_unit in (False, None):
+            return {}
+        try:
+            price_unit = float(price_unit)
+        except (TypeError, ValueError):
+            return {}
+        try:
+            full_price_unit = float(self.price_unit)
+        except (TypeError, ValueError):
+            full_price_unit = price_unit
+        tolerance = max(abs(full_price_unit), abs(price_unit), 1.0) * 0.000001
+        if abs(price_unit - full_price_unit) > tolerance:
+            return {}
+        quantity = current_vals.get("quantity")
+        if quantity not in (False, None) and self.product_uom_qty:
+            try:
+                quantity = float(quantity)
+                full_quantity = float(self.product_uom_qty)
+            except (TypeError, ValueError):
+                full_quantity = quantity
+            quantity_tolerance = max(abs(full_quantity), abs(quantity), 1.0) * 0.000001
+            if abs(quantity - full_quantity) > quantity_tolerance:
+                return {}
+        return {"price_unit": price_unit * proration_factor}
 
     def _get_invoice_in_arrears_line_name(self, current_name, period_start, period_end):
         self.ensure_one()

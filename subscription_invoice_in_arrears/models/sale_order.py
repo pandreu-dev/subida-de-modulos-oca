@@ -119,14 +119,19 @@ class SaleOrder(models.Model):
                 moves |= order._create_invoice_in_arrears_non_recurring_only(grouped, final, date)
                 continue
 
-            order_context = order._get_invoice_in_arrears_context(period_start, period_end)
+            previous_invoice_lines = order._get_invoice_in_arrears_recurring_invoice_lines()
+            order_context = order._get_invoice_in_arrears_context(
+                period_start,
+                period_end,
+                due_date or today,
+            )
             order_moves = super(SaleOrder, order.with_context(**order_context))._create_invoices(
                 grouped=grouped,
                 final=final,
                 date=date,
             )
             moves |= order_moves
-            if order._moves_include_invoice_in_arrears_recurring_lines(order_moves):
+            if order._should_mark_invoice_in_arrears_period(order_moves, previous_invoice_lines):
                 order._mark_invoice_in_arrears_period(period_start, period_end, due_date or today)
 
         return moves
@@ -153,15 +158,20 @@ class SaleOrder(models.Model):
             if order._invoice_in_arrears_period_already_processed(period_end):
                 continue
 
-            order_context = order._get_invoice_in_arrears_context(period_start, period_end)
+            previous_invoice_lines = order._get_invoice_in_arrears_recurring_invoice_lines()
+            order_context = order._get_invoice_in_arrears_context(
+                period_start,
+                period_end,
+                due_date or today,
+            )
             order_moves = super(SaleOrder, order.with_context(**order_context))._create_recurring_invoice(
                 *args,
                 **kwargs,
             )
             if getattr(order_moves, "_name", None) == "account.move":
                 moves |= order_moves
-                if order._moves_include_invoice_in_arrears_recurring_lines(order_moves):
-                    order._mark_invoice_in_arrears_period(period_start, period_end, due_date or today)
+            if order._should_mark_invoice_in_arrears_period(order_moves, previous_invoice_lines):
+                order._mark_invoice_in_arrears_period(period_start, period_end, due_date or today)
 
         return moves
 
@@ -281,6 +291,34 @@ class SaleOrder(models.Model):
 
         return period_start, period_end
 
+    def _get_invoice_in_arrears_full_period(self, invoice_date):
+        self.ensure_one()
+        invoice_date = fields.Date.to_date(invoice_date)
+        period_end = invoice_date - timedelta(days=1)
+        period_start = invoice_date - self._get_invoice_in_arrears_period_delta()
+        if period_start > period_end:
+            period_start = period_end
+        return period_start, period_end
+
+    def _get_invoice_in_arrears_proration_factor(self, invoice_date, period_start, period_end):
+        self.ensure_one()
+        period_start = fields.Date.to_date(period_start)
+        period_end = fields.Date.to_date(period_end)
+        full_start, full_end = self._get_invoice_in_arrears_full_period(invoice_date)
+
+        effective_start = max(period_start, full_start)
+        effective_end = min(period_end, full_end)
+        full_days = (full_end - full_start).days + 1
+        actual_days = (effective_end - effective_start).days + 1
+
+        if full_days <= 0:
+            return 1.0
+        if actual_days <= 0:
+            return 0.0
+        if actual_days >= full_days:
+            return 1.0
+        return actual_days / full_days
+
     def _get_invoice_in_arrears_period_delta(self, periods=1):
         self.ensure_one()
         value, unit = self._get_invoice_in_arrears_period_value_unit()
@@ -396,20 +434,37 @@ class SaleOrder(models.Model):
 
     def _has_previous_invoice_in_arrears_relevant_invoice(self):
         self.ensure_one()
-        recurring_lines = self.order_line.filtered(lambda line: line._is_invoice_in_arrears_recurring_line())
-        invoice_lines = recurring_lines.invoice_lines.filtered(
-            lambda line: line.move_id.state != "cancel"
-            and line.move_id.move_type in ("out_invoice", "out_refund")
-        )
-        return bool(invoice_lines)
+        return bool(self._get_invoice_in_arrears_recurring_invoice_lines())
 
-    def _get_invoice_in_arrears_context(self, period_start, period_end):
+    def _get_invoice_in_arrears_context(self, period_start, period_end, invoice_date=None):
         self.ensure_one()
+        invoice_date = invoice_date or self._get_invoice_in_arrears_due_date() or self._get_invoice_in_arrears_today()
+        proration_factor = self._get_invoice_in_arrears_proration_factor(
+            invoice_date,
+            period_start,
+            period_end,
+        )
         return {
             "subscription_invoice_in_arrears": True,
             "subscription_invoice_in_arrears_period_start": fields.Date.to_string(period_start),
             "subscription_invoice_in_arrears_period_end": fields.Date.to_string(period_end),
+            "subscription_invoice_in_arrears_proration_factor": proration_factor,
         }
+
+    def _get_invoice_in_arrears_recurring_invoice_lines(self):
+        self.ensure_one()
+        recurring_lines = self.order_line.filtered(lambda line: line._is_invoice_in_arrears_recurring_line())
+        return recurring_lines.invoice_lines.filtered(
+            lambda line: line.move_id.state != "cancel"
+            and line.move_id.move_type in ("out_invoice", "out_refund")
+        )
+
+    def _should_mark_invoice_in_arrears_period(self, moves, previous_invoice_lines):
+        self.ensure_one()
+        return (
+            self._moves_include_invoice_in_arrears_recurring_lines(moves)
+            or bool(self._get_invoice_in_arrears_recurring_invoice_lines() - previous_invoice_lines)
+        )
 
     def _moves_include_invoice_in_arrears_recurring_lines(self, moves):
         self.ensure_one()

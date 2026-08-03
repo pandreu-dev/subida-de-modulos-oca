@@ -162,3 +162,41 @@ class TestSubscriptionInvoiceInArrears(TransactionCase):
         self.assertEqual(order.next_invoice_date, date(2027, 1, 1))
         self.assertEqual(period_start, date(2026, 7, 22))
         self.assertEqual(period_end, date(2026, 12, 31))
+
+    def test_12_aligned_monthly_first_cycle_proration_factor(self):
+        plan = self._create_plan("Mensual vencido alineado prorrateado", aligned=True)
+        order = self._create_order(plan, date(2026, 7, 29), date(2026, 7, 29))
+
+        order._ensure_invoice_in_arrears_initialized()
+        period_start, period_end = order._get_invoice_in_arrears_period(date(2026, 8, 1))
+        context_values = order._get_invoice_in_arrears_context(
+            period_start,
+            period_end,
+            date(2026, 8, 1),
+        )
+
+        self.assertEqual(order.next_invoice_date, date(2026, 8, 1))
+        self.assertEqual(period_start, date(2026, 7, 29))
+        self.assertEqual(period_end, date(2026, 7, 31))
+        self.assertAlmostEqual(
+            context_values["subscription_invoice_in_arrears_proration_factor"],
+            3 / 31,
+        )
+
+    def test_13_invoice_line_price_unit_is_prorated_from_context(self):
+        line = self.env["sale.order.line"].new(
+            {
+                "name": "Servicio recurrente",
+                "price_unit": 2492.0,
+            }
+        )
+
+        vals = line._prepare_invoice_in_arrears_line_update(
+            date(2026, 7, 29),
+            date(2026, 7, 31),
+            "Servicio recurrente",
+            {"price_unit": 2492.0},
+            3 / 31,
+        )
+
+        self.assertAlmostEqual(vals["price_unit"], 2492.0 * 3 / 31)
