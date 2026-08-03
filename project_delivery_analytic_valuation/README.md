@@ -135,6 +135,14 @@ Esto permite que el coste de una entrega directa desde stock interno pueda ir al
 
 ## Vistas
 
+En el formulario de albaran, el campo `Proyecto` se muestra junto a los datos principales
+del traslado, justo debajo de `Documento de origen`. Antes quedaba dentro de la pestana
+`Info adicional`, pero se recoloca aqui porque es un dato operativo necesario al crear o
+revisar entregas vinculadas a proyectos.
+
+La recolocacion se hace moviendo el campo existente `project_id` que aporta el modulo de
+proyectos/stock, sin crear un campo nuevo ni cambiar su logica.
+
 El modulo crea una vista lista de movimientos de stock:
 
 - Fecha.
@@ -203,5 +211,6 @@ Su alcance es la imputacion analitica y la visibilidad del coste de entregas en 
 - `models/stock_picking.py`: distribucion, deteccion y sincronizacion desde entregas.
 - `models/project_project.py`: boton y consulta desde proyecto.
 - `views/project_delivery_stock_move_views.xml`: vistas de movimientos de coste.
-- `views/stock_picking_views.xml`: distribucion analitica en albaran y movimientos.
+- `views/stock_picking_views.xml`: distribucion analitica en albaran y movimientos, y
+  posicion del campo `Proyecto` bajo `Documento de origen`.
 - `data/project_delivery_analytic_sync.xml`: sincronizacion inicial.
