@@ -1,5 +1,6 @@
 <odoo>
-    <!-- Se ejecuta en cada instalacion/actualizacion: filtra la vista "A validar" de
-         Partes de horas por responsable de proyecto (cada usuario ve solo lo suyo). -->
-    <function model="ir.actions.act_window" name="_zambudio_scope_validation_to_project_manager"/>
+    <!-- Se ejecuta en cada instalacion/actualizacion: REVIERTE el filtrado por
+         responsable de proyecto de la vista "A validar" que anadian versiones previas,
+         para que la validacion funcione como Odoo nativo. -->
+    <function model="ir.actions.act_window" name="_zambudio_unscope_validation_from_project_manager"/>
 </odoo>

@@ -1,8 +1,8 @@
 {
     "name": "Zambudio - Aprobacion de partes por responsable de proyecto",
-    "summary": "Solo el responsable del proyecto (o el aprobador del empleado) puede "
-    "validar los partes de horas de un proyecto",
-    "version": "19.0.4.0.0",
+    "summary": "Validacion nativa de Odoo + el responsable del proyecto puede validar "
+    "los partes de horas de su proyecto",
+    "version": "19.0.5.0.0",
     "category": "Human Resources/Timesheets",
     "author": "Zambudio",
     "license": "LGPL-3",
