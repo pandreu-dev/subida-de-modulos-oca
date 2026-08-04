@@ -21,8 +21,8 @@ Este modulo NO calcula ni contabiliza el WIP: eso lo hacen
 - lo **previsto** por el usuario (columna editable), y
 - lo **real** segun los apuntes contables (columna calculada).
 
-Se encuentra en **Contabilidad > Informes > Informe WIP mensual** y
-**Contabilidad > Informes > Configuracion informes WIP**.
+Se encuentra en **Proyecto > Informes > Informe operativo financiero** y
+**Proyecto > Informes > Apuntes informe operativo financiero**.
 
 ---
 
@@ -236,13 +236,13 @@ informe y al recalcular, por lo que los informes se auto-corrigen solos.
 
 ## 10. Flujo de uso
 
-1. Ir a **Configuracion informes WIP** y crear un informe: ejercicio, rango, compania y
-   proyecto o cuenta analitica.
+1. Ir a **Proyecto > Informes > Informe operativo financiero** y crear un informe:
+   ejercicio, rango, compania y proyecto o cuenta analitica.
 2. (Opcional) Escribir los importes **Prev.** en `Detalle mensual`.
 3. Pulsar **Recalcular reales** para traer la contabilidad publicada.
-4. Revisar en `Detalle mensual`, en la `Vista horizontal` o en la lista `Informe WIP
-   mensual` (filtrable y agrupable por mes, concepto, proyecto, cuenta analitica o
-   compania).
+4. Revisar en `Detalle mensual`, en la `Vista horizontal` o en la lista `Apuntes informe
+   operativo financiero` (filtrable y agrupable por mes, concepto, proyecto, cuenta
+   analitica o compania).
 5. (Opcional) **Exportar Excel**.
 
 ---

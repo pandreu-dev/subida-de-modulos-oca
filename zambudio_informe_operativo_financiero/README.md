@@ -1,15 +1,15 @@
 # Informe operativo financiero (WIP)
 
 Modulo para crear el **Informe operativo financiero** (WIP) por proyecto o cuenta
-analitica desde Contabilidad > Informes. Menus: `Informe operativo financiero` y
-`Configuracion informe operativo financiero`.
+analitica desde Proyecto > Informes. Menus: `Informe operativo financiero` y
+`Apuntes informe operativo financiero`.
 
 ## Funcionamiento
 
-- En `Configuracion informes WIP` el usuario crea un informe indicando rango de
+- En `Informe operativo financiero` el usuario crea un informe indicando rango de
   meses, compania y proyecto o cuenta analitica.
 - El boton `Recalcular reales` genera/actualiza el detalle mensual.
-- En `Informe WIP mensual` se trabaja en una vista lista operativa, exportable a
+- En `Apuntes informe operativo financiero` se trabaja en una vista lista operativa, exportable a
   Excel y filtrable como cualquier lista de Odoo.
 - En la configuracion del informe tambien hay una pestana `Vista horizontal` con
   una matriz compacta de meses en columnas y conceptos en filas.

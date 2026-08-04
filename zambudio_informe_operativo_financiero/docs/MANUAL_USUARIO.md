@@ -20,14 +20,15 @@ proyecto), agrupado como un P&L de obra:
 - **PM** (rentabilidad y % de margen)
 - **WIP** (facturación y obra en curso)
 
-Está en el app **Proyectos → Informe operativo financiero** y en **Proyectos →
-Configuración informe operativo financiero** (visible para usuarios de Contabilidad).
+Está en el app **Proyectos → Informes → Informe operativo financiero** y en
+**Proyectos → Informes → Apuntes informe operativo financiero** (visible para usuarios
+de Contabilidad).
 
 ---
 
 ## 2. Cómo se usa (paso a paso)
 
-1. **Proyectos → Configuración informe operativo financiero → Nuevo.**
+1. **Proyectos → Informes → Informe operativo financiero → Nuevo.**
 2. Rellena: **Ejercicio**, rango **Desde / Hasta**, **Compañía** y **Proyecto** (o
    directamente **Cuenta analítica**). Si eliges proyecto, la cuenta analítica se pone
    sola.
