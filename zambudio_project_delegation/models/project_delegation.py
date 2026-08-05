@@ -33,3 +33,33 @@ class ZambudioProjectDelegation(models.Model):
         elif not delegation.active:
             delegation.active = True
         return delegation
+
+    @api.model
+    def _move_delegation_menu_to_master_data(self):
+        delegation_menu = self.env.ref(
+            "zambudio_project_delegation.menu_zambudio_project_delegation",
+            raise_if_not_found=False,
+        )
+        if not delegation_menu:
+            return False
+
+        target_menu = self.env["ir.ui.menu"].sudo().search(
+            [
+                (
+                    "name",
+                    "in",
+                    ["Datos maestros configurables", "Configurable Master Data"],
+                )
+            ],
+            limit=1,
+        )
+        if not target_menu:
+            return False
+
+        delegation_menu.sudo().write(
+            {
+                "parent_id": target_menu.id,
+                "sequence": 40,
+            }
+        )
+        return True

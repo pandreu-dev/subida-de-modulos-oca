@@ -3,4 +3,8 @@
         model="zambudio.project.delegation"
         name="_ensure_murcia_delegation"
     />
+    <function
+        model="zambudio.project.delegation"
+        name="_move_delegation_menu_to_master_data"
+    />
 </odoo>

@@ -1,7 +1,7 @@
 {
     "name": "Zambudio - Delegaciones de proyecto",
     "summary": "Maestro de delegaciones y campo Delegacion en el formulario de proyecto",
-    "version": "19.0.1.0.1",
+    "version": "19.0.1.0.2",
     "category": "Services/Project",
     "author": "Zambudio",
     "license": "LGPL-3",
@@ -10,8 +10,8 @@
     ],
     "data": [
         "security/ir.model.access.csv",
-        "data/project_delegation_data.xml",
         "views/project_delegation_views.xml",
+        "data/project_delegation_data.xml",
         "views/project_project_views.xml",
     ],
     "installable": True,

@@ -13,7 +13,8 @@ formulario de proyecto.
 - Permite buscar y agrupar proyectos por **Delegacion**.
 - Permite buscar y agrupar proyectos por **Unidad de negocio** (`x_plan5_id`).
 - Asegura la delegacion **Murcia** y la usa por defecto en proyectos nuevos.
-- Anade el menu **Proyecto > Configuracion > Delegaciones** para mantener el maestro.
+- Anade el menu **Ajustes > Tecnico > Datos maestros configurables > Delegaciones**
+  para mantener el maestro.
 
 ## Permisos
 
@@ -26,7 +27,7 @@ formulario de proyecto.
 ## Como probar
 
 1. Instala o actualiza el modulo `zambudio_project_delegation`.
-2. Entra en **Proyecto > Configuracion > Delegaciones**.
+2. Entra en **Ajustes > Tecnico > Datos maestros configurables > Delegaciones**.
 3. Crea una delegacion.
 4. Abre un proyecto y comprueba que aparece el campo **Delegacion** despues de
    **Cliente**.
@@ -45,5 +46,9 @@ mezclarlo con reglas de negocio distintas.
 El filtro y agrupador **Unidad de negocio** usa el campo `x_plan5_id` existente en la
 base de datos. Si se instala en una base donde ese campo de proyecto no exista, habra
 que crearlo antes de actualizar este modulo.
+
+El menu se crea inicialmente con un padre seguro de Proyecto y, al actualizar el modulo,
+se recoloca automaticamente debajo del menu **Datos maestros configurables** si existe en
+la base de datos.
 
 **Depende de:** `project`.
