@@ -16,6 +16,7 @@ Ejemplos de uso:
 - Clasificar compras por proceso interno.
 - Facilitar busquedas y revisiones en listados.
 - Tener un dato visible tanto en formulario como en vistas lista.
+- Filtrar y agrupar pedidos por tipo de pedido.
 
 ## Dependencias
 
@@ -68,6 +69,15 @@ El campo se anade a:
 
 En ambas vistas aparece despues del proveedor y queda disponible como columna opcional visible.
 
+### Busqueda de pedidos de compra
+
+Vista heredada:
+
+- `purchase.view_purchase_order_filter`
+
+El campo queda disponible para buscar por **Tipo pedido** y se anade un agrupador
+**Tipo pedido**.
+
 ## Menu
 
 Ruta:
@@ -83,6 +93,7 @@ Desde este menu se crean y mantienen los tipos de pedido.
 3. El usuario abre una solicitud de presupuesto o pedido de compra.
 4. Informa el campo `Tipo pedido`.
 5. El campo queda visible en el formulario y en las vistas lista de compra.
+6. Desde la lista de compras, filtra o agrupa por `Tipo pedido`.
 
 ## Permisos
 

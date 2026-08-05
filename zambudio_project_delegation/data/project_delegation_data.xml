@@ -1,0 +1,6 @@
+<odoo>
+    <function
+        model="zambudio.project.delegation"
+        name="_ensure_murcia_delegation"
+    />
+</odoo>

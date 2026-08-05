@@ -9,4 +9,7 @@ class ProjectProject(models.Model):
         string="Delegacion",
         ondelete="restrict",
         tracking=True,
+        default=lambda self: self.env[
+            "zambudio.project.delegation"
+        ]._get_default_murcia_delegation(),
     )

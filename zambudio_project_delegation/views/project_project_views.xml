@@ -10,4 +10,39 @@
             </field>
         </field>
     </record>
+
+    <record id="view_project_project_list_zambudio_delegation" model="ir.ui.view">
+        <field name="name">project.project.list.zambudio.delegation</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.view_project"/>
+        <field name="arch" type="xml">
+            <field name="partner_id" position="after">
+                <field name="zambudio_delegation_id" optional="show"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_project_project_filter_zambudio_delegation" model="ir.ui.view">
+        <field name="name">project.project.search.zambudio.delegation</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.view_project_project_filter"/>
+        <field name="arch" type="xml">
+            <field name="partner_id" position="after">
+                <field name="zambudio_delegation_id" string="Delegacion"/>
+                <field name="x_plan5_id" string="Unidad de negocio"/>
+            </field>
+            <xpath expr="//group/filter[@name='company']" position="after">
+                <filter
+                    string="Delegacion"
+                    name="groupby_zambudio_delegation"
+                    context="{'group_by': 'zambudio_delegation_id'}"
+                />
+                <filter
+                    string="Unidad de negocio"
+                    name="groupby_business_unit"
+                    context="{'group_by': 'x_plan5_id'}"
+                />
+            </xpath>
+        </field>
+    </record>
 </odoo>
