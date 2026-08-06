@@ -26,10 +26,26 @@ class SaleOrder(models.Model):
         store=True,
         readonly=True,
     )
+    tcv_confirmation_date = fields.Datetime(
+        string="Fecha de confirmación (TCV)",
+        readonly=True,
+        copy=False,
+        help="Momento en que se confirmó el pedido; es la base del cálculo del "
+        "TCV (no la fecha del pedido/presupuesto).",
+    )
+
+    def action_confirm(self):
+        res = super().action_confirm()
+        now = fields.Datetime.now()
+        for order in self:
+            if not order.tcv_confirmation_date:
+                order.tcv_confirmation_date = now
+        return res
 
     @api.depends(
         "amount_untaxed",
         "is_subscription",
+        "tcv_confirmation_date",
         "date_order",
         "end_date",
         "recurring_monthly",
@@ -55,9 +71,13 @@ class SaleOrder(models.Model):
                 and not line.product_id.recurring_invoice
             )
 
+            # Fecha REAL de confirmación (no la del pedido/presupuesto). Para
+            # pedidos confirmados antes de instalar el modulo, se usa date_order
+            # como respaldo (Odoo lo fija al confirmar).
+            ref_confirmation = order.tcv_confirmation_date or order.date_order
             confirmation_date = (
-                fields.Date.to_date(order.date_order)
-                if order.date_order
+                fields.Date.to_date(ref_confirmation)
+                if ref_confirmation
                 else False
             )
 
