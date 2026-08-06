@@ -10,11 +10,6 @@
                 position="after"
             >
                 <field name="tcv_amount" readonly="1"/>
-                <field
-                    name="tcv_months"
-                    readonly="1"
-                    invisible="not is_subscription"
-                />
                 <field name="tcv_missing_end_date" invisible="1"/>
             </xpath>
 
