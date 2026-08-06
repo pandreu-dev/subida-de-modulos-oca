@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="project_project_view_form_tcv" model="ir.ui.view">
+        <field name="name">project.project.form.tcv</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button
+                    name="action_view_tcv_sale_orders"
+                    type="object"
+                    class="oe_stat_button"
+                    icon="fa-file-text-o"
+                    invisible="tcv_order_count == 0"
+                >
+                    <field
+                        name="tcv_order_count"
+                        widget="statinfo"
+                        string="Pedidos TCV"
+                    />
+                </button>
+            </xpath>
+
+            <xpath expr="//field[@name='date_start']" position="after">
+                <field name="tcv_currency_id" invisible="1"/>
+                <field name="tcv_amount" readonly="1"/>
+                <field name="tcv_incomplete_order_count" invisible="1"/>
+            </xpath>
+
+            <xpath expr="//notebook" position="before">
+                <div
+                    class="alert alert-warning"
+                    role="alert"
+                    invisible="tcv_incomplete_order_count == 0"
+                >
+                    Hay pedidos de suscripción confirmados sin fecha final.
+                    Su parte recurrente todavía no se incluye en el TCV.
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>

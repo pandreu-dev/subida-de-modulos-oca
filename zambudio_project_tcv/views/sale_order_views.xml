@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="sale_order_view_form_tcv" model="ir.ui.view">
+        <field name="name">sale.order.form.tcv</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath
+                expr="//group[@name='order_details']/field[@name='payment_term_id']"
+                position="after"
+            >
+                <field name="tcv_amount" readonly="1"/>
+                <field
+                    name="tcv_months"
+                    readonly="1"
+                    invisible="not is_subscription"
+                />
+                <field name="tcv_missing_end_date" invisible="1"/>
+            </xpath>
+
+            <xpath expr="//group[@name='order_details']" position="after">
+                <div
+                    class="alert alert-warning"
+                    role="alert"
+                    invisible="not tcv_missing_end_date"
+                >
+                    La suscripción no tiene fecha final: el TCV solo incluye
+                    los conceptos no recurrentes.
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>
