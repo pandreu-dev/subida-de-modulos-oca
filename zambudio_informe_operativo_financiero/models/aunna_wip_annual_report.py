@@ -36,7 +36,7 @@ METRICS = [
     ("materiales", "Materiales", 70),
     ("gastos_viaje", "Gastos de Viaje", 80),
     ("licencias_software", "Licencias software", 90),
-    ("otros", "Otros", 100),
+    ("otros", "Otros costes", 100),
     ("invoice", "Facturacion", 110),
     ("real_wip", "WIP", 120),
 ]
@@ -112,7 +112,7 @@ REPORT_GROUPS = [
             {"label": "Materiales", "metric": "materiales"},
             {"label": "Gastos de Viaje", "metric": "gastos_viaje"},
             {"label": "Licencias software", "metric": "licencias_software"},
-            {"label": "Otros", "metric": "otros"},
+            {"label": "Otros costes", "metric": "otros"},
         ],
         "total_label": "Total costes",
     },

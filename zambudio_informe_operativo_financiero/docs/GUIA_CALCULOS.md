@@ -58,8 +58,9 @@ fila generica "Pedidos" con sub-filas por tipo: cada tipologia es su propia fila
   categoria **Kilometraje** y **Dietas** (`_amount_travel_expenses`; el resto de gastos
   queda FUERA del informe).
 - **Licencias software**: pedidos de tipo **SOFTWARE (Licencias)**.
-- **Otros**: pedidos de tipo **OTROS** y **FLOTA VEHICULOS**, mas cualquier pedido con
-  tipo no mapeado o **sin tipo** (catch-all, para no perder coste).
+- **Otros costes**: pedidos de tipo **OTROS**, mas cualquier pedido con tipo no mapeado
+  o **sin tipo** (catch-all, para no perder coste). El tipo **FLOTA VEHICULOS** queda
+  EXCLUIDO (no se cuenta; no imputa a proyecto).
 
 El coste de pedidos se calcula igual que antes (`_purchase_order_costs_by_type`, sin
 tocar) y se reagrupa por el NOMBRE del `aunna.purchase.order.type` segun el mapeo
@@ -81,7 +82,7 @@ METRICS = [
     ("materiales", "Materiales", 70),
     ("gastos_viaje", "Gastos de Viaje", 80),
     ("licencias_software", "Licencias software", 90),
-    ("otros", "Otros", 100),
+    ("otros", "Otros costes", 100),
     ("invoice", "Facturacion", 110),
     ("real_wip", "WIP", 120),
 ]

@@ -1,7 +1,7 @@
 {
     "name": "Project TCV",
     "summary": "Calcula el Total Contract Value de pedidos y proyectos",
-    "version": "19.0.1.3.0",
+    "version": "19.0.1.4.0",
     "category": "Services/Project",
     "author": "zambudio",
     "license": "LGPL-3",

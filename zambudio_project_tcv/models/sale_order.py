@@ -22,7 +22,8 @@ class SaleOrder(models.Model):
         store=True,
         readonly=True,
         digits=(16, 4),
-        help="Meses reales entre inicio y fin (respeta la duración de cada mes).",
+        help="Meses enteros del contrato (la fecha fin cuenta como ultimo dia "
+        "cubierto: de 1-abr a 31-mar son 12 meses).",
     )
     tcv_missing_end_date = fields.Boolean(
         string="Falta fecha final para TCV",
@@ -96,14 +97,18 @@ class SaleOrder(models.Model):
                 order.tcv_amount = non_recurring_amount
                 continue
 
-            # Meses REALES entre inicio y fin con relativedelta (respeta que los
-            # meses duran 28/29/30/31 días): meses completos + fracción del último
-            # mes parcial (días sobrantes entre los días de ESE mes concreto).
-            if order.end_date <= period_start:
+            # Una suscripcion se factura por MESES ENTEROS, no por dias: febrero y
+            # agosto valen lo mismo aunque tengan 28 o 31 dias. Ademas la fecha fin
+            # de Odoo es el ULTIMO dia cubierto (inclusive): de 1-abr a 31-mar hay
+            # 12 meses enteros. Por eso medimos hasta el dia SIGUIENTE al fin.
+            end_inclusive = order.end_date + relativedelta(days=1)
+            if end_inclusive <= period_start:
                 months = 0.0
             else:
-                delta = relativedelta(order.end_date, period_start)
+                delta = relativedelta(end_inclusive, period_start)
                 months = delta.years * 12 + delta.months
+                # Resto de dias de un periodo incompleto (no ocurre en
+                # suscripciones normales, cuya fecha fin cae al final del periodo).
                 if delta.days:
                     anchor = period_start + relativedelta(months=months)
                     days_in_month = monthrange(anchor.year, anchor.month)[1]
