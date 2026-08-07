@@ -28,14 +28,43 @@ MONTHS = [
 METRICS = [
     ("services_income", "Venta de servicios", 10),
     ("products_income", "Venta de productos", 20),
+    # --- Costes (nuevas tipologias por TIPO de pedido; ver PURCHASE_TYPE_TYPOLOGY) ---
     ("internal_hours", "Horas internas", 30),
     ("external_hours", "Horas externas", 40),
-    ("purchase_costs", "Pedidos", 50),
-    ("materials", "Stock interno", 60),
-    ("expenses", "Gastos", 70),
-    ("invoice", "Facturacion", 80),
-    ("real_wip", "WIP", 90),
+    ("contratas_fix", "Contratas (Fix price)", 50),
+    ("contratas_admin", "Contratas (Por administracion)", 60),
+    ("materiales", "Materiales", 70),
+    ("gastos_viaje", "Gastos de Viaje", 80),
+    ("licencias_software", "Licencias software", 90),
+    ("otros", "Otros", 100),
+    ("invoice", "Facturacion", 110),
+    ("real_wip", "WIP", 120),
 ]
+
+# Mapeo NOMBRE de aunna.purchase.order.type -> tipologia de coste (regla de Laura:
+# NO cambia la forma de calcular; solo se REAGRUPA el coste de pedidos por tipo).
+# Las claves estan normalizadas (MAYUSCULAS, sin espacios sobrantes). El mapeo se
+# resuelve con _map_purchase_type_to_typology, que normaliza el nombre real antes de
+# buscar aqui, para tolerar variaciones menores de mayusculas/espacios en PRE.
+# Los tipos NO mapeados y los pedidos SIN tipo caen en 'otros' (catch-all), EXCEPTO
+# los de PURCHASE_TYPE_EXCLUDED, que NO se cuentan en el informe.
+PURCHASE_TYPE_TYPOLOGY = {
+    "SERVICIOS": "contratas_fix",
+    "SUBCONTRATA (FIX PRICE)": "contratas_fix",
+    "SUBCONTRATA (T&M)": "contratas_admin",
+    "DOCUMENTACION": "materiales",
+    "EPI": "materiales",
+    "HARDWARE": "materiales",
+    "HERRAMIENTA": "materiales",
+    "MATERIAL": "materiales",
+    "GASTOS DE VIAJE": "gastos_viaje",
+    "SOFTWARE (LICENCIAS)": "licencias_software",
+    "OTROS": "otros",
+}
+
+# Tipos de pedido que NO se cuentan en el informe (no imputan a proyecto; decision de
+# Laura, p.ej. FLOTA VEHICULOS). Nombres normalizados (MAYUSCULAS).
+PURCHASE_TYPE_EXCLUDED = {"FLOTA VEHICULOS"}
 
 # Metricas cuyo valor es un ACUMULADO (no se suman: el Total muestra el ultimo mes).
 ACCUMULATED_METRICS = {"real_wip"}
@@ -71,14 +100,19 @@ REPORT_GROUPS = [
     {
         "label": "Costes",
         "css": "cost",
+        # Cada tipologia es su propia fila/metrica (ya no hay fila generica "Pedidos"
+        # con sub-filas por tipo). El coste de pedidos se reparte por tipologia segun
+        # PURCHASE_TYPE_TYPOLOGY; Materiales suma ademas el material de almacen y
+        # Gastos de Viaje los gastos hr.expense de Kilometraje/Dietas.
         "rows": [
             {"label": "Horas internas", "metric": "internal_hours"},
             {"label": "Horas externas", "metric": "external_hours"},
-            # "Pedidos" = total; en la vista horizontal se despliega en una sub-fila
-            # por cada Tipo de pedido con datos (ver _build_purchase_type_rows).
-            {"label": "Pedidos", "metric": "purchase_costs"},
-            {"label": "Stock interno", "metric": "materials"},
-            {"label": "Gastos", "metric": "expenses"},
+            {"label": "Contratas (Fix price)", "metric": "contratas_fix"},
+            {"label": "Contratas (Por administracion)", "metric": "contratas_admin"},
+            {"label": "Materiales", "metric": "materiales"},
+            {"label": "Gastos de Viaje", "metric": "gastos_viaje"},
+            {"label": "Licencias software", "metric": "licencias_software"},
+            {"label": "Otros", "metric": "otros"},
         ],
         "total_label": "Total costes",
     },
@@ -537,8 +571,6 @@ class AunnaWipAnnualReport(models.Model):
             use_unsaved_lines=use_unsaved_lines
         )
         visible_months = self._get_horizontal_visible_months(months, active_lines)
-        # Sub-filas dinamicas de coste por Tipo de pedido (una por tipo con datos).
-        purchase_type_rows = self._build_purchase_type_rows(visible_months)
 
         lines_by_key = {
             (fields.Date.to_date(line.month_start), line.metric): line
@@ -655,15 +687,6 @@ class AunnaWipAnnualReport(models.Model):
             ".wv-grp-pm{background:#375623;}.wv-grp-wip{background:#bf6000;}",
             ".wv-concept-income{background:#dae3f3;}.wv-concept-cost{background:#f2dcdb;}"
             ".wv-concept-pm{background:#e2efda;}.wv-concept-wip{background:#fce4d6;}",
-            # Sub-filas de coste por tipo de pedido: color mas claro que Costes.
-            ".wv-concept-cost-sub{background:#faf0ef;font-weight:500;padding-left:28px;}",
-            # Desplegable de "Pedidos" (CSS puro; si el navegador no soporta :has,"
-            # se ven siempre desplegadas).
-            ".wv-ped-cb{position:absolute;opacity:0;width:0;height:0;}",
-            ".wv-ped-lbl{cursor:pointer;}",
-            ".wv-ped-lbl::before{content:'\\25BE  ';color:#843c39;font-size:11px;}",
-            ".o_aunna_wip_horizontal tbody tr:has(.wv-ped-cb:not(:checked)) .wv-ped-lbl::before{content:'\\25B8  ';}",
-            ".o_aunna_wip_horizontal tbody tr:has(.wv-ped-cb:not(:checked)) ~ tr.wv-type-row{display:none;}",
             ".wv-total-row{font-weight:700;}",
             ".wv-total-income{background:#1f4e79;color:#fff;}"
             ".wv-total-cost{background:#843c39;color:#fff;}",
@@ -696,9 +719,6 @@ class AunnaWipAnnualReport(models.Model):
             css = group["css"]
             data_metrics = [row["metric"] for row in group["rows"] if row.get("metric")]
             span = len(group["rows"]) + (1 if group.get("total_label") else 0)
-            # El grupo Costes incluye las sub-filas dinamicas por tipo de pedido.
-            if css == "cost":
-                span += len(purchase_type_rows)
             first = True
             for row in group["rows"]:
                 metric = row.get("metric")
@@ -712,19 +732,10 @@ class AunnaWipAnnualReport(models.Model):
                         % (css, span, escape(group["label"]))
                     )
                     first = False
-                if metric == "purchase_costs" and purchase_type_rows:
-                    # "Pedidos" con desglose: celda concepto con toggle (desplegable).
-                    html.append(
-                        "<td class='wv-concept wv-concept-%s'>"
-                        "<input type='checkbox' class='wv-ped-cb' id='wv_ped_cb' checked/>"
-                        "<label class='wv-ped-lbl' for='wv_ped_cb'>%s</label></td>"
-                        % (css, escape(row["label"]))
-                    )
-                else:
-                    html.append(
-                        "<td class='wv-concept wv-concept-%s'>%s</td>"
-                        % (css, escape(row["label"]))
-                    )
+                html.append(
+                    "<td class='wv-concept wv-concept-%s'>%s</td>"
+                    % (css, escape(row["label"]))
+                )
                 total_prev = total_real = 0.0
                 for month in visible_months:
                     if kind:
@@ -748,20 +759,6 @@ class AunnaWipAnnualReport(models.Model):
                 else:
                     html.append(cells(0.0, 0.0, blank=True))
                 html.append("</tr>")
-                # Sub-filas por tipo de pedido, justo debajo de "Pedidos".
-                if metric == "purchase_costs" and purchase_type_rows:
-                    for trow in purchase_type_rows:
-                        html.append("<tr class='wv-type-row'>")
-                        html.append(
-                            "<td class='wv-concept wv-concept-cost-sub'>%s</td>"
-                            % escape(trow["label"])
-                        )
-                        for month in visible_months:
-                            html.append(
-                                cells(0.0, trow["real_by_month"].get(month, 0.0))
-                            )
-                        html.append(cells(0.0, trow["total_real"]))
-                        html.append("</tr>")
             if group.get("total_label"):
                 html.append("<tr class='wv-total-row'>")
                 html.append(
@@ -792,10 +789,6 @@ class AunnaWipAnnualReport(models.Model):
         months = list(self._iter_month_starts())
         active_lines = self._get_horizontal_period_lines()
         visible_months = self._get_horizontal_visible_months(months, active_lines)
-        # Sub-filas por Tipo de pedido, desplegables bajo "Pedidos" (outline de Excel:
-        # symbols_below=False -> el control +/- queda en la fila resumen "Pedidos").
-        purchase_type_rows = self._build_purchase_type_rows(visible_months)
-        worksheet.outline_settings(True, False, True, False)
         lines_by_key = {
             (fields.Date.to_date(line.month_start), line.metric): line
             for line in active_lines
@@ -841,9 +834,6 @@ class AunnaWipAnnualReport(models.Model):
                 "bold": True,
                 "border": 1,
             }
-        )
-        subconcept_format = workbook.add_format(
-            {"italic": True, "bg_color": "#FFFFFF", "border": 1, "indent": 1}
         )
 
         total_columns = 1 + (len(visible_months) * 3) + 3
@@ -915,35 +905,6 @@ class AunnaWipAnnualReport(models.Model):
                 negative_format if total_diff < 0 else total_format,
             )
             row += 1
-            # Desglose desplegable por Tipo de pedido, justo debajo de "Pedidos".
-            if metric == "purchase_costs" and purchase_type_rows:
-                for trow in purchase_type_rows:
-                    worksheet.write(row, 0, trow["label"], subconcept_format)
-                    column = 1
-                    for month in visible_months:
-                        real_amount = trow["real_by_month"].get(month, 0.0)
-                        worksheet.write_number(row, column, 0.0, prev_format)
-                        worksheet.write_number(
-                            row, column + 1, real_amount, real_format
-                        )
-                        worksheet.write_number(
-                            row,
-                            column + 2,
-                            real_amount,
-                            negative_format if real_amount < 0 else diff_format,
-                        )
-                        column += 3
-                    type_total = trow["total_real"]
-                    worksheet.write_number(row, column, 0.0, total_format)
-                    worksheet.write_number(row, column + 1, type_total, total_format)
-                    worksheet.write_number(
-                        row,
-                        column + 2,
-                        type_total,
-                        negative_format if type_total < 0 else total_format,
-                    )
-                    worksheet.set_row(row, None, None, {"level": 1})
-                    row += 1
 
         worksheet.freeze_panes(start_row + 2, 1)
         worksheet.set_column(0, 0, 28)
@@ -1067,15 +1028,24 @@ class AunnaWipAnnualReport(models.Model):
             values["external_hours"][month_key] = self._amount_timesheet_cost(
                 start_date, end_date, EXTERNAL_HOURS_ACCOUNT_NAME
             )
-            values["purchase_costs"][month_key] = self._amount_purchase_costs(
+            # Coste de pedidos reagrupado por tipologia (misma forma de calcular).
+            typology = self._purchase_costs_by_typology(
                 analytic_account, start_date, end_date
             )
-            values["materials"][month_key] = self._amount_materials(
-                analytic_account, start_date, end_date
+            values["contratas_fix"][month_key] = typology.get("contratas_fix", 0.0)
+            values["contratas_admin"][month_key] = typology.get("contratas_admin", 0.0)
+            # Materiales = pedidos de tipo material + material de almacen (Stock interno).
+            values["materiales"][month_key] = typology.get(
+                "materiales", 0.0
+            ) + self._amount_materials(analytic_account, start_date, end_date)
+            # Gastos de Viaje = pedidos de viaje + gastos hr.expense Kilometraje/Dietas.
+            values["gastos_viaje"][month_key] = typology.get(
+                "gastos_viaje", 0.0
+            ) + self._amount_travel_expenses(analytic_account, start_date, end_date)
+            values["licencias_software"][month_key] = typology.get(
+                "licencias_software", 0.0
             )
-            values["expenses"][month_key] = self._amount_expenses(
-                analytic_account, start_date, end_date
-            )
+            values["otros"][month_key] = typology.get("otros", 0.0)
             values["invoice"][month_key] = invoice_amount
             values["real_wip"][month_key] = running_wip
         return values
@@ -1117,15 +1087,26 @@ class AunnaWipAnnualReport(models.Model):
             values[(month_start, "external_hours")] = self._amount_timesheet_cost(
                 month_start, month_end, EXTERNAL_HOURS_ACCOUNT_NAME
             )
-            values[(month_start, "purchase_costs")] = self._amount_purchase_costs(
+            # Coste de pedidos reagrupado por tipologia (misma forma de calcular).
+            typology = self._purchase_costs_by_typology(
                 analytic_account, month_start, month_end
             )
-            values[(month_start, "materials")] = self._amount_materials(
-                analytic_account, month_start, month_end
+            values[(month_start, "contratas_fix")] = typology.get("contratas_fix", 0.0)
+            values[(month_start, "contratas_admin")] = typology.get(
+                "contratas_admin", 0.0
             )
-            values[(month_start, "expenses")] = self._amount_expenses(
-                analytic_account, month_start, month_end
+            # Materiales = pedidos de tipo material + material de almacen (Stock interno).
+            values[(month_start, "materiales")] = typology.get(
+                "materiales", 0.0
+            ) + self._amount_materials(analytic_account, month_start, month_end)
+            # Gastos de Viaje = pedidos de viaje + gastos hr.expense Kilometraje/Dietas.
+            values[(month_start, "gastos_viaje")] = typology.get(
+                "gastos_viaje", 0.0
+            ) + self._amount_travel_expenses(analytic_account, month_start, month_end)
+            values[(month_start, "licencias_software")] = typology.get(
+                "licencias_software", 0.0
             )
+            values[(month_start, "otros")] = typology.get("otros", 0.0)
             values[(month_start, "invoice")] = invoice_amount
             values[(month_start, "real_wip")] = running_wip
         return values
@@ -1229,10 +1210,15 @@ class AunnaWipAnnualReport(models.Model):
             domain.append(("move_line_id", "=", False))
         return sum(AAL.search(domain).mapped("amount"))
 
-    def _amount_expenses(self, analytic_account, start_date, end_date):
-        """Gastos: gastos de empleado (`hr.expense`) imputados a la cuenta analitica
-        del proyecto, en negativo (panel de Rentabilidad). No se pondera por el % de
-        distribucion analitica (el panel toma el importe integro)."""
+    def _amount_travel_expenses(self, analytic_account, start_date, end_date):
+        """Gastos de Viaje (parte de `hr.expense`): gastos de empleado imputados a la
+        cuenta analitica del proyecto, en negativo, **SOLO de categoria Kilometraje y
+        Dietas**.
+
+        Reutiliza el calculo de gastos anterior (mismo estado, misma divisa, mismo
+        importe integro sin ponderar por ratio) anadiendo el FILTRO por categoria. Los
+        gastos que NO son Kilometraje/Dietas quedan **FUERA del informe** (decision de
+        Laura: en el nuevo esquema no hay fila generica "Gastos")."""
         if "hr.expense" not in self.env:
             return 0.0
         Expense = self.env["hr.expense"].sudo()
@@ -1259,6 +1245,10 @@ class AunnaWipAnnualReport(models.Model):
         needs_convert = amount_field == "untaxed_amount_currency"
         total = 0.0
         for expense in expenses:
+            # Filtro por categoria: SOLO Kilometraje y Dietas. El resto de gastos
+            # queda FUERA del informe (decision de Laura).
+            if not self._expense_is_travel(expense):
+                continue
             amount = expense[amount_field] or 0.0
             currency = expense.currency_id
             if needs_convert and currency and company_currency and currency != company_currency:
@@ -1267,6 +1257,71 @@ class AunnaWipAnnualReport(models.Model):
                 )
             total += amount
         return -total
+
+    def _expense_is_travel(self, expense):
+        """True si el gasto es de categoria **Kilometraje** o **Dietas**.
+
+        La categoria se identifica por el producto del gasto (`product_id`) o su
+        categoria de producto y, en su defecto, por el propio nombre del gasto. Filtro
+        laxo por contenido: nombre que contenga 'kilometr' o 'dieta' (case-insensitive)
+        para tolerar variaciones.
+        # TODO verificar en PRE nombre exacto de categorias Kilometraje/Dietas
+        """
+        texts = []
+        product = expense.product_id if "product_id" in expense._fields else False
+        if product:
+            texts.append(product.name or "")
+            if "categ_id" in product._fields and product.categ_id:
+                texts.append(product.categ_id.name or "")
+        if "name" in expense._fields:
+            texts.append(expense.name or "")
+        haystack = " ".join(texts).lower()
+        return "kilometr" in haystack or "dieta" in haystack
+
+    def _purchase_costs_by_typology(self, analytic_account, start_date, end_date):
+        """Reagrupa el coste de pedidos de compra por TIPOLOGIA de coste.
+
+        Regla de Laura: la forma de calcular NO cambia. Se reutiliza el metodo
+        existente ``_purchase_order_costs_by_type`` (que devuelve ``{type_id: importe}``)
+        y solo se REAGRUPA su resultado: por cada type_id se resuelve el NOMBRE del
+        ``aunna.purchase.order.type``, se mapea a su tipologia
+        (``PURCHASE_TYPE_TYPOLOGY``) y se ACUMULA el importe. Los tipos no mapeados y
+        los pedidos SIN tipo (``type_id`` False) caen en 'otros' (catch-all, para no
+        perder coste). Devuelve ``{typology_key: importe}``."""
+        result = {}
+        by_type = self._purchase_order_costs_by_type(
+            analytic_account, start_date, end_date
+        )
+        if not by_type:
+            return result
+        type_ids = [type_id for type_id in by_type if type_id]
+        names_by_id = {}
+        if type_ids:
+            types = (
+                self.env["aunna.purchase.order.type"].sudo().browse(type_ids).exists()
+            )
+            names_by_id = {ptype.id: ptype.name for ptype in types}
+        for type_id, amount in by_type.items():
+            name = names_by_id.get(type_id) if type_id else False
+            typology = self._map_purchase_type_to_typology(name)
+            if not typology:  # tipo excluido (p.ej. FLOTA VEHICULOS): no se cuenta
+                continue
+            result[typology] = result.get(typology, 0.0) + amount
+        return result
+
+    def _map_purchase_type_to_typology(self, type_name):
+        """Mapea el NOMBRE de un ``aunna.purchase.order.type`` a su tipologia de coste.
+
+        Normaliza el nombre (MAYUSCULAS, ``.strip()`` y colapso de espacios internos)
+        para tolerar variaciones menores antes de buscar en ``PURCHASE_TYPE_TYPOLOGY``.
+        Devuelve ``None`` si el tipo esta EXCLUIDO (no se cuenta). Nombre vacio o tipo
+        no mapeado (y no excluido) -> 'otros' (catch-all)."""
+        if not type_name:
+            return "otros"
+        key = " ".join(str(type_name).upper().split())
+        if key in PURCHASE_TYPE_EXCLUDED:
+            return None
+        return PURCHASE_TYPE_TYPOLOGY.get(key, "otros")
 
     def _purchase_order_costs_by_type(self, analytic_account, start_date, end_date):
         """Coste de pedidos de compra imputados a la cuenta analitica del informe,
@@ -1377,60 +1432,6 @@ class AunnaWipAnnualReport(models.Model):
         if move_uom and line_uom and move_uom != line_uom:
             return move_uom._compute_quantity(qty, line_uom)
         return qty
-
-    def _amount_purchase_costs(self, analytic_account, start_date, end_date):
-        """Pedidos: coste total de pedidos de compra confirmados en el mes = suma de
-        todos los tipos (ver ``_purchase_order_costs_by_type``)."""
-        return sum(
-            self._purchase_order_costs_by_type(
-                analytic_account, start_date, end_date
-            ).values()
-        )
-
-    def _build_purchase_type_rows(self, visible_months):
-        """Sub-filas dinamicas de coste por Tipo de pedido para la vista horizontal.
-
-        Una fila por cada tipo de pedido que tenga datos en los meses visibles
-        (solo tipos con registros; los pedidos **sin tipo** se agregan en el total
-        "Pedidos" pero no generan sub-fila). Se calcula en vivo (no se guarda como
-        metrica). Devuelve una lista de dicts ordenada por nombre de tipo, con
-        ``{"label", "real_by_month": {month: importe}, "total_real"}``.
-        """
-        self.ensure_one()
-        analytic = self._get_filter_analytic_account()
-        if not analytic or not visible_months:
-            return []
-        by_month = {}
-        type_ids = set()
-        for month in visible_months:
-            month_end = month + relativedelta(months=1) - timedelta(days=1)
-            amounts = self._purchase_order_costs_by_type(analytic, month, month_end)
-            by_month[month] = amounts
-            type_ids.update(type_id for type_id in amounts if type_id)
-        if not type_ids:
-            return []
-        types = (
-            self.env["aunna.purchase.order.type"]
-            .sudo()
-            .browse(sorted(type_ids))
-            .exists()
-            .sorted(lambda ptype: (ptype.name or "").lower())
-        )
-        rows = []
-        for ptype in types:
-            real_by_month = {
-                month: by_month[month].get(ptype.id, 0.0) for month in visible_months
-            }
-            if not any(real_by_month.values()):
-                continue
-            rows.append(
-                {
-                    "label": ptype.name or _("Sin nombre"),
-                    "real_by_month": real_by_month,
-                    "total_real": sum(real_by_month.values()),
-                }
-            )
-        return rows
 
     def _amount_income_by_code(self, analytic_account, start_date, end_date, code_like):
         """Ingreso (grupo 70) imputado a la cuenta analitica del informe, en el mes,

@@ -1,7 +1,7 @@
 {
     "name": "Informe operativo financiero",
     "summary": "Informe operativo financiero (WIP) por proyecto o cuenta analitica: prevision y reales",
-    "version": "19.0.21.0.1",
+    "version": "19.0.22.0.0",
     "category": "Accounting/Reporting",
     "author": "Zambudio",
     "license": "LGPL-3",
@@ -10,6 +10,7 @@
         "analytic",
         "project",
         "purchase",
+        "hr_expense",
         "aunna_wip_accounting",
         "aunna_purchase_order_type",
     ],

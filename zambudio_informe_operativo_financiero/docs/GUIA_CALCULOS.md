@@ -39,24 +39,33 @@ WIP), como el cuadro de referencia. Los conceptos con dato contable son:
 | WIP      | Facturacion         | Facturas de cliente en cuentas del grupo **70** (aparte, no entra en Ingresos). |
 | WIP      | WIP                 | Ingreso reconocido acumulado - facturacion acumulada.                        |
 
-Las filas de **Costes** (Horas internas, Horas externas, Pedidos, Materiales, Gastos)
-salen de las mismas fuentes que el panel de **Rentabilidad** del proyecto, y **PM** se
-calcula a partir de Ingresos y Costes:
+Las filas de **Costes** salen de las mismas fuentes que el panel de **Rentabilidad**
+del proyecto, y **PM** se calcula a partir de Ingresos y Costes. Desde `19.0.22.0.0` el
+bloque de Costes se **reagrupa por TIPOLOGIA** (regla de Laura: la forma de calcular NO
+cambia, solo se reagrupa el coste de pedidos por Tipo de pedido). Ya **no** existe la
+fila generica "Pedidos" con sub-filas por tipo: cada tipologia es su propia fila:
 
 - **Horas internas / externas**: coste de los **partes de horas** del proyecto, separados
   por el plan analitico "Horas internas"/"Horas externas" (lo asigna una automatizacion
-  segun el Tipo empleado). Se busca esa cuenta en **cualquier** columna de plan de la
-  linea, no solo en `account_id`.
-- **Pedidos**: **pedidos de compra confirmados** (estado `purchase`/`done`), aceptados
-  **aunque no esten facturados**; fecha de referencia = **confirmacion del pedido**
-  (`date_approve`, o `date_order`); importe = subtotal sin impuestos x % analitico, en
-  negativo. En la vista horizontal se **desglosa en una sub-fila por Tipo de pedido**
-  (`aunna.purchase.order.type`) con datos (`_build_purchase_type_rows`); los sin tipo van
-  al total pero no generan sub-fila. La fila "Pedidos" (total) es la que cuenta para
-  "Total costes".
-- **Materiales**: apuntes analiticos `timesheet_invoice_type = other_costs` (excluyendo
-  gastos y facturas de proveedor para no duplicar).
-- **Gastos**: `hr.expense` imputados a la analitica.
+  segun el Tipo empleado). **No cambia** (`_amount_timesheet_cost`).
+- **Contratas (Fix price)**: coste de pedidos de compra de tipo **SERVICIOS** y
+  **SUBCONTRATA (Fix price)**.
+- **Contratas (Por administracion)**: pedidos de tipo **SUBCONTRATA (T&M)**.
+- **Materiales**: pedidos de tipo **DOCUMENTACION, EPI, HARDWARE, HERRAMIENTA, MATERIAL**
+  **+** el material de almacen (antigua fila "Stock interno", `_amount_materials`:
+  apuntes analiticos `timesheet_invoice_type = other_costs`, sin duplicar valoracion).
+- **Gastos de Viaje**: pedidos de tipo **GASTOS DE VIAJE** **+** gastos `hr.expense` de
+  categoria **Kilometraje** y **Dietas** (`_amount_travel_expenses`; el resto de gastos
+  queda FUERA del informe).
+- **Licencias software**: pedidos de tipo **SOFTWARE (Licencias)**.
+- **Otros**: pedidos de tipo **OTROS** y **FLOTA VEHICULOS**, mas cualquier pedido con
+  tipo no mapeado o **sin tipo** (catch-all, para no perder coste).
+
+El coste de pedidos se calcula igual que antes (`_purchase_order_costs_by_type`, sin
+tocar) y se reagrupa por el NOMBRE del `aunna.purchase.order.type` segun el mapeo
+`PURCHASE_TYPE_TYPOLOGY` (comparacion en MAYUSCULAS y sin espacios sobrantes) mediante
+el helper `_purchase_costs_by_typology`. Todos los costes van en negativo y ponderados
+por el % de distribucion analitica (salvo las Horas, importe integro).
 
 Las filas de dato editable/almacenado las define `METRICS` en
 [models/aunna_wip_annual_report.py](../models/aunna_wip_annual_report.py):
@@ -65,10 +74,21 @@ Las filas de dato editable/almacenado las define `METRICS` en
 METRICS = [
     ("services_income", "Venta de servicios", 10),
     ("products_income", "Venta de productos", 20),
-    ("invoice", "Facturacion", 80),
-    ("real_wip", "WIP", 90),
+    ("internal_hours", "Horas internas", 30),
+    ("external_hours", "Horas externas", 40),
+    ("contratas_fix", "Contratas (Fix price)", 50),
+    ("contratas_admin", "Contratas (Por administracion)", 60),
+    ("materiales", "Materiales", 70),
+    ("gastos_viaje", "Gastos de Viaje", 80),
+    ("licencias_software", "Licencias software", 90),
+    ("otros", "Otros", 100),
+    ("invoice", "Facturacion", 110),
+    ("real_wip", "WIP", 120),
 ]
 ```
+
+El mapeo NOMBRE de `aunna.purchase.order.type` -> tipologia vive en la constante
+`PURCHASE_TYPE_TYPOLOGY` del mismo archivo.
 
 La estructura visual agrupada se define en la constante `REPORT_GROUPS` del mismo
 archivo.
