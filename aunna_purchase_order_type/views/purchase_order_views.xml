@@ -50,4 +50,23 @@
             </xpath>
         </field>
     </record>
+
+    <record id="view_purchase_order_view_search_inherit_aunna_type" model="ir.ui.view">
+        <field name="name">purchase.order.select.inherit.aunna.type</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_view_search"/>
+        <field name="arch" type="xml">
+            <field name="partner_id" position="after">
+                <field name="aunna_purchase_order_type_id" string="Tipo pedido"/>
+            </field>
+            <xpath expr="//group/filter[@name='order_date']" position="after">
+                <filter
+                    string="Tipo pedido"
+                    name="groupby_aunna_purchase_order_type"
+                    domain="[]"
+                    context="{'group_by': 'aunna_purchase_order_type_id'}"
+                />
+            </xpath>
+        </field>
+    </record>
 </odoo>
