@@ -1,3 +1,7 @@
+from calendar import monthrange
+
+from dateutil.relativedelta import relativedelta
+
 from odoo import api, fields, models
 
 
@@ -18,7 +22,7 @@ class SaleOrder(models.Model):
         store=True,
         readonly=True,
         digits=(16, 4),
-        help="Duración usada para el TCV: días de contrato divididos entre 30.",
+        help="Meses reales entre inicio y fin (respeta la duración de cada mes).",
     )
     tcv_missing_end_date = fields.Boolean(
         string="Falta fecha final para TCV",
@@ -45,6 +49,7 @@ class SaleOrder(models.Model):
     @api.depends(
         "amount_untaxed",
         "is_subscription",
+        "start_date",
         "tcv_confirmation_date",
         "date_order",
         "end_date",
@@ -71,25 +76,38 @@ class SaleOrder(models.Model):
                 and not line.product_id.recurring_invoice
             )
 
-            # Fecha REAL de confirmación (no la del pedido/presupuesto). Para
-            # pedidos confirmados antes de instalar el modulo, se usa date_order
-            # como respaldo (Odoo lo fija al confirmar).
-            ref_confirmation = order.tcv_confirmation_date or order.date_order
-            confirmation_date = (
-                fields.Date.to_date(ref_confirmation)
-                if ref_confirmation
-                else False
+            # Referencia de inicio del periodo recurrente: la FECHA DE INICIO de la
+            # suscripción (start_date), que es cuando arranca el plan recurrente. Si
+            # no estuviera informada, se usa la fecha real de confirmación como
+            # respaldo (y date_order para pedidos anteriores al módulo).
+            ref_start = (
+                order.start_date
+                or order.tcv_confirmation_date
+                or order.date_order
+            )
+            period_start = (
+                fields.Date.to_date(ref_start) if ref_start else False
             )
 
-            # Una suscripción abierta no tiene un TCV recurrente finito.
-            # Se conserva únicamente el importe no recurrente y se muestra aviso.
-            if not confirmation_date or not order.end_date:
+            # Una suscripción sin fecha de inicio o de fin no tiene un TCV recurrente
+            # finito: se conserva solo el importe no recurrente y se muestra aviso.
+            if not period_start or not order.end_date:
                 order.tcv_missing_end_date = True
                 order.tcv_amount = non_recurring_amount
                 continue
 
-            days = max((order.end_date - confirmation_date).days, 0)
-            months = days / 30.0
+            # Meses REALES entre inicio y fin con relativedelta (respeta que los
+            # meses duran 28/29/30/31 días): meses completos + fracción del último
+            # mes parcial (días sobrantes entre los días de ESE mes concreto).
+            if order.end_date <= period_start:
+                months = 0.0
+            else:
+                delta = relativedelta(order.end_date, period_start)
+                months = delta.years * 12 + delta.months
+                if delta.days:
+                    anchor = period_start + relativedelta(months=months)
+                    days_in_month = monthrange(anchor.year, anchor.month)[1]
+                    months += delta.days / days_in_month
 
             order.tcv_months = months
             order.tcv_amount = non_recurring_amount + (
