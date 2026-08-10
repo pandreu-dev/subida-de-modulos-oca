@@ -24,7 +24,7 @@ El modulo depende de:
 
 - `purchase`
 - `purchase_stock` (aporta `picking_type_id`, ancla para recolocar `Condiciones de pago`)
-- `purchase_project` (aporta `project_id`, el campo `Proyecto` que se recoloca)
+- `project_purchase` (modulo nativo Odoo 19; aporta `project_id`, el campo `Proyecto` que se recoloca)
 
 El foco sigue siendo Compras. Las dependencias de inventario/proyecto se usan solo
 para poder recolocar en el formulario campos estandar que ya existen; el modulo no

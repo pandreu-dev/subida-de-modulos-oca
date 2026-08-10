@@ -9,10 +9,9 @@
         "purchase",
         # Aporta picking_type_id ("Entregar a"), ancla del move de payment_term_id.
         "purchase_stock",
-        # Aporta project_id ("Proyecto"), campo estandar que se recoloca.
-        # CONFIRMAR el nombre en tu instancia (ver consulta en el chat): si el
-        # bridge proyecto-compra se llama "project_purchase", cambia esta linea.
-        "purchase_project",
+        # Aporta project_id ("Proyecto"): modulo NATIVO de Odoo 19 que enlaza
+        # pedidos de compra con proyectos (project.project).
+        "project_purchase",
     ],
     "data": [
         "security/ir.model.access.csv",
