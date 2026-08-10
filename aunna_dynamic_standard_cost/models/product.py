@@ -1,4 +1,4 @@
-from odoo import _, fields, models
+from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 from odoo.tools import float_compare, float_is_zero
 
@@ -25,6 +25,18 @@ class ProductCategory(models.Model):
             "de diferencia de precio o la cuenta de gasto del producto."
         ),
     )
+    # Por defecto, valoracion de inventario "Periodico (al cierre)" (manual_periodic)
+    # en categorias NUEVAS. No cambia las categorias ya existentes.
+    property_valuation = fields.Selection(default="manual_periodic")
+
+    @api.onchange("property_cost_method")
+    def _onchange_cost_method_reset_dynamic_cost(self):
+        """Si la categoria deja de ser de coste 'estandar', se desmarca el check de
+        ultimo coste de compra (la vista, ademas, lo oculta). Al volver a 'estandar'
+        el check seguira desmarcado: hay que reactivarlo a mano."""
+        for category in self:
+            if category.property_cost_method != "standard":
+                category.aunna_use_dynamic_standard_cost = False
 
 
 class ProductProduct(models.Model):

@@ -71,6 +71,13 @@ El modulo considera activo el coste dinamico para un producto cuando:
 - Es almacenable y usa metodo de coste estandar, y
 - Su categoria tiene marcado `Usar ultimo coste de compra`.
 
+## Comportamiento en la ficha de categoria
+
+- El check `Usar ultimo coste de compra` **solo es visible si el metodo de coste es Estandar**.
+- Si se cambia el metodo de **Estandar a FIFO o Promedio**, el check **se desmarca automaticamente y se oculta**.
+- Al volver de **FIFO/Promedio a Estandar**, el check aparece **desmarcado**: hay que reactivarlo a mano.
+- Las categorias **nuevas** se crean con `Valoracion del inventario = Periodico (al cierre)` por defecto (no afecta a las existentes).
+
 ## Flujo desde recepciones
 
 El modulo se engancha en `stock.move._action_done()`.

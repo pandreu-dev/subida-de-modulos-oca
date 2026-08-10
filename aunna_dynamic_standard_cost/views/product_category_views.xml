@@ -6,9 +6,10 @@
         <field name="inherit_id" ref="product.product_category_form_view"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='parent_id']" position="after">
-                <field name="aunna_use_dynamic_standard_cost"/>
+                <field name="aunna_use_dynamic_standard_cost"
+                       invisible="property_cost_method != 'standard'"/>
                 <field name="aunna_dynamic_cost_counterpart_account_id"
-                       invisible="not aunna_use_dynamic_standard_cost"/>
+                       invisible="property_cost_method != 'standard' or not aunna_use_dynamic_standard_cost"/>
             </xpath>
         </field>
     </record>

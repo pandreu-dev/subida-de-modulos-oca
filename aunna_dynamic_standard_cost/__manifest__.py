@@ -1,7 +1,7 @@
 {
     "name": "Coste estandar dinamico basado en ultimo precio de compra",
     "summary": "Actualiza el coste estandar con el ultimo coste de compra y revaloriza stock",
-    "version": "19.0.2.0.0",
+    "version": "19.0.2.1.0",
     "category": "Inventory/Inventory",
     "author": "Aunnna",
     "license": "LGPL-3",
