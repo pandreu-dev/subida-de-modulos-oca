@@ -25,9 +25,9 @@ class ProductCategory(models.Model):
             "de diferencia de precio o la cuenta de gasto del producto."
         ),
     )
-    # Por defecto, valoracion de inventario "Periodico (al cierre)" (manual_periodic)
-    # en categorias NUEVAS. No cambia las categorias ya existentes.
-    property_valuation = fields.Selection(default="manual_periodic")
+    # Por defecto, valoracion de inventario "Periodico (al cierre)" (clave 'periodic'
+    # en Odoo 19) en categorias NUEVAS. No cambia las categorias ya existentes.
+    property_valuation = fields.Selection(default="periodic")
 
     @api.onchange("property_cost_method")
     def _onchange_cost_method_reset_dynamic_cost(self):
