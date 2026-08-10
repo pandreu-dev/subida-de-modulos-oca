@@ -27,19 +27,6 @@ class ProductCategory(models.Model):
     )
 
 
-class ProductTemplate(models.Model):
-    _inherit = "product.template"
-
-    aunna_use_dynamic_standard_cost = fields.Boolean(
-        string="Usar ultimo coste de compra",
-        company_dependent=True,
-        help=(
-            "Activa el coste estandar dinamico para este producto. Solo aplica si "
-            "el producto es almacenable y usa metodo de coste estandar."
-        ),
-    )
-
-
 class ProductProduct(models.Model):
     _inherit = "product.product"
 
@@ -49,10 +36,7 @@ class ProductProduct(models.Model):
         return (
             bool(product.is_storable)
             and product.cost_method == "standard"
-            and (
-                product.product_tmpl_id.aunna_use_dynamic_standard_cost
-                or product.categ_id.aunna_use_dynamic_standard_cost
-            )
+            and product.categ_id.aunna_use_dynamic_standard_cost
         )
 
     def _aunna_get_revaluation_qty(self, company):

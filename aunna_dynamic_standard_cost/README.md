@@ -36,7 +36,7 @@ Solo aplica si se cumplen todas estas condiciones:
 
 - El producto es almacenable.
 - El metodo de coste del producto es `standard`.
-- El producto o su categoria tienen activado `Usar ultimo coste de compra`.
+- La categoria del producto tiene activado `Usar ultimo coste de compra`.
 
 No aplica a:
 
@@ -58,20 +58,18 @@ Si se activa en una categoria, los productos de esa categoria que sean almacenab
 
 La cuenta de contrapartida se usa para los asientos de revalorizacion cuando cambia el coste estandar y existe stock disponible.
 
-## Activacion por producto
+## Sin activacion por producto
 
-En la ficha del producto se anade:
+La activacion es UNICAMENTE por categoria. La ficha del producto no incluye ningun
+campo de activacion: el coste dinamico se gestiona a nivel de categoria
+(`product.category`), en linea con como Odoo organiza la contabilidad de inventario.
 
-- `Usar ultimo coste de compra`.
+## Condicion de activacion
 
-Esto permite activar el comportamiento solo en productos concretos, aunque la categoria no lo tenga marcado.
+El modulo considera activo el coste dinamico para un producto cuando:
 
-## Prioridad de configuracion
-
-El modulo considera activo el coste dinamico si se cumple al menos una de estas dos condiciones:
-
-- El producto tiene marcado `Usar ultimo coste de compra`.
-- La categoria del producto tiene marcado `Usar ultimo coste de compra`.
+- Es almacenable y usa metodo de coste estandar, y
+- Su categoria tiene marcado `Usar ultimo coste de compra`.
 
 ## Flujo desde recepciones
 
@@ -216,7 +214,6 @@ No se permite crear, modificar ni borrar registros del historico manualmente des
 - `models/account_move.py`: actualizacion desde facturas de proveedor.
 - `models/dynamic_standard_cost_log.py`: modelo de trazabilidad.
 - `views/product_category_views.xml`: campos en categoria.
-- `views/product_template_views.xml`: campo en producto.
 - `views/dynamic_standard_cost_log_views.xml`: vistas y menu del historico.
 - `security/ir.model.access.csv`: permisos.
 
@@ -237,12 +234,11 @@ No se permite crear, modificar ni borrar registros del historico manualmente des
 4. Confirmar que `standard_price` cambia.
 5. Confirmar que se crea registro en el historico.
 
-### Prueba 3: actualizacion por producto
+### Prueba 3: categoria sin marcar
 
-1. Marcar `Usar ultimo coste de compra` en el producto.
-2. Dejar la categoria sin marcar.
-3. Validar recepcion o factura.
-4. Confirmar que el coste cambia solo para ese producto.
+1. Dejar la categoria del producto sin marcar `Usar ultimo coste de compra`.
+2. Validar recepcion o factura.
+3. Confirmar que `standard_price` no cambia (la activacion es solo por categoria).
 
 ### Prueba 4: factura con descuento
 
