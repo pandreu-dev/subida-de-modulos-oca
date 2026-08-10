@@ -10,6 +10,27 @@
         </field>
     </record>
 
+    <!-- Recoloca dos campos ESTANDAR del formulario, sin duplicarlos (position="move").
+         Prioridad alta para aplicarse DESPUES de que existan las anclas: el Tipo pedido
+         (record de arriba), picking_type_id (purchase_stock) y project_id (bridge de
+         proyecto). No altera ninguna otra parte del formulario. -->
+    <record id="view_purchase_order_form_inherit_aunna_type_layout" model="ir.ui.view">
+        <field name="name">purchase.order.form.inherit.aunna.type.layout</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form"/>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <!-- Proyecto justo despues de Tipo pedido -->
+            <xpath expr="//field[@name='aunna_purchase_order_type_id']" position="after">
+                <xpath expr="//field[@name='project_id']" position="move"/>
+            </xpath>
+            <!-- Condiciones de pago justo despues de Entregar a -->
+            <xpath expr="//field[@name='picking_type_id']" position="after">
+                <xpath expr="//field[@name='payment_term_id']" position="move"/>
+            </xpath>
+        </field>
+    </record>
+
     <record id="view_purchase_order_kpis_tree_inherit_aunna_type" model="ir.ui.view">
         <field name="name">purchase.order.kpis.list.inherit.aunna.type</field>
         <field name="model">purchase.order</field>

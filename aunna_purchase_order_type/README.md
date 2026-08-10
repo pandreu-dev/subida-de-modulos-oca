@@ -23,8 +23,12 @@ Ejemplos de uso:
 El modulo depende de:
 
 - `purchase`
+- `purchase_stock` (aporta `picking_type_id`, ancla para recolocar `Condiciones de pago`)
+- `purchase_project` (aporta `project_id`, el campo `Proyecto` que se recoloca)
 
-No depende de contabilidad, inventario ni ventas. Su alcance esta limitado al modulo de Compras.
+El foco sigue siendo Compras. Las dependencias de inventario/proyecto se usan solo
+para poder recolocar en el formulario campos estandar que ya existen; el modulo no
+anade logica de inventario ni de proyecto.
 
 ## Modelos principales
 
@@ -59,6 +63,17 @@ Ubicacion del campo:
 - Justo despues de `Referencia de proveedor`.
 
 El campo usa `no_create_edit` para que los usuarios no creen tipos desde el propio pedido. La gestion de tipos se hace desde configuracion.
+
+### Reordenacion de campos en el formulario
+
+Vista heredada adicional (`purchase.order.form.inherit.aunna.type.layout`) que
+recoloca dos campos estandar **sin duplicarlos** (`position="move"`):
+
+- `project_id` (Proyecto) pasa a justo despues de `aunna_purchase_order_type_id` (Tipo pedido).
+- `payment_term_id` (Condiciones de pago) pasa a justo despues de `picking_type_id` (Entregar a).
+
+Se mantienen intactos permisos, `readonly`, `required` e `invisible` originales de
+cada campo (solo se mueve el nodo, no se redefine).
 
 ### Listados de compra
 
