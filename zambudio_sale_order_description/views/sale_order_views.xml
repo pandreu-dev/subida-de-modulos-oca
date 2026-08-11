@@ -13,4 +13,29 @@
             </xpath>
         </field>
     </record>
+
+    <record id="view_order_tree_inherit_zambudio_description" model="ir.ui.view">
+        <field name="name">sale.order.list.orders.inherit.zambudio.description</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_tree"/>
+        <field name="arch" type="xml">
+            <!-- Columna Descripcion en el listado de Pedidos de venta. Opcional,
+                 visible por defecto. -->
+            <field name="partner_id" position="after">
+                <field name="zambudio_description" optional="show"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_quotation_tree_inherit_zambudio_description" model="ir.ui.view">
+        <field name="name">sale.order.list.quotes.inherit.zambudio.description</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_quotation_tree"/>
+        <field name="arch" type="xml">
+            <!-- Misma columna en el listado de Presupuestos. -->
+            <field name="partner_id" position="after">
+                <field name="zambudio_description" optional="show"/>
+            </field>
+        </field>
+    </record>
 </odoo>

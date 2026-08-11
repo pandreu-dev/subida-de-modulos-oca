@@ -21,7 +21,9 @@ presupuesto (`sale.order`).
 
 ## Ubicación
 
-Formulario de pedido de venta, **encima del Cliente** (arriba del formulario).
+- **Formulario** de pedido de venta: **encima del Cliente** (arriba del formulario).
+- **Listado** de Pedidos de venta (`sale.view_order_tree`) y de Presupuestos
+  (`sale.view_quotation_tree`): columna **Descripción** (opcional, visible por defecto).
 
 ## Dependencias
 
