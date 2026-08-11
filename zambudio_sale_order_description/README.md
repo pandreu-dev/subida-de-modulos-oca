@@ -12,15 +12,16 @@ presupuesto (`sale.order`).
 
 ## Comportamiento
 
-- Es un campo **normal** de texto (una línea). **No se oculta al confirmar**: queda
-  como descripción del pedido en presupuesto y en pedido de venta.
-- Puede quedar **vacío** sin problema (p. ej. un pedido adicional que se vincula a mano
-  a un proyecto ya existente). Si está vacío, el proyecto conserva el nombre nativo de
-  Odoo.
+- Es un campo de texto (una línea), **obligatorio en el formulario** de pedido/presupuesto.
+  **No se oculta al confirmar**: queda como descripción del pedido.
+- Al ser obligatorio en el formulario, en creación/edición manual siempre llevará valor.
+  Los pedidos creados por automatismos (p. ej. renovaciones de suscripción) no pasan por
+  el formulario y podrían llegar sin valor; en ese caso el proyecto conserva el nombre
+  nativo de Odoo.
 
 ## Ubicación
 
-Formulario de pedido de venta, justo debajo del **Cliente**.
+Formulario de pedido de venta, **encima del Cliente** (arriba del formulario).
 
 ## Dependencias
 
