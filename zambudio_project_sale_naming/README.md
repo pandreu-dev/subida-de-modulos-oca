@@ -3,16 +3,21 @@
 Cuando se confirma un pedido de venta con un producto que **crea proyecto**, el proyecto
 (y su **cuenta analítica**) se nombran:
 
-    <número de pedido> - <descripción de la línea que crea el proyecto>
+    <número de pedido> - <Descripción del pedido>
 
-Ejemplo: pedido `S00048`, línea "Implementación Odoo Nodo" → proyecto y cuenta analítica
-`S00048 - Implementación Odoo Nodo`.
+La **Descripción** sale del campo `zambudio_description` del pedido (módulo
+`zambudio_sale_order_description`). Ejemplo: pedido `S00048` con Descripción
+"Implementación Odoo Nodo" → proyecto y cuenta analítica `S00048 - Implementación Odoo Nodo`.
+
+Si la Descripción del pedido está **vacía**, el proyecto conserva el **nombre nativo de
+Odoo** (el módulo no renombra nada).
 
 ## Qué resuelve
 
 De serie, Odoo nombra el proyecto como `pedido - <producto>` y la cuenta analítica como
-`pedido`: nombres distintos entre sí y sin usar la descripción de la línea. Este módulo
-unifica el nombre y lo hace más reconocible (el del pedido + lo que describe la línea).
+`pedido`: nombres distintos entre sí. Este módulo unifica ambos y los hace más
+reconocibles usando el número de pedido + la Descripción que el usuario escribe en el
+pedido.
 
 ## Cómo funciona
 
@@ -23,13 +28,12 @@ unifica el nombre y lo hace más reconocible (el del pedido + lo que describe la
   que Odoo cree el proyecto.
 - **Respaldo — `sale.order.line._timesheet_create_project`:** aplica lo mismo tras la
   creación nativa (idempotente).
-- **Descripción de la línea:** Odoo antepone el nombre del producto (a veces con la
-  referencia interna `[COD]`). Se descarta en dos pasos: (1) se quita como prefijo si el
-  usuario escribió detrás en la misma línea; (2) se coge la **primera línea que no sea el
-  nombre del producto**, que es el caso habitual (el usuario escribe debajo). El paso 2
-  es el que evita quedarse con el nombre del producto si el prefijo no casa exactamente.
-  Se compara en el **idioma del cliente y en el del usuario**. Si la línea no tiene
-  descripción propia, se cae al nombre del producto.
+- **Origen del nombre:** el campo **Descripción** (`zambudio_description`) del pedido. Si
+  está relleno → `<pedido> - <Descripción>`. Si está vacío → no se renombra (nombre nativo
+  de Odoo). Ya **no** se usa la descripción de la línea ni el nombre del producto.
+- **El renombrado solo ocurre al crear el proyecto.** Si después cambias el nombre del
+  proyecto a mano, se respeta (el módulo no lo revierte). Editar la Descripción del pedido
+  más tarde tampoco renombra un proyecto ya creado.
 
 ## Configuración
 
@@ -38,10 +42,11 @@ proyecto** (servicio con "crear proyecto/tarea"), que es config estándar de Odo
 
 ## Cómo probar
 
-1. Pedido de venta → línea con un producto que crea proyecto, con una descripción clara
-   (p.ej. "Implementación Odoo Nodo").
+1. Pedido de venta con un producto que crea proyecto y con el campo **Descripción**
+   relleno (p.ej. "Implementación Odoo Nodo").
 2. Confirma el pedido.
-3. El proyecto creado debe llamarse `<pedido> - Implementación Odoo Nodo`.
+3. El proyecto creado debe llamarse `<pedido> - Implementación Odoo Nodo`. Si dejas la
+   Descripción vacía, el proyecto se queda con el nombre nativo de Odoo.
 4. Su cuenta analítica (Ajustes del proyecto > Analítico, o Contabilidad > Apuntes
    analíticos) debe llamarse **igual**.
 
@@ -57,9 +62,10 @@ proyecto** (servicio con "crear proyecto/tarea"), que es config estándar de Odo
   Si un mismo pedido tuviera VARIAS líneas que crean proyecto, comparten esa cuenta; para
   no pisar nombres, **solo se renombra la cuenta si es dedicada** a un único proyecto. En
   el flujo habitual (1 proyecto por pedido) no aplica.
-- Si dos líneas del mismo pedido tienen la misma descripción, generarían el mismo nombre;
-  con `zambudio_project_unique_name` instalado, el segundo chocaría → se **captura el
-  error para no bloquear la confirmación** del pedido (ese proyecto conserva el nombre
-  nativo). Recomendación: descripciones distintas por línea.
+- Si un pedido crea **varios** proyectos (varias líneas que crean proyecto), todos
+  tomarían el mismo nombre `<pedido> - <Descripción>`; con `zambudio_project_unique_name`
+  instalado, el segundo chocaría → se **captura el error para no bloquear la confirmación**
+  (ese proyecto conserva el nombre nativo). En el flujo habitual (1 proyecto por pedido)
+  no aplica.
 
-**Depende de:** `sale_project`.
+**Depende de:** `sale_project`, `zambudio_sale_order_description`.

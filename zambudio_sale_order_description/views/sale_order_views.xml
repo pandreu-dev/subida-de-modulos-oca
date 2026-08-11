@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_order_form_inherit_zambudio_description" model="ir.ui.view">
+        <field name="name">sale.order.form.inherit.zambudio.description</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <!-- Descripcion del pedido, justo debajo del Cliente. Campo normal:
+                 visible en presupuesto y en pedido, no se oculta al confirmar. -->
+            <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="zambudio_description"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
