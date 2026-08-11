@@ -50,7 +50,7 @@ fila generica "Pedidos" con sub-filas por tipo: cada tipologia es su propia fila
   segun el Tipo empleado). **No cambia** (`_amount_timesheet_cost`).
 - **Contratas (Fix price)**: coste de pedidos de compra de tipo **SERVICIOS** y
   **SUBCONTRATA (Fix price)**.
-- **Contratas (Por administracion)**: pedidos de tipo **SUBCONTRATA (T&M)**.
+- **Contratas (Por administración)**: pedidos de tipo **SUBCONTRATA (T&M)**.
 - **Materiales**: pedidos de tipo **DOCUMENTACION, EPI, HARDWARE, HERRAMIENTA, MATERIAL**
   **+** el material de almacen (antigua fila "Stock interno", `_amount_materials`:
   apuntes analiticos `timesheet_invoice_type = other_costs`, sin duplicar valoracion).
@@ -76,9 +76,9 @@ METRICS = [
     ("services_income", "Venta de servicios", 10),
     ("products_income", "Venta de productos", 20),
     ("internal_hours", "Horas internas", 30),
-    ("external_hours", "Horas externas", 40),
+    ("external_hours", "Horas externas (SCR)", 40),
     ("contratas_fix", "Contratas (Fix price)", 50),
-    ("contratas_admin", "Contratas (Por administracion)", 60),
+    ("contratas_admin", "Contratas (Por administración)", 60),
     ("materiales", "Materiales", 70),
     ("gastos_viaje", "Gastos de Viaje", 80),
     ("licencias_software", "Licencias software", 90),

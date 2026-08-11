@@ -30,9 +30,9 @@ METRICS = [
     ("products_income", "Venta de productos", 20),
     # --- Costes (nuevas tipologias por TIPO de pedido; ver PURCHASE_TYPE_TYPOLOGY) ---
     ("internal_hours", "Horas internas", 30),
-    ("external_hours", "Horas externas", 40),
+    ("external_hours", "Horas externas (SCR)", 40),
     ("contratas_fix", "Contratas (Fix price)", 50),
-    ("contratas_admin", "Contratas (Por administracion)", 60),
+    ("contratas_admin", "Contratas (Por administración)", 60),
     ("materiales", "Materiales", 70),
     ("gastos_viaje", "Gastos de Viaje", 80),
     ("licencias_software", "Licencias software", 90),
@@ -106,9 +106,9 @@ REPORT_GROUPS = [
         # Gastos de Viaje los gastos hr.expense de Kilometraje/Dietas.
         "rows": [
             {"label": "Horas internas", "metric": "internal_hours"},
-            {"label": "Horas externas", "metric": "external_hours"},
+            {"label": "Horas externas (SCR)", "metric": "external_hours"},
             {"label": "Contratas (Fix price)", "metric": "contratas_fix"},
-            {"label": "Contratas (Por administracion)", "metric": "contratas_admin"},
+            {"label": "Contratas (Por administración)", "metric": "contratas_admin"},
             {"label": "Materiales", "metric": "materiales"},
             {"label": "Gastos de Viaje", "metric": "gastos_viaje"},
             {"label": "Licencias software", "metric": "licencias_software"},
