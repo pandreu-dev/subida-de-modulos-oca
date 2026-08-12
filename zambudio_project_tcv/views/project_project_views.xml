@@ -39,4 +39,18 @@
             </xpath>
         </field>
     </record>
+
+    <record id="view_project_list_tcv" model="ir.ui.view">
+        <field name="name">project.project.list.tcv</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.view_project"/>
+        <field name="arch" type="xml">
+            <!-- Columna TCV en el listado de proyectos. tcv_currency_id oculta para
+                 que el importe monetario se muestre con su moneda. -->
+            <field name="user_id" position="after">
+                <field name="tcv_currency_id" column_invisible="1"/>
+                <field name="tcv_amount" optional="show"/>
+            </field>
+        </field>
+    </record>
 </odoo>
