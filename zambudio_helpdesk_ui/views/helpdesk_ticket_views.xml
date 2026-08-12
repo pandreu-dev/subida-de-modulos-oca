@@ -7,6 +7,9 @@
         <field name="name">helpdesk.ticket.form.analytic.position</field>
         <field name="model">helpdesk.ticket</field>
         <field name="inherit_id" ref="helpdesk.helpdesk_ticket_view_form"/>
+        <!-- Prioridad alta (como la vista Studio original) para aplicarse DESPUES de
+             que helpdesk_timesheet anada analytic_account_id al formulario. -->
+        <field name="priority">200</field>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='email_cc']" position="after">
                 <xpath expr="//field[@name='analytic_account_id']" position="move"/>
