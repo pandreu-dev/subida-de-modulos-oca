@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Sustituto en codigo de la personalizacion de Studio
+         "helpdesk.ticket.form customization": mueve analytic_account_id justo
+         despues de email_cc (sin duplicar, position="move"). -->
+    <record id="view_helpdesk_ticket_form_analytic_position" model="ir.ui.view">
+        <field name="name">helpdesk.ticket.form.analytic.position</field>
+        <field name="model">helpdesk.ticket</field>
+        <field name="inherit_id" ref="helpdesk.helpdesk_ticket_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='email_cc']" position="after">
+                <xpath expr="//field[@name='analytic_account_id']" position="move"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
