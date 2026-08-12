@@ -75,6 +75,13 @@ recoloca dos campos estandar **sin duplicarlos** (`position="move"`):
 Se mantienen intactos permisos, `readonly`, `required` e `invisible` originales de
 cada campo (solo se mueve el nodo, no se redefine).
 
+### Boton "Crear factura"
+
+En la cabecera del formulario, tras el estado (`state`), se anade un boton
+**Crear factura** que llama al metodo nativo de Odoo `action_create_invoice` (crear
+factura de proveedor y abrirla). Sustituye en codigo una personalizacion previa de
+Odoo Studio; **no depende de ningun id de accion de la base de datos**.
+
 ### Listados de compra
 
 El campo se anade a:
