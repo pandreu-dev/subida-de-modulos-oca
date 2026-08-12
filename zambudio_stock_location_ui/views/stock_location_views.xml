@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Sustituto en codigo de la personalizacion de Studio
+         "stock.location.list customization": columnas Ubicacion padre y Codigo de
+         barras tras complete_name. Columnas opcionales visibles por defecto. -->
+    <record id="view_location_list_columns" model="ir.ui.view">
+        <field name="name">stock.location.list.columns</field>
+        <field name="model">stock.location</field>
+        <field name="inherit_id" ref="stock.view_location_tree2"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='complete_name']" position="after">
+                <field name="location_id" optional="show"/>
+                <field name="barcode" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
