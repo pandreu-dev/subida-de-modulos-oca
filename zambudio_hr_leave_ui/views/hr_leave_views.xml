@@ -1,21 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!-- Sustituto en codigo de la personalizacion de Studio
-         "hr.leave.view.form.manager customization": visibilidad del boton Cancelar
-         (action_cancel). Replica 1:1 el comportamiento actual (no cambia nada). -->
-    <record id="view_hr_leave_form_cancel_button" model="ir.ui.view">
-        <field name="name">hr.leave.form.manager.cancel.button</field>
-        <field name="model">hr.leave</field>
-        <field name="inherit_id" ref="hr_holidays.hr_leave_view_form_manager"/>
-        <field name="priority">160</field>
-        <field name="arch" type="xml">
-            <xpath expr="//button[@name='action_cancel']" position="attributes">
-                <attribute name="invisible">state == "cancel" or not can_cancel</attribute>
-            </xpath>
-        </field>
-    </record>
-
-    <!-- Sustituto en codigo de la personalizacion de Studio
          "Default list view for ir.model(545,) customization" (hr.leave.report.calendar):
          la vista base era AUTO-GENERADA (sin XML ID estable), asi que definimos aqui una
          lista propia del modelo con las columnas que aportaba Studio. -->

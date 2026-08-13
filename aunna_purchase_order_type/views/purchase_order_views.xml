@@ -31,23 +31,6 @@
         </field>
     </record>
 
-    <record id="view_purchase_order_form_inherit_aunna_create_bill_button" model="ir.ui.view">
-        <field name="name">purchase.order.form.inherit.aunna.create.bill.button</field>
-        <field name="model">purchase.order</field>
-        <field name="inherit_id" ref="purchase.purchase_order_form"/>
-        <field name="arch" type="xml">
-            <!-- Boton "Crear factura" tras el statusbar (campo state). Sustituto en
-                 codigo de la personalizacion de Studio (que llamaba a la accion 1295).
-                 Llama al metodo NATIVO action_create_invoice (crea la factura de
-                 proveedor y la abre); no depende de ningun id de accion de la BD. -->
-            <xpath expr="//header/field[@name='state']" position="after">
-                <button string="Crear factura"
-                        type="object"
-                        name="action_create_invoice"/>
-            </xpath>
-        </field>
-    </record>
-
     <record id="view_purchase_order_kpis_tree_inherit_aunna_type" model="ir.ui.view">
         <field name="name">purchase.order.kpis.list.inherit.aunna.type</field>
         <field name="model">purchase.order</field>
