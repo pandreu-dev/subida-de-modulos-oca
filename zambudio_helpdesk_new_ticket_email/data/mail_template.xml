@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- noupdate: se crea una vez; asi Administracion puede editar destinatarios/texto
+         en la interfaz sin que una actualizacion del modulo lo sobrescriba. -->
+    <data noupdate="1">
+        <record id="mail_template_new_ticket_notice" model="mail.template">
+            <field name="name">Aviso de nueva incidencia</field>
+            <field name="model_id" ref="helpdesk.model_helpdesk_ticket"/>
+            <field name="subject">Aviso de nueva incidencia Aunna iT</field>
+            <field name="email_to">lmoreno@aunnait.es, vpinar@aunnait.es, jhurtado@aunnait.es, lmyances@aunnait.es, ccledesma@aunnait.es, aarmero@aunnait.es</field>
+            <field name="use_default_to" eval="False"/>
+            <field name="body_html"><![CDATA[<div data-oe-version="2.0">Hola:</div><div><br/></div><div>Se ha creado una nueva incidencia en el servicio de asistencia.</div><div><br/></div><div>Incidencia:&nbsp;<t t-out="object.display_name"/></div><div>Equipo:&nbsp;<t t-out="object.team_id.display_name"/></div><div><br/></div><div>Descripción:</div><div><t t-out="object.description"/></div><div><br/></div><div><br/></div><div>Por favor, revisad el ticket en Odoo.</div><div><br/></div><div>Un saludo.</div>]]></field>
+        </record>
+    </data>
+</odoo>
