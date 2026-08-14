@@ -1,0 +1,25 @@
+<odoo>
+    <!--
+        Peticion de Manuel (mejora visibilidad Unidad de negocio en el proyecto):
+          1) Duplicar en la CABECERA el campo "Unidad de negocio" (x_plan5_id) que
+             esta en la pestana Ajustes.
+          2) En la cabecera va en SOLO LECTURA: solo se puede cambiar desde el campo
+             que ya existe en la pestana Ajustes.
+        Ambos puntos se cumplen con este unico nodo: el campo x_plan5_id se anade en
+        la cabecera con readonly="1" (el original de Ajustes NO se toca, sigue editable).
+    -->
+    <record id="view_project_form_business_unit_header" model="ir.ui.view">
+        <field name="name">project.project.form.business.unit.header</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="priority" eval="95"/>
+        <field name="arch" type="xml">
+            <!-- Se coloca junto a "Gerente de proyecto" (user_id), en la columna derecha
+                 de la cabecera, que es donde Manuel marco el hueco. -->
+            <field name="user_id" position="after">
+                <field name="x_plan5_id" string="Unidad de negocio"
+                       readonly="1" options="{'no_open': True}"/>
+            </field>
+        </field>
+    </record>
+</odoo>

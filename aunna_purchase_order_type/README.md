@@ -77,12 +77,16 @@ cada campo (solo se mueve el nodo, no se redefine).
 
 ### Listados de compra
 
-El campo se anade a:
+En ambas vistas lista se anaden, **despues del proveedor**, como columnas opcionales
+visibles (`optional="show"`, se pueden ocultar desde el selector de columnas):
+
+- `project_id` (**Proyecto**) — peticion de Compras para ver el proyecto en el listado.
+- `aunna_purchase_order_type_id` (**Tipo pedido**).
+
+Vistas heredadas:
 
 - `purchase.purchase_order_kpis_tree`
 - `purchase.purchase_order_view_tree`
-
-En ambas vistas aparece despues del proveedor y queda disponible como columna opcional visible.
 
 ### Busqueda de pedidos de compra
 
