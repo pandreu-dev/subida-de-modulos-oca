@@ -232,12 +232,7 @@
         <field name="arch" type="xml">
             <search>
                 <field name="x_name"/>
-                <field name="x_studio_divisin"/>
                 <filter name="inactive" string="Archivados" domain="[('x_active','=',False)]"/>
-                <group expand="0" string="Agrupar por">
-                    <filter name="groupby_division" string="Division"
-                            context="{'group_by': 'x_studio_divisin'}"/>
-                </group>
             </search>
         </field>
     </record>
