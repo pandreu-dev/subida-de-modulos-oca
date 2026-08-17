@@ -1,0 +1,269 @@
+<odoo>
+
+    <!-- =================================================================
+         Vistas de codigo para los 5 maestros. Reemplazan a las vistas
+         auto-generadas de Studio (que se pueden desactivar despues).
+         ================================================================= -->
+
+    <!-- ============ TIPO EMPLEADO ============ -->
+    <record id="view_x_tipo_empleado_list" model="ir.ui.view">
+        <field name="name">x_tipo_empleado.list</field>
+        <field name="model">x_tipo_empleado</field>
+        <field name="priority">1</field>
+        <field name="arch" type="xml">
+            <list string="Tipo empleado" editable="bottom">
+                <field name="x_studio_sequence" widget="handle"/>
+                <field name="x_name"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_x_tipo_empleado_form" model="ir.ui.view">
+        <field name="name">x_tipo_empleado.form</field>
+        <field name="model">x_tipo_empleado</field>
+        <field name="priority">1</field>
+        <field name="arch" type="xml">
+            <form string="Tipo empleado">
+                <sheet>
+                    <widget name="web_ribbon" title="Archivado" bg_color="text-bg-danger"
+                            invisible="x_active"/>
+                    <group>
+                        <field name="x_name"/>
+                        <field name="x_studio_sequence"/>
+                        <field name="x_active" widget="boolean_toggle"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_x_tipo_empleado_search" model="ir.ui.view">
+        <field name="name">x_tipo_empleado.search</field>
+        <field name="model">x_tipo_empleado</field>
+        <field name="priority">1</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="x_name"/>
+                <filter name="inactive" string="Archivados" domain="[('x_active','=',False)]"/>
+            </search>
+        </field>
+    </record>
+    <record id="action_x_tipo_empleado" model="ir.actions.act_window">
+        <field name="name">Tipo empleado</field>
+        <field name="res_model">x_tipo_empleado</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- ============ SUBTIPO EMPLEADO ============ -->
+    <record id="view_x_subtipo_empleado_list" model="ir.ui.view">
+        <field name="name">x_subtipo_empleado.list</field>
+        <field name="model">x_subtipo_empleado</field>
+        <field name="priority">1</field>
+        <field name="arch" type="xml">
+            <list string="Subtipo empleado" editable="bottom">
+                <field name="x_studio_sequence" widget="handle"/>
+                <field name="x_name"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_x_subtipo_empleado_form" model="ir.ui.view">
+        <field name="name">x_subtipo_empleado.form</field>
+        <field name="model">x_subtipo_empleado</field>
+        <field name="priority">1</field>
+        <field name="arch" type="xml">
+            <form string="Subtipo empleado">
+                <sheet>
+                    <widget name="web_ribbon" title="Archivado" bg_color="text-bg-danger"
+                            invisible="x_active"/>
+                    <group>
+                        <field name="x_name"/>
+                        <field name="x_studio_sequence"/>
+                        <field name="x_active" widget="boolean_toggle"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_x_subtipo_empleado_search" model="ir.ui.view">
+        <field name="name">x_subtipo_empleado.search</field>
+        <field name="model">x_subtipo_empleado</field>
+        <field name="priority">1</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="x_name"/>
+                <filter name="inactive" string="Archivados" domain="[('x_active','=',False)]"/>
+            </search>
+        </field>
+    </record>
+    <record id="action_x_subtipo_empleado" model="ir.actions.act_window">
+        <field name="name">Subtipo empleado</field>
+        <field name="res_model">x_subtipo_empleado</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- ============ TIPO DE PERSONAL ============ -->
+    <record id="view_x_tipo_de_personal_list" model="ir.ui.view">
+        <field name="name">x_tipo_de_personal.list</field>
+        <field name="model">x_tipo_de_personal</field>
+        <field name="priority">1</field>
+        <field name="arch" type="xml">
+            <list string="Tipo de personal" editable="bottom">
+                <field name="x_studio_sequence" widget="handle"/>
+                <field name="x_name"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_x_tipo_de_personal_form" model="ir.ui.view">
+        <field name="name">x_tipo_de_personal.form</field>
+        <field name="model">x_tipo_de_personal</field>
+        <field name="priority">1</field>
+        <field name="arch" type="xml">
+            <form string="Tipo de personal">
+                <sheet>
+                    <widget name="web_ribbon" title="Archivado" bg_color="text-bg-danger"
+                            invisible="x_active"/>
+                    <group>
+                        <field name="x_name"/>
+                        <field name="x_studio_sequence"/>
+                        <field name="x_active" widget="boolean_toggle"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_x_tipo_de_personal_search" model="ir.ui.view">
+        <field name="name">x_tipo_de_personal.search</field>
+        <field name="model">x_tipo_de_personal</field>
+        <field name="priority">1</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="x_name"/>
+                <filter name="inactive" string="Archivados" domain="[('x_active','=',False)]"/>
+            </search>
+        </field>
+    </record>
+    <record id="action_x_tipo_de_personal" model="ir.actions.act_window">
+        <field name="name">Tipo de personal</field>
+        <field name="res_model">x_tipo_de_personal</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- ============ SECTOR ============ -->
+    <record id="view_x_sector_list" model="ir.ui.view">
+        <field name="name">x_sector.list</field>
+        <field name="model">x_sector</field>
+        <field name="priority">1</field>
+        <field name="arch" type="xml">
+            <list string="Sector" editable="bottom">
+                <field name="x_studio_sequence" widget="handle"/>
+                <field name="x_name"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_x_sector_form" model="ir.ui.view">
+        <field name="name">x_sector.form</field>
+        <field name="model">x_sector</field>
+        <field name="priority">1</field>
+        <field name="arch" type="xml">
+            <form string="Sector">
+                <sheet>
+                    <widget name="web_ribbon" title="Archivado" bg_color="text-bg-danger"
+                            invisible="x_active"/>
+                    <group>
+                        <field name="x_name"/>
+                        <field name="x_studio_sequence"/>
+                        <field name="x_active" widget="boolean_toggle"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_x_sector_search" model="ir.ui.view">
+        <field name="name">x_sector.search</field>
+        <field name="model">x_sector</field>
+        <field name="priority">1</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="x_name"/>
+                <filter name="inactive" string="Archivados" domain="[('x_active','=',False)]"/>
+            </search>
+        </field>
+    </record>
+    <record id="action_x_sector" model="ir.actions.act_window">
+        <field name="name">Sector</field>
+        <field name="res_model">x_sector</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- ============ CRM PRACTICA (ESTRUCTURA) ============ -->
+    <record id="view_x_crm_practica_list" model="ir.ui.view">
+        <field name="name">x_crm_practica.list</field>
+        <field name="model">x_crm_practica</field>
+        <field name="priority">1</field>
+        <field name="arch" type="xml">
+            <list string="Estructura" editable="bottom">
+                <field name="x_studio_sequence" widget="handle"/>
+                <field name="x_name"/>
+                <field name="x_studio_divisin"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_x_crm_practica_form" model="ir.ui.view">
+        <field name="name">x_crm_practica.form</field>
+        <field name="model">x_crm_practica</field>
+        <field name="priority">1</field>
+        <field name="arch" type="xml">
+            <form string="Estructura">
+                <sheet>
+                    <widget name="web_ribbon" title="Archivado" bg_color="text-bg-danger"
+                            invisible="x_active"/>
+                    <group>
+                        <field name="x_name"/>
+                        <field name="x_studio_divisin"/>
+                        <field name="x_studio_sequence"/>
+                        <field name="x_active" widget="boolean_toggle"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_x_crm_practica_search" model="ir.ui.view">
+        <field name="name">x_crm_practica.search</field>
+        <field name="model">x_crm_practica</field>
+        <field name="priority">1</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="x_name"/>
+                <field name="x_studio_divisin"/>
+                <filter name="inactive" string="Archivados" domain="[('x_active','=',False)]"/>
+                <group expand="0" string="Agrupar por">
+                    <filter name="groupby_division" string="Division"
+                            context="{'group_by': 'x_studio_divisin'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+    <record id="action_x_crm_practica" model="ir.actions.act_window">
+        <field name="name">Estructura</field>
+        <field name="res_model">x_crm_practica</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- ============ MENUS (Ajustes > Tecnico > Datos maestros configurables) ============ -->
+    <menuitem id="menu_zambudio_master_root" name="Datos maestros configurables"
+              parent="base.menu_custom" sequence="90"/>
+    <menuitem id="menu_zambudio_master_employee" name="Empleado"
+              parent="menu_zambudio_master_root" sequence="10"/>
+    <menuitem id="menu_zambudio_master_crm" name="CRM"
+              parent="menu_zambudio_master_root" sequence="20"/>
+
+    <menuitem id="menu_x_tipo_empleado" name="Tipo empleado"
+              parent="menu_zambudio_master_employee" action="action_x_tipo_empleado" sequence="10"/>
+    <menuitem id="menu_x_subtipo_empleado" name="Subtipo empleado"
+              parent="menu_zambudio_master_employee" action="action_x_subtipo_empleado" sequence="20"/>
+    <menuitem id="menu_x_tipo_de_personal" name="Tipo de personal"
+              parent="menu_zambudio_master_employee" action="action_x_tipo_de_personal" sequence="30"/>
+    <menuitem id="menu_x_sector" name="Sector"
+              parent="menu_zambudio_master_crm" action="action_x_sector" sequence="10"/>
+    <menuitem id="menu_x_crm_practica" name="Estructura"
+              parent="menu_zambudio_master_crm" action="action_x_crm_practica" sequence="20"/>
+
+</odoo>
