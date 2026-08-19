@@ -267,6 +267,27 @@ class PublicHolidayTimesheetBridge(models.Model):
         return project, task
 
     @api.model
+    def _aunna_line_model(self, company):
+        """Modelo account.analytic.line en sudo y con la compañia del empleado
+        dentro de allowed_company_ids.
+
+        Sin esto, editar un festivo o lanzar el asistente teniendo seleccionada
+        solo una compania en el conmutador provoca el error de Odoo "Los partes de
+        hora deben crearse con un empleado activo en las companias seleccionadas"
+        al generar partes de un empleado de OTRA compania. La generacion es un
+        proceso de sistema que abarca todas las companias, asi que ampliamos el
+        contexto de companias permitidas a la del empleado que se esta procesando.
+        """
+        allowed = set(self.env.context.get("allowed_company_ids") or self.env.companies.ids)
+        allowed.add(company.id)
+        return (
+            self.env["account.analytic.line"]
+            .sudo()
+            .with_company(company)
+            .with_context(allowed_company_ids=list(allowed))
+        )
+
+    @api.model
     def _sync_holiday_timesheet(
         self,
         employee,
@@ -341,7 +362,7 @@ class PublicHolidayTimesheetBridge(models.Model):
                 )
 
             if not dry_run:
-                existing.sudo().write(vals)
+                existing.with_env(self._aunna_line_model(company).env).write(vals)
             return self._make_result(
                 employee=employee,
                 holiday=holiday,
@@ -354,7 +375,7 @@ class PublicHolidayTimesheetBridge(models.Model):
 
         analytic_line = self.env["account.analytic.line"]
         if not dry_run:
-            analytic_line = analytic_line.sudo().create(vals)
+            analytic_line = self._aunna_line_model(company).create(vals)
         return self._make_result(
             employee=employee,
             holiday=holiday,

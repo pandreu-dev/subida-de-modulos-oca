@@ -1,6 +1,10 @@
+import logging
+
 from odoo import api, fields, models
 from odoo.osv import expression
 
+
+_logger = logging.getLogger(__name__)
 
 SYNC_CONTEXT_KEY = "aunna_public_holiday_timesheet_sync"
 
@@ -33,11 +37,22 @@ def _sync_range(record, date_from=False, date_to=False, employees=None):
         default_from, default_to = bridge._get_default_range()
         date_from = date_from or default_from
         date_to = date_to or default_to
-    return bridge.sync_generated_timesheets(
-        date_from=date_from,
-        date_to=date_to,
-        employee_ids=employees,
-    )
+    # La sincronizacion se dispara al editar el origen (festivo, empleado, horario...).
+    # Nunca debe tumbar esa edicion: si la generacion falla, se aisla con un savepoint,
+    # se registra y se continua. La generacion puede rehacerse luego con el asistente/cron.
+    try:
+        with record.env.cr.savepoint():
+            return bridge.sync_generated_timesheets(
+                date_from=date_from,
+                date_to=date_to,
+                employee_ids=employees,
+            )
+    except Exception:
+        _logger.exception(
+            "aunna_public_holiday_timesheet_bridge: fallo al sincronizar partes de "
+            "festivos; se omite para no bloquear la edicion de origen"
+        )
+        return []
 
 
 def _combine_ranges(*ranges):
