@@ -153,6 +153,23 @@ class PublicHolidayTimesheetBridge(models.Model):
         return Employee.search(domain)
 
     @api.model
+    def _get_generation_user(self):
+        """Usuario contra el que se registran los partes de festivos.
+
+        Decision de negocio (Laura, 2026-08-19): SIEMPRE 'Desarrollo Odoo'
+        (login desarrollo.odoo@aunnait.es), independientemente de quien ejecute la
+        generacion y de si el empleado tiene o no usuario propio. El empleado real
+        queda en employee_id; el user_id es siempre Desarrollo Odoo (mismo criterio
+        que la app de imputaciones). Si no se encontrara ese usuario, se usa el
+        usuario actual como respaldo para no romper la generacion.
+        """
+        User = self.env["res.users"].sudo().with_context(active_test=False)
+        user = User.search([("login", "=", "desarrollo.odoo@aunnait.es")], limit=1)
+        if not user:
+            user = User.search([("name", "=", "Desarrollo Odoo")], limit=1)
+        return user or self.env.user
+
+    @api.model
     def _process_employee(
         self,
         employee,
@@ -164,15 +181,9 @@ class PublicHolidayTimesheetBridge(models.Model):
     ):
         results = []
 
-        if not employee.user_id:
-            return [
-                self._make_result(
-                    employee=employee,
-                    action="skip_no_user",
-                    message=_("Empleado sin usuario vinculado."),
-                )
-            ]
-
+        # Ya NO se exige que el empleado tenga usuario: el parte se registra contra
+        # 'Desarrollo Odoo' (ver _get_generation_user). Asi se generan festivos tambien
+        # para empleados sin usuario propio.
         company = employee.company_id or self.env.company
         project, task = self._get_timesheet_target(company)
         if not project or not task:
@@ -371,7 +382,7 @@ class PublicHolidayTimesheetBridge(models.Model):
         vals = {
             "name": name,
             "employee_id": employee.id,
-            "user_id": employee.user_id.id,
+            "user_id": self._get_generation_user().id,
             "project_id": project.id,
             "task_id": task.id,
             "date": holiday_date,
