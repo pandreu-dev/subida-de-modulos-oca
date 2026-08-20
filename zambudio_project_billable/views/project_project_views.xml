@@ -8,6 +8,14 @@
             <field name="partner_id" position="attributes">
                 <attribute name="required">allow_billable</attribute>
             </field>
+            <!-- Campo "Productividad" de vuelta en el formulario del proyecto. Lo
+                 mostraba Studio; al desinstalar Studio se perdio esa vista (el campo
+                 y sus datos siguen en codigo/BD). Se coloca donde lo tenia Studio:
+                 despues de las Etiquetas (tag_ids). El campo se define en
+                 zambudio_hr_project_fields. NO se toca account.analytic.line. -->
+            <xpath expr="//field[@name='tag_ids']" position="after">
+                <field name="x_studio_selection_field_3ib_1j1am422d"/>
+            </xpath>
         </field>
     </record>
 </odoo>
