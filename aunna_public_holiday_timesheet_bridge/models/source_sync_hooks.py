@@ -1,10 +1,6 @@
-import logging
-
 from odoo import api, fields, models
 from odoo.osv import expression
 
-
-_logger = logging.getLogger(__name__)
 
 SYNC_CONTEXT_KEY = "aunna_public_holiday_timesheet_sync"
 
@@ -24,35 +20,22 @@ def _date_max(values):
 
 
 def _sync_range(record, date_from=False, date_to=False, employees=None):
-    if record.env.context.get(SYNC_CONTEXT_KEY):
-        return []
-
-    if employees is not None:
-        employees = employees.exists() if hasattr(employees, "_name") else employees
-        if not employees:
-            return []
-
-    bridge = _bridge(record.env)
-    if not date_from or not date_to:
-        default_from, default_to = bridge._get_default_range()
-        date_from = date_from or default_from
-        date_to = date_to or default_to
-    # La sincronizacion se dispara al editar el origen (festivo, empleado, horario...).
-    # Nunca debe tumbar esa edicion: si la generacion falla, se aisla con un savepoint,
-    # se registra y se continua. La generacion puede rehacerse luego con el asistente/cron.
-    try:
-        with record.env.cr.savepoint():
-            return bridge.sync_generated_timesheets(
-                date_from=date_from,
-                date_to=date_to,
-                employee_ids=employees,
-            )
-    except Exception:
-        _logger.exception(
-            "aunna_public_holiday_timesheet_bridge: fallo al sincronizar partes de "
-            "festivos; se omite para no bloquear la edicion de origen"
-        )
-        return []
+    # DESACTIVADO (v1.7.0): la generacion/actualizacion AUTOMATICA de partes al editar
+    # el origen (festivo, empleado, horario, direccion...) se ha quitado.
+    #
+    # Motivo: se ejecutaba dentro de la MISMA transaccion del guardado y, al crear
+    # partes de empleados de una compania no seleccionada en el conmutador, Odoo
+    # aborta el guardado en account.analytic.line.create() ("Los partes de hora deben
+    # crearse con un empleado activo en las companias seleccionadas"), tumbando la
+    # edicion del festivo.
+    #
+    # La generacion es ahora SIEMPRE deliberada: se lanza desde el asistente
+    # "Generar partes de festivos" o desde el cron (que ya corren como superusuario
+    # con todas las companias). Asi, editar festivos/empleados/horarios NUNCA falla.
+    #
+    # Nota: la limpieza al BORRAR un festivo se mantiene, porque los unlink() llaman
+    # aparte a delete_generated_lines_for_holidays().
+    return []
 
 
 def _combine_ranges(*ranges):

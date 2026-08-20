@@ -4,7 +4,7 @@ import logging
 from datetime import date as pydate
 from datetime import datetime, time
 
-from odoo import _, api, fields, models
+from odoo import _, SUPERUSER_ID, api, fields, models
 from odoo.exceptions import UserError
 
 
@@ -108,11 +108,22 @@ class PublicHolidayTimesheetBridge(models.Model):
         origin="manual",
     ):
         date_from, date_to = self._normalize_range(date_from, date_to)
-        employees = self._get_employees(employee_ids)
+        # La generacion es un proceso de sistema que crea partes de empleados de
+        # CUALQUIER compania. Se ejecuta como superusuario y con TODAS las companias
+        # permitidas para que la validacion de Odoo en account.analytic.line.create()
+        # ("empleado activo en las companias seleccionadas", que filtra por
+        # self.env.companies) no falle segun lo que el usuario tenga marcado en el
+        # conmutador de companias.
+        all_company_ids = self.env["res.company"].sudo().search([]).ids
+        worker = self.with_user(SUPERUSER_ID)
+        if all_company_ids:
+            worker = worker.with_context(allowed_company_ids=all_company_ids)
+
+        employees = worker._get_employees(employee_ids)
         results = []
 
         for employee in employees:
-            employee_results = self._process_employee(
+            employee_results = worker._process_employee(
                 employee=employee,
                 date_from=date_from,
                 date_to=date_to,
@@ -168,6 +179,27 @@ class PublicHolidayTimesheetBridge(models.Model):
         if not user:
             user = User.search([("name", "=", "Desarrollo Odoo")], limit=1)
         return user or self.env.user
+
+    @api.model
+    def _aunna_force_generation_user(self, lines):
+        """Fuerza user_id = 'Desarrollo Odoo' en las lineas generadas.
+
+        Odoo (hr_timesheet) SOBREESCRIBE user_id con el del empleado al CREAR el
+        parte (vals['user_id'] = employee.user_id.id), ignorando el que enviamos.
+        Como negocio exige que el parte quede SIEMPRE a nombre de Desarrollo Odoo
+        (con el empleado real en employee_id), reescribimos user_id despues de crear.
+        Se hace por SQL a proposito: evita re-derivar employee_id y la validacion
+        multi-compania (el empleado real puede no compartir compania con el usuario).
+        """
+        gen_user = self._get_generation_user()
+        to_fix = lines.filtered(lambda line: line.user_id.id != gen_user.id)
+        if not to_fix:
+            return
+        self.env.cr.execute(
+            "UPDATE account_analytic_line SET user_id = %s WHERE id IN %s",
+            (gen_user.id, tuple(to_fix.ids)),
+        )
+        to_fix.invalidate_recordset(["user_id"])
 
     @api.model
     def _process_employee(
@@ -362,7 +394,11 @@ class PublicHolidayTimesheetBridge(models.Model):
                 )
 
             if not dry_run:
-                existing.with_env(self._aunna_line_model(company).env).write(vals)
+                write_vals = dict(vals)
+                # user_id se fuerza por SQL despues (evita re-derivacion / _check_company).
+                write_vals.pop("user_id", None)
+                existing.with_env(self._aunna_line_model(company).env).write(write_vals)
+                self._aunna_force_generation_user(existing)
             return self._make_result(
                 employee=employee,
                 holiday=holiday,
@@ -376,6 +412,7 @@ class PublicHolidayTimesheetBridge(models.Model):
         analytic_line = self.env["account.analytic.line"]
         if not dry_run:
             analytic_line = self._aunna_line_model(company).create(vals)
+            self._aunna_force_generation_user(analytic_line)
         return self._make_result(
             employee=employee,
             holiday=holiday,
