@@ -1,0 +1,44 @@
+<odoo>
+
+    <record id="view_wip_month_close_wizard_form" model="ir.ui.view">
+        <field name="name">zambudio.wip.month.close.wizard.form</field>
+        <field name="model">zambudio.wip.month.close.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Cerrar mes (WIP)">
+                <div class="alert alert-info" role="alert">
+                    Genera un asiento de <b>ingreso reconocido (WIP)</b> por cada proyecto con
+                    <b>avance confirmado</b> en el mes elegido, con fecha el <b>último día del mes</b>,
+                    y su <b>reversión automática el día 1</b> del mes siguiente. Un asiento por proyecto.
+                    <br/>
+                    El importe sale del <b>avance confirmado</b> (lo que se valida en "Seguimiento económico"),
+                    no de la previsión.
+                </div>
+                <group>
+                    <field name="company_id" groups="base.group_multi_company"/>
+                    <field name="month"/>
+                    <field name="year"/>
+                </group>
+                <footer>
+                    <button name="action_close_month" type="object"
+                            string="Cerrar mes y generar asientos" class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_wip_month_close_wizard" model="ir.actions.act_window">
+        <field name="name">Cerrar mes (WIP)</field>
+        <field name="res_model">zambudio.wip.month.close.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_wip_month_close"
+              name="Cerrar mes (WIP)"
+              parent="account.menu_finance_entries"
+              action="action_wip_month_close_wizard"
+              groups="account.group_account_manager"
+              sequence="90"/>
+
+</odoo>
