@@ -50,4 +50,16 @@
               action="action_wip_month_close_wizard"
               sequence="90"/>
 
+    <menuitem id="menu_wip_month_close_receivables"
+              name="Cerrar mes (WIP)"
+              parent="account.menu_finance_receivables"
+              action="action_wip_month_close_wizard"
+              sequence="90"/>
+
+    <menuitem id="menu_wip_month_close_payables"
+              name="Cerrar mes (WIP)"
+              parent="account.menu_finance_payables"
+              action="action_wip_month_close_wizard"
+              sequence="90"/>
+
 </odoo>
