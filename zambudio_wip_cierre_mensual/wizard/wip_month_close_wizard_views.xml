@@ -34,11 +34,14 @@
         <field name="target">new</field>
     </record>
 
+    <!-- Sin restriccion de grupo para que sea visible (el usuario Desarrollo Odoo no
+         esta en account.group_account_manager). El control de acceso real esta en
+         security/ir.model.access.csv. Para PRO se puede volver a restringir al
+         responsable de contabilidad si se quiere. -->
     <menuitem id="menu_wip_month_close"
               name="Cerrar mes (WIP)"
               parent="account.menu_finance_entries"
               action="action_wip_month_close_wizard"
-              groups="account.group_account_manager"
               sequence="90"/>
 
 </odoo>
