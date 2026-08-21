@@ -86,10 +86,14 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
 
     def _confirmed_avances(self, first_day):
         Avance = self.env[AVANCE_MODEL].sudo()
+        # Filtramos por compania (campo related stored del avance = project_id.company_id).
+        # Evita procesar proyectos de OTRA compania y, sobre todo, que un proyecto sin
+        # compania (company_id = False) se cierre en cada compania duplicando ingreso.
         return Avance.search(
             [
                 (F_PERIOD, "=", first_day),
                 (F_STATE, "=", STATE_CONFIRMED),
+                ("company_id", "=", self.company_id.id),
             ]
         )
 
@@ -114,6 +118,26 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
         if "account_id" in project._fields and project.account_id:
             return project.account_id
         return self.env["account.analytic.account"]
+
+    def _force_income_analytic(self, move, income_account, analytic_distribution):
+        """Reaplica la distribucion analitica en las lineas de la cuenta de ingreso.
+
+        En este despliegue Odoo 19 un proceso posterior vacia/recalcula la
+        analytic_distribution de la 705 al crear/postear el asiento (ver
+        aunna_wip_project_link_fix/docs/INCIDENCIA_DISTRIBUCION_ANALITICA_WIP.md).
+        Igual que hace el motor de aunna_wip_accounting
+        (_aunna_wip_force_move_analytic_distribution), la re-forzamos con
+        check_move_validity=False para que valga tambien sobre asientos ya posteados.
+        """
+        if not analytic_distribution:
+            return
+        income_lines = move.line_ids.filtered(
+            lambda line: line.account_id == income_account
+        )
+        if income_lines:
+            income_lines.sudo().with_context(check_move_validity=False).write(
+                {"analytic_distribution": analytic_distribution}
+            )
 
     # ------------------------------------------------------------------- accion
     def action_close_month(self):
@@ -194,8 +218,16 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
                     }
                 )
             )
+            # Re-forzar la analitica en la linea de ingreso (705) tras crear.
+            self._force_income_analytic(
+                move, settings["income_account"], analytic_distribution
+            )
             if settings["auto_post"]:
                 move.action_post()
+                # ...y tambien tras postear (el recalculo puede ocurrir al publicar).
+                self._force_income_analytic(
+                    move, settings["income_account"], analytic_distribution
+                )
 
             # Reversion al dia 1 del mes siguiente (misma logica que el WIP actual).
             reversal = move.with_company(company)._reverse_moves(
@@ -210,9 +242,15 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
                 ],
                 cancel=False,
             )
+            self._force_income_analytic(
+                reversal, settings["income_account"], analytic_distribution
+            )
             if settings["auto_post"]:
                 if reversal_date <= today:
                     reversal.action_post()
+                    self._force_income_analytic(
+                        reversal, settings["income_account"], analytic_distribution
+                    )
                 else:
                     reversal.write({"auto_post": "at_date"})
 
