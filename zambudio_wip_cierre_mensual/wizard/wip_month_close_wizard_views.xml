@@ -34,12 +34,19 @@
         <field name="target">new</field>
     </record>
 
-    <!-- Menu de PRIMER NIVEL en la barra de arriba de Contabilidad (junto a Tablero,
-         Clientes, Proveedores, Contabilidad...), para maxima visibilidad. Sin restriccion
-         de grupo (el control de acceso real esta en security/ir.model.access.csv). -->
+    <!-- Se coloca en DOS sitios a la vez para maxima visibilidad y como diagnostico:
+         (1) menu de PRIMER NIVEL en la barra de arriba (junto a Tablero, Clientes...),
+         (2) dentro del desplegable "Contabilidad". Sin restriccion de grupo (control de
+         acceso real en security/ir.model.access.csv). -->
     <menuitem id="menu_wip_month_close"
               name="Cerrar mes (WIP)"
               parent="account.menu_finance"
+              action="action_wip_month_close_wizard"
+              sequence="90"/>
+
+    <menuitem id="menu_wip_month_close_entries"
+              name="Cerrar mes (WIP)"
+              parent="account.menu_finance_entries"
               action="action_wip_month_close_wizard"
               sequence="90"/>
 
