@@ -2,7 +2,7 @@
     "name": "Zambudio - Cierre mensual WIP (ingreso reconocido)",
     "summary": "El responsable de contabilidad cierra un mes y genera un asiento de "
     "ingreso reconocido (WIP) por proyecto desde el avance confirmado, con reversion al dia 1",
-    "version": "19.0.1.0.2",
+    "version": "19.0.1.0.3",
     "category": "Accounting/Accounting",
     "author": "Zambudio",
     "license": "LGPL-3",
