@@ -17,7 +17,13 @@
                     <field name="company_id" groups="base.group_multi_company"/>
                     <field name="month"/>
                     <field name="year"/>
+                    <field name="modo_prueba"/>
                 </group>
+                <div class="alert alert-warning" role="alert" invisible="not modo_prueba">
+                    <b>Modo prueba activado.</b> Se generará desde la <b>previsión</b> que se ve en
+                    "Seguimiento económico" (aunque el mes NO esté confirmado). Los asientos saldrán
+                    <b>marcados como PRUEBA y en borrador</b> (sin contabilizar). Para uso real, desmárcalo.
+                </div>
                 <footer>
                     <button name="action_close_month" type="object"
                             string="Cerrar mes y generar asientos" class="btn-primary"/>

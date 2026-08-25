@@ -49,6 +49,15 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
         required=True,
         default=lambda self: str(fields.Date.context_today(self).month),
     )
+    modo_prueba = fields.Boolean(
+        string="Modo prueba (usar previsión, no el confirmado)",
+        help=(
+            "SOLO PARA PRUEBAS. Genera el asiento desde la cifra de avance que se ve en la "
+            "pestaña 'Seguimiento económico', aunque el mes NO esté confirmado. Los asientos "
+            "salen MARCADOS como PRUEBA y en BORRADOR (sin contabilizar). En uso real, dejar "
+            "SIN marcar (solo cuenta con avances confirmados)."
+        ),
+    )
 
     # ------------------------------------------------------------------ helpers
     def _month_label(self):
@@ -84,27 +93,31 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
             )
         return settings
 
-    def _confirmed_avances(self, first_day):
+    def _avances(self, first_day):
         Avance = self.env[AVANCE_MODEL].sudo()
         # Filtramos por compania (campo related stored del avance = project_id.company_id).
         # Evita procesar proyectos de OTRA compania y, sobre todo, que un proyecto sin
         # compania (company_id = False) se cierre en cada compania duplicando ingreso.
-        return Avance.search(
-            [
-                (F_PERIOD, "=", first_day),
-                (F_STATE, "=", STATE_CONFIRMED),
-                ("company_id", "=", self.company_id.id),
-            ]
-        )
+        domain = [
+            (F_PERIOD, "=", first_day),
+            ("company_id", "=", self.company_id.id),
+        ]
+        # Uso real: SOLO avances confirmados. Modo prueba: cualquier estado (borrador
+        # incluido) para poder generar desde la prevision que se ve en la pestaña, sin
+        # esperar a que el mes este confirmado.
+        if not self.modo_prueba:
+            domain.append((F_STATE, "=", STATE_CONFIRMED))
+        return Avance.search(domain)
 
-    def _existing_close_move(self, project, first_day):
-        """Evita duplicar: ¿ya hay asiento de cierre para ese proyecto y mes?"""
+    def _existing_close_move(self, project, first_day, test):
+        """Evita duplicar: ¿ya hay asiento de cierre (real o de prueba) para ese proyecto y mes?"""
         return (
             self.env["account.move"]
             .sudo()
             .search(
                 [
                     ("x_zambudio_wip_close", "=", True),
+                    ("x_zambudio_wip_close_test", "=", test),
                     ("x_zambudio_wip_close_project_id", "=", project.id),
                     ("x_zambudio_wip_close_period", "=", first_day),
                     ("company_id", "=", self.company_id.id),
@@ -148,7 +161,10 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
         wip = self.env["aunna.wip.calculation"]
         today = fields.Date.context_today(self)
 
-        avances = self._confirmed_avances(first_day)
+        test = self.modo_prueba
+        # En modo prueba NUNCA se contabiliza: los asientos quedan en BORRADOR.
+        post = settings["auto_post"] and not test
+        avances = self._avances(first_day)
 
         created_moves = self.env["account.move"]
         skipped = []
@@ -164,7 +180,7 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
             # Solo el ingreso reconocido (positivo). En ese modelo los costes van en negativo.
             if amount <= 0:
                 continue
-            if self._existing_close_move(project, first_day):
+            if self._existing_close_move(project, first_day, test):
                 skipped.append((project, _("ya tenia asiento de cierre para el mes")))
                 continue
 
@@ -208,10 +224,12 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
                         "move_type": "entry",
                         "journal_id": settings["journal"].id,
                         "date": last_day,
-                        "ref": _("Cierre WIP %s-%02d - %s")
+                        "ref": (_("PRUEBA - ") if test else "")
+                        + _("Cierre WIP %s-%02d - %s")
                         % (self.year, int(self.month), project.display_name),
                         "company_id": company.id,
                         "x_zambudio_wip_close": True,
+                        "x_zambudio_wip_close_test": test,
                         "x_zambudio_wip_close_period": first_day,
                         "x_zambudio_wip_close_project_id": project.id,
                         "line_ids": lines,
@@ -222,7 +240,7 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
             self._force_income_analytic(
                 move, settings["income_account"], analytic_distribution
             )
-            if settings["auto_post"]:
+            if post:
                 move.action_post()
                 # ...y tambien tras postear (el recalculo puede ocurrir al publicar).
                 self._force_income_analytic(
@@ -234,8 +252,9 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
                 default_values_list=[
                     {
                         "date": reversal_date,
-                        "ref": _("Reversion de: %s") % (move.name or move.ref),
+                        "ref": _("Reversion de: %s") % (move.ref or move.name),
                         "x_zambudio_wip_close": True,
+                        "x_zambudio_wip_close_test": test,
                         "x_zambudio_wip_close_period": first_day,
                         "x_zambudio_wip_close_project_id": project.id,
                     }
@@ -245,7 +264,7 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
             self._force_income_analytic(
                 reversal, settings["income_account"], analytic_distribution
             )
-            if settings["auto_post"]:
+            if post:
                 if reversal_date <= today:
                     reversal.action_post()
                     self._force_income_analytic(
@@ -272,6 +291,17 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
             )
 
         if not created_moves:
+            if self.modo_prueba:
+                raise UserError(
+                    _(
+                        "No se ha generado ningun asiento (MODO PRUEBA) para %s.\n\n"
+                        "- Avances encontrados: %s\n"
+                        "- Omitidos: %s\n\n"
+                        "Revisa que los proyectos tengan una cifra de avance/prevision ese "
+                        "mes (pestaña 'Seguimiento economico') y cuenta analitica."
+                    )
+                    % (self._month_label(), len(avances), len(skipped))
+                )
             raise UserError(
                 _(
                     "No se ha generado ningun asiento para %s.\n\n"
@@ -279,14 +309,20 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
                     "- Omitidos: %s\n\n"
                     "Si esperabas asientos, revisa que los proyectos tengan el avance "
                     "CONFIRMADO ese mes (ejecuta antes 'Recalcular datos reales' si hace "
-                    "falta) y que tengan cuenta analitica."
+                    "falta) y que tengan cuenta analitica.\n\n"
+                    "Para probar sin esperar a fin de mes, marca 'Modo prueba'."
                 )
                 % (self._month_label(), len(avances), len(skipped))
             )
 
+        nombre = (
+            _("Asientos de cierre WIP (PRUEBA - borrador)")
+            if self.modo_prueba
+            else _("Asientos de cierre WIP")
+        )
         return {
             "type": "ir.actions.act_window",
-            "name": _("Asientos de cierre WIP - %s") % self._month_label(),
+            "name": "%s - %s" % (nombre, self._month_label()),
             "res_model": "account.move",
             "domain": [("id", "in", created_moves.ids)],
             "view_mode": "list,form",

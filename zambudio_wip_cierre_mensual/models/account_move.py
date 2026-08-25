@@ -22,3 +22,10 @@ class AccountMove(models.Model):
         copy=False,
         index=True,
     )
+    x_zambudio_wip_close_test = fields.Boolean(
+        string="Cierre WIP en modo prueba",
+        copy=False,
+        index=True,
+        help="Asiento generado en 'Modo prueba' (desde previsión, no confirmado). "
+        "Se deja en borrador y marcado como PRUEBA.",
+    )
