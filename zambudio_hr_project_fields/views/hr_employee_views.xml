@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Repone en el formulario de empleado los campos adoptados de Studio.
+         Al desinstalar Studio en PRE, sus vistas dejaron de mostrarlos; este
+         modulo definia los campos (datos intactos) pero no traia vista propia.
+         Esta vista los vuelve a mostrar, ya en codigo. -->
+    <record id="view_employee_form_zambudio_fields" model="ir.ui.view">
+        <field name="name">hr.employee.form.zambudio.fields</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <field name="department_id" position="after">
+                <field name="x_studio_tipo_empleado_1"/>
+                <field name="x_studio_subtipo_empleado"/>
+                <field name="x_studio_tipo_de_personal_1"/>
+                <field name="x_studio_fecha_de_alta_1"/>
+            </field>
+        </field>
+    </record>
+</odoo>
