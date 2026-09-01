@@ -55,11 +55,16 @@ def pre_init_hook(env):
     _adopt_masters(env.cr)
 
 
-def post_init_hook(env):
-    """Permisos de los 5 maestros, buscando el modelo por nombre.
+def _grant_master_permissions(env):
+    """Concede los permisos (ACL) de los 5 maestros, buscando el modelo por nombre.
 
-    (No se pueden declarar por ir.model.access.csv: el xmlid model_x_... no
-    queda bajo este modulo al ser modelos adoptados de Studio.)
+    Idempotente: crea solo lo que falte. Se invoca tanto desde post_init_hook
+    (instalacion NUEVA) como desde una migracion post (ACTUALIZACION), porque el
+    post_init_hook NO se re-ejecuta en un `-u` y algun ACL puede quedar sin crear
+    (caso real: x_tipo_de_personal sin acceso tras actualizar).
+
+    (No se pueden declarar por ir.model.access.csv de forma fiable: el xmlid
+    model_x_... no queda bajo este modulo al ser modelos adoptados de Studio.)
     """
     Access = env["ir.model.access"]
     IrModel = env["ir.model"]
@@ -94,3 +99,8 @@ def post_init_hook(env):
                 "perm_create": True,
                 "perm_unlink": True,
             })
+
+
+def post_init_hook(env):
+    """Instalacion NUEVA: conceder permisos de los 5 maestros."""
+    _grant_master_permissions(env)

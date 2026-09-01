@@ -1,7 +1,7 @@
 {
     "name": "Zambudio - Datos maestros (Studio a codigo)",
     "summary": "Pasa a codigo los 5 maestros de Studio: tipo/subtipo empleado, tipo personal, sector y practica CRM",
-    "version": "19.0.1.2.0",
+    "version": "19.0.1.3.0",
     "category": "Technical",
     "author": "Zambudio",
     "license": "LGPL-3",
