@@ -21,6 +21,18 @@ MONTHS = [
 AVANCE_MODEL = "produccion.avance.mes"
 F_PERIOD = "fecha_mes"            # Date, dia 1 del mes
 F_AMOUNT = "importe_confirmado"   # ingreso reconocido confirmado (EUR, positivo)
+# Prevision/plan: importe del avance ANTES de confirmar (lo que se ve en la
+# pestaña 'Seguimiento economico'). El nombre real puede variar entre despliegues;
+# se resuelve por el PRIMERO que exista en el modelo. Si ninguno casa, el modo
+# prueba avisa para ajustarlo aqui en una linea. SOLO se usa en modo prueba.
+F_AMOUNT_PLAN_CANDIDATES = (
+    "importe_previsto",
+    "importe_prevision",
+    "importe_plan",
+    "importe_planificado",
+    "importe_avance",
+    "importe",
+)
 F_STATE = "estado"
 STATE_CONFIRMED = "confirmado"
 F_PROJECT = "project_id"          # many2one project.project
@@ -109,6 +121,23 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
             domain.append((F_STATE, "=", STATE_CONFIRMED))
         return Avance.search(domain)
 
+    def _plan_amount_field(self):
+        """Campo de importe de PREVISION en el propio modelo de avance, si existe.
+
+        Devuelve el primero de F_AMOUNT_PLAN_CANDIDATES presente en el modelo, o
+        None si ninguno casa (entonces el modo prueba cae a importe_confirmado,
+        sin romper).
+
+        NOTA: en este despliegue la PREVISION real vive en OTRO modelo
+        ('produccion.plan.linea.importe_previsto'); su integracion (join por
+        proyecto + mes) queda pendiente de confirmar el esquema exacto en PRE.
+        """
+        Avance = self.env[AVANCE_MODEL]
+        for fname in F_AMOUNT_PLAN_CANDIDATES:
+            if fname in Avance._fields:
+                return fname
+        return None
+
     def _existing_close_move(self, project, first_day, test):
         """Evita duplicar: ¿ya hay asiento de cierre (real o de prueba) para ese proyecto y mes?"""
         return (
@@ -164,6 +193,9 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
         test = self.modo_prueba
         # En modo prueba NUNCA se contabiliza: los asientos quedan en BORRADOR.
         post = settings["auto_post"] and not test
+        # En modo prueba el importe sale de la PREVISION (el confirmado esta a 0
+        # mientras el mes no se confirma); en uso real, del confirmado.
+        plan_field = self._plan_amount_field() if test else None
         avances = self._avances(first_day)
 
         created_moves = self.env["account.move"]
@@ -171,7 +203,13 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
 
         for avance in avances:
             project = avance[F_PROJECT]
-            amount = avance[F_AMOUNT] or 0.0
+            if test:
+                # Modo prueba: usa la PREVISION si el modelo de avance tuviera un
+                # campo de previsto; si no, cae al confirmado (sin romper).
+                plan_amount = avance[plan_field] if plan_field else 0.0
+                amount = plan_amount or avance[F_AMOUNT] or 0.0
+            else:
+                amount = avance[F_AMOUNT] or 0.0
 
             if not project:
                 continue
