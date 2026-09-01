@@ -1,22 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!-- Repone en el formulario de empleado los campos adoptados de Studio.
-         Al desinstalar Studio en PRE, sus vistas dejaron de mostrarlos; este
-         modulo definia los campos (datos intactos) pero no traia vista propia.
-         Esta vista los vuelve a mostrar, ya en codigo. -->
+         Replica EXACTAMENTE la vista heredada que habia en PRO con Studio
+         (pestana Ajustes): oculta el tipo de empleado nativo, pone la Fecha de
+         alta en lugar de la fecha de siguiente evaluacion, y anade
+         Tipo/Subtipo/Tipo personal en la seccion USUARIO. -->
     <record id="view_employee_form_zambudio_fields" model="ir.ui.view">
         <field name="name">hr.employee.form.zambudio.fields</field>
         <field name="model">hr.employee</field>
         <field name="inherit_id" ref="hr.view_employee_form"/>
         <field name="arch" type="xml">
-            <!-- En la pestana Ajustes (hr_settings), seccion USUARIO, tras "Usuario"
-                 (user_id): misma ubicacion que tenia en PRO con Studio. -->
-            <field name="user_id" position="after">
-                <field name="x_studio_tipo_empleado_1"/>
-                <field name="x_studio_subtipo_empleado"/>
-                <field name="x_studio_tipo_de_personal_1"/>
-                <field name="x_studio_fecha_de_alta_1"/>
-            </field>
+            <!-- 1) Ocultar el "Tipo de empleado" nativo de Odoo. -->
+            <xpath expr="//field[@name='employee_type']" position="replace"/>
+
+            <!-- 2) Sustituir "Fecha de siguiente evaluacion" por "Fecha de alta". -->
+            <xpath expr="//field[@name='next_appraisal_date']" position="replace">
+                <field name="x_studio_fecha_de_alta_1" options='{"warn_future": true}'/>
+            </xpath>
+
+            <!-- 3) Anadir Tipo/Subtipo/Tipo personal tras el div del grupo USUARIO. -->
+            <xpath expr="//group[@name='user']/div" position="after">
+                <field name="x_studio_tipo_empleado_1" options='{"create_name_field": "x_name"}'/>
+                <field name="x_studio_subtipo_empleado" options='{"create_name_field": "x_name"}'/>
+                <field name="x_studio_tipo_de_personal_1" options='{"create_name_field": "x_name"}'/>
+            </xpath>
         </field>
     </record>
 </odoo>

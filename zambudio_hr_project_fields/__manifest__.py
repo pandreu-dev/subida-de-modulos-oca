@@ -7,6 +7,7 @@
     "license": "LGPL-3",
     "depends": [
         "hr",
+        "hr_appraisal",
         "project",
         "zambudio_master_data",
     ],
