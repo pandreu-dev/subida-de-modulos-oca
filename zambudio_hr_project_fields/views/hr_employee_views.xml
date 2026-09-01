@@ -9,7 +9,9 @@
         <field name="model">hr.employee</field>
         <field name="inherit_id" ref="hr.view_employee_form"/>
         <field name="arch" type="xml">
-            <field name="department_id" position="after">
+            <!-- En la pestana Ajustes (hr_settings), seccion USUARIO, tras "Usuario"
+                 (user_id): misma ubicacion que tenia en PRO con Studio. -->
+            <field name="user_id" position="after">
                 <field name="x_studio_tipo_empleado_1"/>
                 <field name="x_studio_subtipo_empleado"/>
                 <field name="x_studio_tipo_de_personal_1"/>
