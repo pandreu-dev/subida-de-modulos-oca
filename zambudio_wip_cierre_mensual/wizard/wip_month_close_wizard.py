@@ -105,21 +105,36 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
             )
         return settings
 
-    def _avances(self, first_day):
+    def _avances_acumulados(self, first_day, test, plan_field):
+        """Avance ACUMULADO por proyecto: suma de los avances con fecha_mes <= mes de
+        cierre (desde el INICIO DEL PROYECTO). Devuelve {project: importe}.
+
+        Cada mes se reconoce el acumulado y se revierte al dia siguiente; con la
+        reversion del mes anterior, el neto contable del mes es el avance incremental
+        (p. ej. mes 1 = 1000 y mes 2 = 1500 -> en el mes 2: -1000 de la reversion del
+        mes 1 + 1500 del reconocimiento = 500).
+        """
         Avance = self.env[AVANCE_MODEL].sudo()
-        # Filtramos por compania (campo related stored del avance = project_id.company_id).
-        # Evita procesar proyectos de OTRA compania y, sobre todo, que un proyecto sin
-        # compania (company_id = False) se cierre en cada compania duplicando ingreso.
+        # Filtramos por compania (campo related stored = project_id.company_id) para no
+        # procesar proyectos de otra compania ni duplicar el ingreso en multi-compania.
         domain = [
-            (F_PERIOD, "=", first_day),
+            (F_PERIOD, "<=", first_day),
             ("company_id", "=", self.company_id.id),
         ]
-        # Uso real: SOLO avances confirmados. Modo prueba: cualquier estado (borrador
-        # incluido) para poder generar desde la prevision que se ve en la pestaña, sin
-        # esperar a que el mes este confirmado.
-        if not self.modo_prueba:
+        # Uso real: SOLO avances confirmados. Modo prueba: cualquier estado.
+        if not test:
             domain.append((F_STATE, "=", STATE_CONFIRMED))
-        return Avance.search(domain)
+        acumulados = {}
+        for r in Avance.search(domain):
+            project = r[F_PROJECT]
+            if not project:
+                continue
+            if test:
+                importe = (r[plan_field] if plan_field else 0.0) or r[F_AMOUNT] or 0.0
+            else:
+                importe = r[F_AMOUNT] or 0.0
+            acumulados[project] = acumulados.get(project, 0.0) + (importe or 0.0)
+        return acumulados
 
     def _plan_amount_field(self):
         """Campo de importe de PREVISION en el propio modelo de avance, si existe.
@@ -196,21 +211,14 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
         # En modo prueba el importe sale de la PREVISION (el confirmado esta a 0
         # mientras el mes no se confirma); en uso real, del confirmado.
         plan_field = self._plan_amount_field() if test else None
-        avances = self._avances(first_day)
+        # ACUMULADO desde el inicio del proyecto (peticion de Laura/Manuel): el asiento
+        # y su reversion se generan por el avance acumulado hasta el mes de cierre.
+        acumulados = self._avances_acumulados(first_day, test, plan_field)
 
         created_moves = self.env["account.move"]
         skipped = []
 
-        for avance in avances:
-            project = avance[F_PROJECT]
-            if test:
-                # Modo prueba: usa la PREVISION si el modelo de avance tuviera un
-                # campo de previsto; si no, cae al confirmado (sin romper).
-                plan_amount = avance[plan_field] if plan_field else 0.0
-                amount = plan_amount or avance[F_AMOUNT] or 0.0
-            else:
-                amount = avance[F_AMOUNT] or 0.0
-
+        for project, amount in acumulados.items():
             if not project:
                 continue
             if project.company_id and project.company_id != company:
@@ -228,7 +236,7 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
                 continue
 
             analytic_distribution = {str(analytic.id): 100.0}
-            line_name = _("Avance reconocido %s - %s") % (
+            line_name = _("Avance acumulado reconocido a %s - %s") % (
                 self._month_label(),
                 project.display_name,
             )
@@ -313,9 +321,9 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
 
             created_moves |= move
 
-        return self._result(created_moves, skipped, avances)
+        return self._result(created_moves, skipped, len(acumulados))
 
-    def _result(self, created_moves, skipped, avances):
+    def _result(self, created_moves, skipped, n_encontrados):
         if skipped:
             _logger.info(
                 "Cierre WIP %s (%s): %s proyectos omitidos: %s",
@@ -338,7 +346,7 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
                         "Revisa que los proyectos tengan una cifra de avance/prevision ese "
                         "mes (pestaña 'Seguimiento economico') y cuenta analitica."
                     )
-                    % (self._month_label(), len(avances), len(skipped))
+                    % (self._month_label(), n_encontrados, len(skipped))
                 )
             raise UserError(
                 _(
@@ -350,7 +358,7 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
                     "falta) y que tengan cuenta analitica.\n\n"
                     "Para probar sin esperar a fin de mes, marca 'Modo prueba'."
                 )
-                % (self._month_label(), len(avances), len(skipped))
+                % (self._month_label(), n_encontrados, len(skipped))
             )
 
         nombre = (
