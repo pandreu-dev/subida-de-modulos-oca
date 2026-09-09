@@ -1,0 +1,27 @@
+<odoo>
+
+    <!-- Vista de lista propia para el resultado del asistente de cierre mensual.
+         Incluye la columna Proyecto (campo x_zambudio_month_close_project_id que
+         ya rellenamos en cada asiento) para verlo sin abrir el registro. -->
+    <record id="view_month_close_move_list" model="ir.ui.view">
+        <field name="name">zambudio.month.close.move.list</field>
+        <field name="model">account.move</field>
+        <field name="arch" type="xml">
+            <list string="Asientos de cierre mensual" create="false" edit="false">
+                <field name="name" string="Número"/>
+                <field name="date" string="Fecha"/>
+                <field name="x_zambudio_month_close_project_id" string="Proyecto"/>
+                <field name="ref" string="Referencia" optional="show"/>
+                <field name="journal_id" string="Diario" optional="hide"/>
+                <field name="amount_total" string="Total" sum="Total"/>
+                <field name="x_zambudio_month_close_test" string="Prueba" optional="hide"/>
+                <field name="state" string="Estado" widget="badge"
+                       decoration-success="state == 'posted'"
+                       decoration-info="state == 'draft'"
+                       decoration-muted="state == 'cancel'"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+</odoo>

@@ -366,11 +366,23 @@ class ZambudioMonthCloseWizard(models.TransientModel):
             if self.modo_prueba
             else _("Asientos de cierre mensual")
         )
+        # Vista de lista propia (con columna Proyecto). Si por lo que sea no
+        # existiese, se cae con elegancia a la lista por defecto de account.move.
+        list_view = self.env.ref(
+            "zambudio_cierre_mensual.view_month_close_move_list",
+            raise_if_not_found=False,
+        )
+        views = (
+            [(list_view.id, "list"), (False, "form")]
+            if list_view
+            else [(False, "list"), (False, "form")]
+        )
         return {
             "type": "ir.actions.act_window",
             "name": "%s - %s" % (nombre, self._month_label()),
             "res_model": "account.move",
             "domain": [("id", "in", created_moves.ids)],
+            "views": views,
             "view_mode": "list,form",
             "context": {"create": False},
         }

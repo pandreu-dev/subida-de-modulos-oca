@@ -2,7 +2,7 @@
     "name": "Zambudio - Cierre mensual (ingreso reconocido)",
     "summary": "El responsable de contabilidad cierra un mes y genera un asiento de "
     "ingreso reconocido por proyecto desde el avance confirmado, con reversion al dia 1",
-    "version": "19.0.1.3.0",
+    "version": "19.0.1.4.0",
     "category": "Accounting/Accounting",
     "author": "Zambudio",
     "license": "LGPL-3",
@@ -19,6 +19,7 @@
     ],
     "data": [
         "security/ir.model.access.csv",
+        "views/account_move_views.xml",
         "wizard/month_close_wizard_views.xml",
     ],
     "installable": True,
