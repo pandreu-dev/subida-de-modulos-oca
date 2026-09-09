@@ -1,20 +1,20 @@
-# Cerrar mes (WIP) — Manual de pruebas
+# Cerrar mes — Manual de pruebas
 
-> Módulo: **`zambudio_wip_cierre_mensual`** · Entorno: **PRE (pruebas)**
+> Módulo: **`zambudio_cierre_mensual`** · Entorno: **PRE (pruebas)**
 > Para: responsable de contabilidad (Manuel)
 
 ## 1. Qué hace
-Genera, **de una vez para todos los proyectos**, el asiento de **ingreso reconocido (WIP)** de un mes:
+Genera, **de una vez para todos los proyectos**, el asiento de **ingreso reconocido** de un mes:
 - **Un asiento por proyecto**, con el importe del **avance confirmado** de ese mes (el mismo que se ve en la pestaña *Seguimiento económico*).
 - Fecha del asiento: **último día del mes**.
 - **Reversión automática** el **día 1** del mes siguiente.
 - Ya **no** se hace desde el presupuesto analítico ni entrando proyecto a proyecto.
 
 ## 2. Dónde está
-**Contabilidad → Cerrar mes (WIP)** (dentro del desplegable *Contabilidad*).
+**Contabilidad → Cerrar mes** (dentro del desplegable *Contabilidad*).
 
 ## 3. Cómo usarlo (paso a paso)
-1. Abre **Contabilidad → Cerrar mes (WIP)**.
+1. Abre **Contabilidad → Cerrar mes**.
 2. En la ventana rellena:
    - **Compañía**: la que quieras cerrar (p. ej. AUNNA IT).
    - **Mes** y **Año**: un mes **ya cerrado / confirmado** (no el mes en curso).
@@ -45,9 +45,9 @@ El cierre solo genera desde avances **CONFIRMADOS**. Para probarlo ahora con un 
    Si aparece algún mes en estado **`confirmado`**, ve directo al paso 4 con ese mes.
 2. En un **proyecto de prueba** → pestaña **Seguimiento económico**: asegúrate de que el mes de prueba (p. ej. julio) tiene un **ingreso reconocido / avance** (si no, añádelo).
 3. Pulsa **"Recalcular datos reales"** y luego **"Confirmar avance mensual"** → el avance de ese mes queda en estado **confirmado**.
-4. Abre **Contabilidad → Cerrar mes (WIP)**, elige ese **mes/año** y pulsa **"Cerrar mes y generar asientos"** → genera el asiento del proyecto (+ su reversión el día 1 del mes siguiente).
+4. Abre **Contabilidad → Cerrar mes**, elige ese **mes/año** y pulsa **"Cerrar mes y generar asientos"** → genera el asiento del proyecto (+ su reversión el día 1 del mes siguiente).
 
-> ⚠️ **Clave:** añadir solo el "ingreso esperado" (previsión) **no basta** — el cierre usa el **confirmado**. Hay que darle a **"Confirmar avance mensual"** para ese mes. Si "Confirmar avance mensual" no deja con el **mes en curso** (agosto), hazlo con un **mes cerrado** (julio). Si aun así no es cómodo, se puede añadir un **"modo prueba"** al asistente que genere desde la previsión (pídeselo a Pablo).
+> ⚠️ **Clave:** añadir solo el "ingreso esperado" (previsión) **no basta** — el cierre usa el **confirmado**. Hay que darle a **"Confirmar avance mensual"** para ese mes. Si "Confirmar avance mensual" no deja con el **mes en curso** (agosto), hazlo con un **mes cerrado** (julio). Si aun así no es cómodo, se puede usar el **"modo prueba"** del asistente, que genera desde la previsión.
 
 ## 7. Si algo no cuadra
 Anota **proyecto + mes + qué esperabas vs qué salió** y pásaselo a Pablo. Estamos en **PRE (pruebas)**, así que cualquier asiento se puede **borrar o cancelar** sin ningún problema.

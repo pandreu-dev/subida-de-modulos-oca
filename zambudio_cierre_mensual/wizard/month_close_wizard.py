@@ -38,10 +38,10 @@ STATE_CONFIRMED = "confirmado"
 F_PROJECT = "project_id"          # many2one project.project
 
 
-class ZambudioWipMonthCloseWizard(models.TransientModel):
-    _name = "zambudio.wip.month.close.wizard"
+class ZambudioMonthCloseWizard(models.TransientModel):
+    _name = "zambudio.month.close.wizard"
     _description = (
-        "Cierre mensual WIP: genera un asiento de ingreso reconocido por proyecto"
+        "Cierre mensual: genera un asiento de ingreso reconocido por proyecto"
     )
 
     company_id = fields.Many2one(
@@ -82,14 +82,14 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
         reversal_date = last_day + timedelta(days=1)
         return first_day, last_day, reversal_date
 
-    def _wip_settings(self):
+    def _close_settings(self):
         """Ajustes contables (diario / cuentas / auto_post) reutilizados de aunna_wip_accounting."""
-        wip = self.env["aunna.wip.calculation"]
-        settings = wip._aunna_wip_accounting_settings(self.company_id)
+        calc = self.env["aunna.wip.calculation"]
+        settings = calc._aunna_wip_accounting_settings(self.company_id)
         missing = [
             label
             for key, label in (
-                ("journal", _("Diario WIP")),
+                ("journal", _("Diario")),
                 ("income_account", _("Cuenta ingreso avance")),
                 ("deferred_account", _("Cuenta ingresos anticipados")),
             )
@@ -98,7 +98,7 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
         if missing:
             raise UserError(
                 _(
-                    "Faltan datos de configuracion de avance/WIP en la compania %s: %s.\n"
+                    "Faltan datos de configuracion de avance en la compania %s: %s.\n"
                     "Configuralos en Contabilidad > Ajustes > Avance."
                 )
                 % (self.company_id.display_name, ", ".join(missing))
@@ -160,10 +160,10 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
             .sudo()
             .search(
                 [
-                    ("x_zambudio_wip_close", "=", True),
-                    ("x_zambudio_wip_close_test", "=", test),
-                    ("x_zambudio_wip_close_project_id", "=", project.id),
-                    ("x_zambudio_wip_close_period", "=", first_day),
+                    ("x_zambudio_month_close", "=", True),
+                    ("x_zambudio_month_close_test", "=", test),
+                    ("x_zambudio_month_close_project_id", "=", project.id),
+                    ("x_zambudio_month_close_period", "=", first_day),
                     ("company_id", "=", self.company_id.id),
                     ("state", "!=", "cancel"),
                 ],
@@ -201,8 +201,8 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
         self.ensure_one()
         company = self.company_id
         first_day, last_day, reversal_date = self._period_dates()
-        settings = self._wip_settings()
-        wip = self.env["aunna.wip.calculation"]
+        settings = self._close_settings()
+        calc = self.env["aunna.wip.calculation"]
         today = fields.Date.context_today(self)
 
         test = self.modo_prueba
@@ -240,20 +240,20 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
                 self._month_label(),
                 project.display_name,
             )
-            # Mismo asiento que el WIP de hoy: Debe ingresos anticipados / Haber 705
+            # Mismo asiento que el de hoy: Debe ingresos anticipados / Haber 705
             # (con analitica del proyecto). Reutilizamos el helper de aunna_wip_accounting.
             lines = [
                 (
                     0,
                     0,
-                    wip._aunna_wip_move_line_vals(
+                    calc._aunna_wip_move_line_vals(
                         settings["deferred_account"], amount, 0.0, line_name
                     ),
                 ),
                 (
                     0,
                     0,
-                    wip._aunna_wip_move_line_vals(
+                    calc._aunna_wip_move_line_vals(
                         settings["income_account"],
                         0.0,
                         amount,
@@ -271,13 +271,13 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
                         "journal_id": settings["journal"].id,
                         "date": last_day,
                         "ref": (_("PRUEBA - ") if test else "")
-                        + _("Cierre WIP %s-%02d - %s")
+                        + _("Cierre mensual %s-%02d - %s")
                         % (self.year, int(self.month), project.display_name),
                         "company_id": company.id,
-                        "x_zambudio_wip_close": True,
-                        "x_zambudio_wip_close_test": test,
-                        "x_zambudio_wip_close_period": first_day,
-                        "x_zambudio_wip_close_project_id": project.id,
+                        "x_zambudio_month_close": True,
+                        "x_zambudio_month_close_test": test,
+                        "x_zambudio_month_close_period": first_day,
+                        "x_zambudio_month_close_project_id": project.id,
                         "line_ids": lines,
                     }
                 )
@@ -293,16 +293,16 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
                     move, settings["income_account"], analytic_distribution
                 )
 
-            # Reversion al dia 1 del mes siguiente (misma logica que el WIP actual).
+            # Reversion al dia 1 del mes siguiente (misma logica que la del asiento actual).
             reversal = move.with_company(company)._reverse_moves(
                 default_values_list=[
                     {
                         "date": reversal_date,
                         "ref": _("Reversion de: %s") % (move.ref or move.name),
-                        "x_zambudio_wip_close": True,
-                        "x_zambudio_wip_close_test": test,
-                        "x_zambudio_wip_close_period": first_day,
-                        "x_zambudio_wip_close_project_id": project.id,
+                        "x_zambudio_month_close": True,
+                        "x_zambudio_month_close_test": test,
+                        "x_zambudio_month_close_period": first_day,
+                        "x_zambudio_month_close_project_id": project.id,
                     }
                 ],
                 cancel=False,
@@ -326,7 +326,7 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
     def _result(self, created_moves, skipped, n_encontrados):
         if skipped:
             _logger.info(
-                "Cierre WIP %s (%s): %s proyectos omitidos: %s",
+                "Cierre mensual %s (%s): %s proyectos omitidos: %s",
                 self._month_label(),
                 self.company_id.display_name,
                 len(skipped),
@@ -362,9 +362,9 @@ class ZambudioWipMonthCloseWizard(models.TransientModel):
             )
 
         nombre = (
-            _("Asientos de cierre WIP (PRUEBA - borrador)")
+            _("Asientos de cierre mensual (PRUEBA - borrador)")
             if self.modo_prueba
-            else _("Asientos de cierre WIP")
+            else _("Asientos de cierre mensual")
         )
         return {
             "type": "ir.actions.act_window",

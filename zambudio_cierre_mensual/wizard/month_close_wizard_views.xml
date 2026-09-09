@@ -1,12 +1,12 @@
 <odoo>
 
-    <record id="view_wip_month_close_wizard_form" model="ir.ui.view">
-        <field name="name">zambudio.wip.month.close.wizard.form</field>
-        <field name="model">zambudio.wip.month.close.wizard</field>
+    <record id="view_month_close_wizard_form" model="ir.ui.view">
+        <field name="name">zambudio.month.close.wizard.form</field>
+        <field name="model">zambudio.month.close.wizard</field>
         <field name="arch" type="xml">
-            <form string="Cerrar mes (WIP)">
+            <form string="Cerrar mes">
                 <div class="alert alert-info" role="alert">
-                    Genera un asiento de <b>ingreso reconocido (WIP)</b> por cada proyecto con
+                    Genera un asiento de <b>ingreso reconocido</b> por cada proyecto con
                     <b>avance confirmado</b> en el mes elegido, con fecha el <b>último día del mes</b>,
                     y su <b>reversión automática el día 1</b> del mes siguiente. Un asiento por proyecto.
                     <br/>
@@ -33,19 +33,19 @@
         </field>
     </record>
 
-    <record id="action_wip_month_close_wizard" model="ir.actions.act_window">
-        <field name="name">Cerrar mes (WIP)</field>
-        <field name="res_model">zambudio.wip.month.close.wizard</field>
+    <record id="action_month_close_wizard" model="ir.actions.act_window">
+        <field name="name">Cerrar mes</field>
+        <field name="res_model">zambudio.month.close.wizard</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>
     </record>
 
     <!-- Menu dentro del desplegable "Contabilidad". Sin restriccion de grupo (el control
          de acceso real esta en security/ir.model.access.csv). -->
-    <menuitem id="menu_wip_month_close_entries"
-              name="Cerrar mes (WIP)"
+    <menuitem id="menu_month_close_entries"
+              name="Cerrar mes"
               parent="account.menu_finance_entries"
-              action="action_wip_month_close_wizard"
+              action="action_month_close_wizard"
               sequence="90"/>
 
 </odoo>

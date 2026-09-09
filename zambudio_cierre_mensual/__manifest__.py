@@ -1,7 +1,7 @@
 {
-    "name": "Zambudio - Cierre mensual WIP (ingreso reconocido)",
+    "name": "Zambudio - Cierre mensual (ingreso reconocido)",
     "summary": "El responsable de contabilidad cierra un mes y genera un asiento de "
-    "ingreso reconocido (WIP) por proyecto desde el avance confirmado, con reversion al dia 1",
+    "ingreso reconocido por proyecto desde el avance confirmado, con reversion al dia 1",
     "version": "19.0.1.3.0",
     "category": "Accounting/Accounting",
     "author": "Zambudio",
@@ -11,14 +11,15 @@
         # Arrastra zambudio_produccion (produccion.plan.linea). NO depender de
         # zambudio_produccion_grid (se auto-instala, es solo la vista cuadricula).
         "zambudio_produccion_real",
-        # Reutilizamos su motor de asiento WIP (ajustes contables + lineas + reversion).
+        # Reutilizamos su motor de asiento de ingreso reconocido (ajustes contables +
+        # lineas + reversion).
         "aunna_wip_accounting",
         "account",
         "project",
     ],
     "data": [
         "security/ir.model.access.csv",
-        "wizard/wip_month_close_wizard_views.xml",
+        "wizard/month_close_wizard_views.xml",
     ],
     "installable": True,
     "application": False,
