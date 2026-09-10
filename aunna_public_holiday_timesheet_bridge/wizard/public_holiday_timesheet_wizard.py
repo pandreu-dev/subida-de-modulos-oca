@@ -119,6 +119,7 @@ class PublicHolidayTimesheetWizardLine(models.TransientModel):
         "account.analytic.line",
         string="Parte de horas",
         readonly=True,
+        ondelete="set null",
     )
     action = fields.Selection(
         [
