@@ -1,7 +1,7 @@
 {
     "name": "Aunnna Product Labels",
     "summary": "Anade formatos personalizados de etiquetas al asistente estandar de productos",
-    "version": "19.0.1.4.0",
+    "version": "19.0.1.5.0",
     "category": "Inventory/Inventory",
     "author": "Aunnna",
     "license": "LGPL-3",
