@@ -136,7 +136,9 @@
                     top: 50%;
                     width: 16.2mm;
                     height: 14.2mm;
-                    transform: translate(-50%, -50%) rotate(-90deg);
+                    margin-left: -8.1mm;
+                    margin-top: -7.1mm;
+                    transform: rotate(-90deg);
                     transform-origin: center center;
                 }
                 .aunna-label-17x54 .aunna-label-info {
@@ -214,7 +216,9 @@
                     top: 50%;
                     width: 27mm;
                     height: 24mm;
-                    transform: translate(-50%, -50%) rotate(-90deg);
+                    margin-left: -13.5mm;
+                    margin-top: -12mm;
+                    transform: rotate(-90deg);
                     transform-origin: center center;
                 }
                 .aunna-label-29x90 .aunna-label-info {
@@ -292,7 +296,9 @@
                     top: 50%;
                     width: 28mm;
                     height: 12.5mm;
-                    transform: translate(-50%, -50%) rotate(-90deg);
+                    margin-left: -14mm;
+                    margin-top: -6.25mm;
+                    transform: rotate(-90deg);
                     transform-origin: center center;
                 }
                 .aunna-label-30x30 .aunna-label-info {
