@@ -13,7 +13,8 @@
         <field name="margin_right">0</field>
         <field name="header_line" eval="False"/>
         <field name="header_spacing">0</field>
-        <field name="dpi">300</field>
+        <field name="dpi">96</field>
+        <field name="disable_shrinking" eval="True"/>
     </record>
 
     <record id="paperformat_product_label_29x90" model="report.paperformat">
@@ -29,7 +30,8 @@
         <field name="margin_right">0</field>
         <field name="header_line" eval="False"/>
         <field name="header_spacing">0</field>
-        <field name="dpi">300</field>
+        <field name="dpi">96</field>
+        <field name="disable_shrinking" eval="True"/>
     </record>
 
     <record id="paperformat_product_label_30x30" model="report.paperformat">
@@ -45,7 +47,8 @@
         <field name="margin_right">0</field>
         <field name="header_line" eval="False"/>
         <field name="header_spacing">0</field>
-        <field name="dpi">300</field>
+        <field name="dpi">96</field>
+        <field name="disable_shrinking" eval="True"/>
     </record>
 
     <record id="action_report_product_label_17x54" model="ir.actions.report">
