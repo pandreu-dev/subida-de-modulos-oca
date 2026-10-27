@@ -1,18 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Anade "Ubicacion de destino" a la cabecera del albaran (informe de
-         entrega de stock), SOLO en traslados internos. No toca recepciones
-         ni entregas a cliente: solo agrega una columna cuando el tipo de
-         operacion es 'internal'. -->
+    <!-- Anade una linea propia con "Ubicacion de origen" y "Ubicacion de
+         destino" DEBAJO de la cabecera (Fecha/Operador), SOLO en traslados
+         internos. Va en su propia fila (no apretada con los otros campos) para
+         que las rutas largas no se amontonen. No toca recepciones ni entregas. -->
     <template id="report_delivery_document_dest_interno"
               inherit_id="stock.report_delivery_document">
-        <xpath expr="//div[@id='informations']/div[@name='div_sched_date']"
-               position="after">
+        <xpath expr="//div[@id='informations']" position="after">
             <div t-if="o.picking_type_id.code == 'internal'"
-                 class="col col-3 mw-100 mb-2" name="div_zambudio_dest">
-                <strong>Ubicación de destino</strong>
-                <div class="m-0">
-                    <span t-out="o.location_dest_id.complete_name"/>
+                 class="row mb-4" name="div_zambudio_ubicaciones">
+                <div class="col-4" name="div_zambudio_orig">
+                    <strong>Ubicación de origen</strong>
+                    <div class="m-0">
+                        <span t-out="o.location_id.complete_name"/>
+                    </div>
+                </div>
+                <div class="col-8" name="div_zambudio_dest">
+                    <strong>Ubicación de destino</strong>
+                    <div class="m-0">
+                        <span t-out="o.location_dest_id.complete_name"/>
+                    </div>
                 </div>
             </div>
         </xpath>
