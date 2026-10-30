@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_produccion_carga_inicial_form" model="ir.ui.view">
+        <field name="name">produccion.carga.inicial.form</field>
+        <field name="model">produccion.carga.inicial</field>
+        <field name="arch" type="xml">
+            <form string="Carga inicial / corrección de meses cerrados">
+                <div class="alert alert-warning" role="alert">
+                    <b>Puerta de atrás controlada.</b> Este asistente permite cargar o
+                    corregir importes de <b>meses ya cerrados</b> (carga inicial del
+                    histórico, corrección de errores). Cada celda modificada queda
+                    registrada con quién, cuándo, valor anterior y nuevo, y se anota en el
+                    chatter del proyecto. Tras aplicar, el reparto del ingreso se rehace
+                    respetando el TCV.
+                </div>
+                <group>
+                    <group>
+                        <field name="project_id" readonly="1"/>
+                        <field name="currency_id" invisible="1"/>
+                        <field name="n_cerrados" string="Meses cerrados en el plan"/>
+                        <field name="motivo" placeholder="P. ej. Carga inicial del histórico ene-ago 2026 (ingresos según cierre contable)"/>
+                    </group>
+                    <group>
+                        <field name="modo" widget="radio"/>
+                        <field name="conceptos" widget="radio"/>
+                        <field name="ambito" widget="radio"/>
+                    </group>
+                </group>
+                <div class="alert alert-danger" role="alert" invisible="not aviso_tcv">
+                    <field name="aviso_tcv" nolabel="1" readonly="1"/>
+                </div>
+                <group string="Celdas (edita la columna «Valor nuevo»)" invisible="modo != 'manual'">
+                    <field name="linea_ids" nolabel="1" colspan="2">
+                        <list editable="bottom" create="0" delete="0"
+                              decoration-muted="mes_cerrado"
+                              decoration-warning="importe_nuevo != importe_actual">
+                            <field name="etiqueta_mes" string="Mes"/>
+                            <field name="concepto"/>
+                            <field name="mes_cerrado" widget="boolean"/>
+                            <field name="importe_actual"/>
+                            <field name="importe_nuevo"/>
+                            <field name="fecha_mes" column_invisible="1"/>
+                            <field name="linea_id" column_invisible="1"/>
+                            <field name="currency_id" column_invisible="1"/>
+                        </list>
+                    </field>
+                </group>
+                <group string="Plantilla Excel" invisible="modo != 'excel'">
+                    <div colspan="2" class="text-muted small mb-2">
+                        Es la misma plantilla de <b>Importar / Exportar Excel</b> de la pestaña
+                        Producción (fila «Concepto», columnas MM/AAAA). Aquí, a diferencia de
+                        allí, los meses cerrados <b>sí</b> se cargan. Solo se aplican las celdas
+                        con número que cambien respecto al valor actual y que cumplan los filtros
+                        de arriba.
+                    </div>
+                    <field name="fichero" filename="nombre_fichero"/>
+                    <field name="nombre_fichero" invisible="1"/>
+                </group>
+                <footer>
+                    <button name="action_aplicar" type="object" string="Aplicar y registrar"
+                            class="btn-primary" confirm="Vas a modificar importes de meses cerrados. Cada cambio queda registrado con tu usuario. ¿Continuar?"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_carga_inicial_produccion" model="ir.actions.act_window">
+        <field name="name">Carga inicial / corrección de meses cerrados</field>
+        <field name="res_model">produccion.carga.inicial</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="context">{'default_project_id': active_id}</field>
+        <field name="group_ids" eval="[(4, ref('aunna_produccion.group_produccion_carga_inicial'))]"/>
+    </record>
+
+    <!-- Registro de auditoría de los ajustes -->
+    <record id="view_produccion_plan_ajuste_list" model="ir.ui.view">
+        <field name="name">produccion.plan.ajuste.list</field>
+        <field name="model">produccion.plan.ajuste</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" delete="0" default_order="fecha desc">
+                <field name="fecha"/>
+                <field name="user_id"/>
+                <field name="project_id"/>
+                <field name="fecha_mes"/>
+                <field name="concepto"/>
+                <field name="importe_anterior"/>
+                <field name="importe_nuevo"/>
+                <field name="origen"/>
+                <field name="motivo"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_produccion_plan_ajuste_search" model="ir.ui.view">
+        <field name="name">produccion.plan.ajuste.search</field>
+        <field name="model">produccion.plan.ajuste</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="project_id"/>
+                <field name="user_id"/>
+                <field name="motivo"/>
+                <group>
+                    <filter name="grp_proyecto" string="Proyecto" context="{'group_by': 'project_id'}"/>
+                    <filter name="grp_usuario" string="Usuario" context="{'group_by': 'user_id'}"/>
+                    <filter name="grp_mes" string="Mes ajustado" context="{'group_by': 'fecha_mes:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_produccion_plan_ajuste" model="ir.actions.act_window">
+        <field name="name">Ajustes de meses cerrados (registro)</field>
+        <field name="res_model">produccion.plan.ajuste</field>
+        <field name="view_mode">list</field>
+        <field name="context">{'search_default_grp_proyecto': 1}</field>
+    </record>
+
+    <menuitem id="menu_produccion_plan_ajuste"
+              name="Ajustes de meses cerrados"
+              parent="project.menu_project_config"
+              action="action_produccion_plan_ajuste"
+              sequence="90"
+              groups="aunna_produccion.group_produccion_carga_inicial"/>
+</odoo>

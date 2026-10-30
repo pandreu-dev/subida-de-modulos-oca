@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- La cuadrícula real (vista grid de Enterprise): filas = concepto, columnas = mes -->
+    <record id="view_produccion_grid" model="ir.ui.view">
+        <field name="name">produccion.plan.linea.grid</field>
+        <field name="model">produccion.plan.linea</field>
+        <field name="arch" type="xml">
+            <grid string="Producción" editable="1">
+                <field name="concepto" type="row"/>
+                <field name="fecha_mes" type="col">
+                    <range name="year" string="Año" span="year" step="month"/>
+                </field>
+                <field name="importe_previsto" type="measure" widget="float"/>
+            </grid>
+        </field>
+    </record>
+
+    <!-- Botón en la pestaña Producción del proyecto -->
+    <record id="view_project_form_produccion_grid" model="ir.ui.view">
+        <field name="name">project.project.form.produccion.grid</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="aunna_produccion.view_project_form_produccion"/>
+        <field name="arch" type="xml">
+            <button name="action_ver_produccion" position="before">
+                <button name="action_ver_produccion_grid" type="object"
+                        string="Cuadrícula (grid)" class="btn-secondary ms-2"/>
+            </button>
+        </field>
+    </record>
+</odoo>

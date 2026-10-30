@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_avance_mes_list" model="ir.ui.view">
+        <field name="name">produccion.avance.mes.list</field>
+        <field name="model">produccion.avance.mes</field>
+        <field name="arch" type="xml">
+            <list editable="bottom" default_order="fecha_mes"
+                  decoration-success="estado == 'confirmado'"
+                  decoration-muted="estado == 'borrador'">
+                <field name="etiqueta_mes" string="Mes" readonly="1"/>
+                <field name="importe_sugerido_prevision" string="Sugerido (previsión)" readonly="1"/>
+                <field name="importe_sugerido_lineal" string="Sugerido (curva días)" readonly="1" optional="show"/>
+                <field name="importe_confirmado" string="Avance confirmado"
+                       readonly="estado == 'confirmado'"/>
+                <field name="nota" optional="show"/>
+                <field name="estado" widget="badge"
+                       decoration-success="estado == 'confirmado'"/>
+                <field name="confirmado_por_id" optional="hide"/>
+                <field name="confirmado_fecha" optional="hide"/>
+                <button name="action_confirmar" type="object" string="Confirmar"
+                        icon="fa-check" invisible="estado == 'confirmado'"
+                        groups="aunna_produccion_real.group_produccion_confirmar"/>
+                <button name="action_volver_borrador" type="object" string="Reabrir"
+                        icon="fa-undo" invisible="estado != 'confirmado'"
+                        groups="aunna_produccion_real.group_produccion_confirmar"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="project_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+</odoo>
