@@ -1,4 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_avance_mes_user,produccion.avance.mes.user,model_produccion_avance_mes,project.group_project_user,1,0,0,0
-access_avance_mes_manager,produccion.avance.mes.manager,model_produccion_avance_mes,group_produccion_confirmar,1,1,1,1
-access_exportar_br_user,produccion.exportar.br.user,model_produccion_exportar_br,project.group_project_user,1,1,1,1

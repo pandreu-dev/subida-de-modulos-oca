@@ -1,0 +1,11 @@
+{'version': '19.0.2.0.0',
+ 'author': 'AUNNA IT',
+ 'category': 'Services/Project',
+ 'auto_install': False,
+ 'installable': True,
+ 'application': False,
+ 'license': 'LGPL-3',
+ 'name': 'Declaración de producción de proyectos_new_version',
+ 'summary': 'Integra las ampliaciones con la planificación existente',
+ 'depends': ['zambudio_produccion'],
+ 'data': []}

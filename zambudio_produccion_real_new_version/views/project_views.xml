@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_project_form_br" model="ir.ui.view">
+        <field name="name">project.project.form.business.review.new_version</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="zambudio_produccion_real.view_project_form_br"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='business_review']/div[@role='alert']" position="replace">
+                <div class="alert alert-info" role="alert" style="margin-bottom: 8px;">
+                    La <b>foto económica completa</b> del proyecto: meses pasados con
+                    el <b>dato real</b> (cian), mes en curso <b>abierto</b> (azul intenso)
+                    con <b>costes reales acumulados e ingreso previsto</b>, y meses futuros
+                    con la <b>previsión</b> (morado). Pase el ratón por una celda para ver
+                    previsto/real/desviación y haga clic para ver los apuntes de origen.
+                </div>
+            </xpath>
+            <xpath expr="//page[@name='business_review']/widget[@name='produccion_br_view']" position="attributes">
+                <attribute name="name">zambudio_produccion_real_new_version_br_view</attribute>
+            </xpath>
+        </field>
+    </record>
+</odoo>

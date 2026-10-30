@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+<t t-name="zambudio_produccion_real_new_version.BRView">
+    <div class="o_produccion_br o_zambudio_produccion_real_new_version_br">
+        <t t-if="state.cargando">
+            <div class="text-muted p-3"><i class="fa fa-spinner fa-spin"/> Cargando la foto del proyecto…</div>
+        </t>
+        <t t-elif="!state.data or !state.data.meses.length">
+            <div class="alert alert-warning m-2">
+                Aún no hay planificación. Genere primero la planificación en la
+                pestaña <b>Producción</b> y pulse <b>Recalcular datos reales</b>.
+            </div>
+        </t>
+        <t t-else="">
+            <!-- Barra de control -->
+            <div class="br-toolbar d-flex align-items-center gap-3 mb-2 flex-wrap">
+                <button type="button" class="btn btn-secondary btn-sm" t-on-click="cargar">
+                    Actualizar tabla
+                </button>
+                <span t-attf-class="badge {{ state.data.stale ? 'text-bg-warning' : 'text-bg-success' }}"
+                      title="Estado del recálculo guardado. Los costes del mes en curso se consultan al actualizar esta tabla.">
+                    <t t-if="state.data.stale">⚠ Plan guardado pendiente de recálculo</t>
+                    <t t-elif="state.data.last_update">✓ Plan guardado · <t t-esc="state.data.last_update"/></t>
+                    <t t-else="">Plan sin recálculo guardado</t>
+                </span>
+                <select class="form-select form-select-sm w-auto" t-on-change="cambiarAnio">
+                    <option value="">Todo el periodo</option>
+                    <t t-foreach="anios" t-as="a" t-key="a">
+                        <option t-att-value="a" t-att-selected="esAnioActivo(a) ? 'selected' : undefined">
+                            <t t-esc="a"/>
+                        </option>
+                    </t>
+                </select>
+                <label class="form-check form-check-inline small mb-0">
+                    <input type="checkbox" class="form-check-input"
+                           t-att-checked="state.verDesviaciones ? 'checked' : undefined"
+                           t-on-change="() => { state.verDesviaciones = !state.verDesviaciones; }"/>
+                    Ver desviaciones
+                </label>
+                <label class="form-check form-check-inline small mb-0">
+                    <input type="checkbox" class="form-check-input"
+                           t-att-checked="state.verAgregados ? 'checked' : undefined"
+                           t-on-change="() => { state.verAgregados = !state.verAgregados; }"/>
+                    Agregados Q · H · FY
+                </label>
+                <span class="ms-auto small text-muted">
+                    TCV: <b><t t-esc="formatear(state.data.tcv)"/> <t t-esc="state.data.moneda"/></b>
+                    (<t t-esc="state.data.tcv_fuente === 'ficha' ? 'ficha del proyecto' : 'manual'"/>)
+                    <t t-if="state.data.tipo_proyecto"> · Tipo: <b><t t-esc="state.data.tipo_proyecto"/></b></t>
+                    <t t-if="state.data.fecha_inicio"> · Periodo: <b><t t-esc="state.data.fecha_inicio"/> → <t t-esc="state.data.fecha_fin"/></b></t>
+                </span>
+            </div>
+            <div t-if="state.data.costes_actuales_hasta" class="small mb-2">
+                <b>Mes en curso abierto:</b> costes reales hasta <t t-esc="state.data.costes_actuales_hasta"/>
+                consultados al cargar la tabla; ingreso previsto. La desviación compara
+                el coste acumulado con la previsión del mes completo.
+            </div>
+            <div t-if="state.data.tcv_alerta" class="alert alert-warning py-1 px-2 mb-2" role="alert">
+                <b>Aviso TCV:</b> <t t-esc="state.data.tcv_alerta"/>
+            </div>
+            <div t-if="state.data.posibles_duplicados and state.data.posibles_duplicados.length"
+                 class="alert alert-warning py-1 px-2 mb-2" role="alert">
+                <b>Posible coste duplicado (<t t-esc="state.data.posibles_duplicados.length"/>):</b>
+                entregas desde almacén <i>con proyecto</i> de productos que ya se compraron
+                contra este proyecto (su recepción ya cargó el coste). Revisar si la entrega
+                debería ir sin proyecto. Las cifras de la tabla NO se han tocado.
+                <ul class="mb-0 mt-1 small">
+                    <li t-foreach="state.data.posibles_duplicados" t-as="d" t-key="d.move_id">
+                        <t t-esc="d.fecha"/> · <b><t t-esc="d.albaran"/></b> · <t t-esc="d.producto"/>
+                        × <t t-esc="d.cantidad"/> (<t t-esc="formatear(d.importe)"/> <t t-esc="state.data.moneda"/>)
+                        — comprado contra el proyecto en <t t-esc="d.pedidos"/> (<t t-esc="d.comprado"/> uds)
+                    </li>
+                </ul>
+            </div>
+
+            <!-- La tabla BR -->
+            <div class="br-wrap">
+            <table class="br-tabla">
+                <thead>
+                    <tr>
+                        <th class="br-etiqueta">Concepto</th>
+                        <t t-foreach="columnas" t-as="col" t-key="col.clave">
+                            <th t-att-class="claseCol(col)"><t t-esc="col.etiqueta"/></th>
+                        </t>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- AVANCE -->
+                    <tr class="br-grupo br-grupo-avance">
+                        <td t-att-colspan="columnas.length + 1">AVANCE — ingreso reconocido (€)</td>
+                    </tr>
+                    <tr>
+                        <td class="br-etiqueta">Avance</td>
+                        <t t-foreach="columnas" t-as="col" t-key="col.clave">
+                            <td t-att-class="claseCol(col)"
+                                t-att-title="tituloCelda({tipo: 'avance'}, col)">
+                                <t t-esc="formatear(valorCol({tipo: 'avance'}, col))"/>
+                                <t t-if="col.tipo === 'mes' and state.data.avance[col.clave] and state.data.avance[col.clave].confirmado">
+                                    <span class="br-check" title="Avance confirmado">✓</span>
+                                </t>
+                                <t t-if="state.verDesviaciones and col.tipo === 'mes' and state.data.estado_mes[col.clave] === 'pasado'">
+                                    <div t-attf-class="br-delta {{ desviacionMes({tipo: 'avance'}, col.clave) >= 0 ? 'br-pos' : 'br-neg' }}">
+                                        Δ <t t-esc="formatear(desviacionMes({tipo: 'avance'}, col.clave))"/>
+                                    </div>
+                                </t>
+                            </td>
+                        </t>
+                    </tr>
+                    <!-- COSTES -->
+                    <tr class="br-grupo br-grupo-costes">
+                        <td t-att-colspan="columnas.length + 1">COSTES (€)</td>
+                    </tr>
+                    <t t-foreach="state.data.costes" t-as="fila" t-key="fila.concepto">
+                        <tr>
+                            <td class="br-etiqueta"><t t-esc="fila.etiqueta"/></td>
+                            <t t-foreach="columnas" t-as="col" t-key="col.clave">
+                                <td t-att-class="claseCol(col) + ' br-click'"
+                                    t-att-title="tituloCelda({tipo: 'coste', datos: fila}, col)"
+                                    t-on-click="() => this.drilldown({tipo: 'coste', datos: fila}, col)">
+                                    <t t-esc="formatear(valorCol({tipo: 'coste', datos: fila}, col))"/>
+                                    <t t-if="state.verDesviaciones and col.tipo === 'mes' and state.data.estado_mes[col.clave] !== 'futuro'">
+                                        <div t-attf-class="br-delta {{ desviacionMes({tipo: 'coste', datos: fila}, col.clave) >= 0 ? 'br-pos' : 'br-neg' }}">
+                                            Δ <t t-esc="formatear(desviacionMes({tipo: 'coste', datos: fila}, col.clave))"/>
+                                        </div>
+                                    </t>
+                                </td>
+                            </t>
+                        </tr>
+                    </t>
+                    <!-- PM -->
+                    <tr class="br-grupo br-grupo-pm">
+                        <td t-att-colspan="columnas.length + 1">PM (RENTABILIDAD)</td>
+                    </tr>
+                    <tr class="br-fila-pm">
+                        <td class="br-etiqueta">PM</td>
+                        <t t-foreach="columnas" t-as="col" t-key="col.clave">
+                            <td t-att-class="claseCol(col)">
+                                <t t-esc="formatear(valorCol({tipo: 'pm'}, col))"/>
+                            </td>
+                        </t>
+                    </tr>
+                    <tr>
+                        <td class="br-etiqueta">%PM</td>
+                        <t t-foreach="columnas" t-as="col" t-key="col.clave">
+                            <td t-att-class="claseCol(col)">
+                                <t t-esc="formatearPct(pctPmCol(col, false))"/>
+                            </td>
+                        </t>
+                    </tr>
+                    <tr>
+                        <td class="br-etiqueta">%PM (acumulado)</td>
+                        <t t-foreach="columnas" t-as="col" t-key="col.clave">
+                            <td t-att-class="claseCol(col)">
+                                <t t-esc="formatearPct(pctPmCol(col, true))"/>
+                            </td>
+                        </t>
+                    </tr>
+                    <!-- FACTURACIÓN + WIP -->
+                    <tr class="br-grupo br-grupo-wip">
+                        <td t-att-colspan="columnas.length + 1">FACTURACIÓN Y WIP</td>
+                    </tr>
+                    <tr>
+                        <td class="br-etiqueta">Facturación</td>
+                        <t t-foreach="columnas" t-as="col" t-key="col.clave">
+                            <td t-att-class="claseCol(col) + ' br-click'"
+                                t-on-click="() => this.drilldown({tipo: 'fact'}, col)">
+                                <t t-esc="formatear(valorCol({tipo: 'fact'}, col))"/>
+                            </td>
+                        </t>
+                    </tr>
+                    <tr>
+                        <td class="br-etiqueta">WIP (avance − facturado)</td>
+                        <t t-foreach="columnas" t-as="col" t-key="col.clave">
+                            <td t-att-class="claseCol(col)">
+                                <span t-attf-class="{{ wipCol(col) &lt; 0 ? 'br-neg' : '' }}">
+                                    <t t-esc="formatear(wipCol(col))"/>
+                                </span>
+                            </td>
+                        </t>
+                    </tr>
+                </tbody>
+            </table>
+            </div>
+            <div class="small text-muted mt-1">
+                Cian = mes pasado · azul intenso = mes en curso abierto
+                (costes reales e ingreso previsto) · morado = previsión futura ·
+                columnas oscuras = agregados Q/H/FY. Clic en una celda de
+                coste o facturación abre sus apuntes de origen.
+            </div>
+        </t>
+    </div>
+</t>
+
+</templates>

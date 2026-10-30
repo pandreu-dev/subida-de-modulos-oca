@@ -1,7 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_produccion_linea_user,produccion.plan.linea.user,model_produccion_plan_linea,base.group_user,1,1,1,1
-access_produccion_importar,produccion.importar,model_produccion_importar,base.group_user,1,1,1,1
-access_produccion_plan_ajuste_user,produccion.plan.ajuste.user,model_produccion_plan_ajuste,project.group_project_user,1,0,0,0
-access_produccion_plan_ajuste_carga,produccion.plan.ajuste.carga,model_produccion_plan_ajuste,group_produccion_carga_inicial,1,0,1,0
-access_produccion_carga_inicial,produccion.carga.inicial,model_produccion_carga_inicial,group_produccion_carga_inicial,1,1,1,1
-access_produccion_carga_inicial_linea,produccion.carga.inicial.linea,model_produccion_carga_inicial_linea,group_produccion_carga_inicial,1,1,1,1
