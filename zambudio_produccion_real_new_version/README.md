@@ -1,12 +1,17 @@
 # Producción — Seguimiento económico
 
-**Ampliación `zambudio_produccion_real_new_version`, versión 19.0.2.0.1.**
+**Ampliación `zambudio_produccion_real_new_version`, versión 19.0.2.1.0.**
 El cambio del mes en curso solicitado por Laura está descrito en
 [Mes en curso: comportamiento, pruebas e instalación](docs/mes_en_curso.md).
 Esta versión depende de los módulos originales `zambudio_produccion` y
 `zambudio_produccion_real` y amplía sus modelos mediante herencia. Reutiliza
-los proyectos, planes, avances, permisos y tareas existentes. No añade otras
-pestañas de Producción o Seguimiento económico.
+los proyectos, planes, avances, permisos y tareas existentes. Añade las páginas
+**Producción (new_version)** y **Seguimiento económico (new_version)**.
+Las dos páginas originales permanecen con sus widgets y cálculos originales.
+La planificación es compartida: editar previsiones, confirmar avances o recalcular
+los datos guardados desde cualquiera de las páginas afecta al mismo proyecto.
+El cambio exclusivo de la consulta nueva es mostrar los costes actuales hasta
+hoy en una columna azul intenso, también en su Excel independiente.
 
 Módulo de AUNNA IT para Odoo 19 (Enterprise/Community). Completa la pestaña
 **Producción** (previsión) con los **datos reales** del proyecto y presenta ambos
@@ -39,9 +44,13 @@ en una pestaña **Seguimiento económico** con el código de colores del BR corp
 
 ## Recalculo
 
-- Cron diario (mes en curso + 2 anteriores) y repaso completo el día 1 de cada mes.
-- Botón **Recalcular datos reales** en la pestaña (grupo «Producción: confirmar
-  avance y recalcular», implícito en Project/Administrator).
+- Se conservan el cron y el botón **Recalcular datos reales** originales,
+  con sus permisos, sin añadir otra tarea ni sustituir su motor.
+- El coste del mes actual en la página nueva se consulta al abrirla o actualizarla;
+  no necesita pulsar el recálculo persistente.
+- Sin fechas válidas la página nueva se abre con un aviso. Los botones que
+  necesitan fechas no aparecen hasta completarlas. El aviso de la captura de
+  PRE se produjo al pulsar el recálculo original sin fechas, no al abrir la página.
 
 ## Exportación
 
@@ -65,8 +74,8 @@ periodo o el año filtrado.
 ## Instalación
 
 Los originales deben permanecer instalados. `zambudio_produccion_new_version`
-integra la planificación existente; `zambudio_produccion_grid_new_version`
-reutiliza la cuadrícula original y es opcional para el cambio del mes en curso.
+añade la página de planificación; `zambudio_produccion_grid_new_version`
+añade a esa página el acceso a la cuadrícula original.
 `openpyxl` es necesario para exportar. Detalles y validación en
 [la documentación del cambio](docs/mes_en_curso.md#instalación-y-validación-en-odoo).
 
@@ -75,6 +84,14 @@ copias independientes y no forman parte de este procedimiento. Las carpetas
 con sufijo `_borrar` siguen siendo referencias no instalables.
 
 ## Verificación
+
+La actualización a 19.0.2.1.0 se probó con los nombres actuales en una copia
+neutralizada de PRE: 9 pruebas ORM correctas, cuatro páginas y dos consultas
+independientes, sin cambios en planes, avances ni proyectos existentes.
+También pasaron 10 pruebas locales y la comprobación del widget en navegador.
+Ver [detalle de la validación actual](docs/mes_en_curso.md).
+
+### Validación histórica
 
 El módulo de origen documentaba que sus fórmulas y fuentes fueron validadas al céntimo contra el sistema anterior
 («Informe operativo financiero») sobre datos reales de producción el 11/08/2026:

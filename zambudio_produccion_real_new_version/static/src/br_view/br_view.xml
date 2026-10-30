@@ -8,8 +8,12 @@
         </t>
         <t t-elif="!state.data or !state.data.meses.length">
             <div class="alert alert-warning m-2">
-                Aún no hay planificación. Genere primero la planificación en la
-                pestaña <b>Producción</b> y pulse <b>Recalcular datos reales</b>.
+                <t t-if="state.data and state.data.aviso_planificacion">
+                    <t t-esc="state.data.aviso_planificacion"/>
+                    Puedes consultar esta pestaña; completa la fecha planificada de la ficha
+                    para mostrar los meses y sus importes.
+                </t>
+                <t t-else="">No hay meses de planificación en el periodo seleccionado.</t>
             </div>
         </t>
         <t t-else="">

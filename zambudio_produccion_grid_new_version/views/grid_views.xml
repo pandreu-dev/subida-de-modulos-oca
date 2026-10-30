@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_project_form_produccion_grid" model="ir.ui.view">
+        <field name="name">project.project.form.produccion.grid.new_version</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="zambudio_produccion_new_version.view_project_form_produccion"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='produccion_new_version']//button[@name='action_ver_produccion']" position="before">
+                <button name="action_ver_produccion_grid" type="object"
+                        string="Cuadrícula (grid)" class="btn-secondary ms-2"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

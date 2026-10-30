@@ -1,6 +1,76 @@
 # Costes reales del mes en curso
 
-Fecha: 30/10/2026. Módulo: `zambudio_produccion_real_new_version`. Versión: `19.0.2.0.1`.
+Fecha: 30/10/2026. Módulo: `zambudio_produccion_real_new_version`. Versión: `19.0.2.1.0`.
+
+## Versión actual: cuatro páginas y consultas separadas
+
+La petición es mantener la misma planificación y funciones, con páginas nuevas
+para comparar el cambio del mes actual. La adaptación 19.0.2.0.x sustituía el
+widget y métodos originales; esta versión corrige ese enfoque.
+
+| Página | Datos y comportamiento |
+|---|---|
+| Producción | Original, sin cambios en su vista |
+| Seguimiento económico | Widget, endpoint y Excel originales |
+| Producción (new_version) | Misma planificación, formulario y acceso a grid/pivot |
+| Seguimiento económico (new_version) | Consulta y Excel propios; costes del mes actual hasta hoy y azul intenso |
+
+Los modelos persistentes de planes y avances son compartidos. Una edición o
+recálculo explícito afecta a esos datos compartidos; no se crea otra contabilidad
+ni se duplican cron, permisos o proyectos. Se conservan las acciones originales
+de generación de planificación, reparto, carga, importación, recálculo y confirmación.
+El mes actual de la página nueva se obtiene sin necesidad de recálculo persistente.
+
+Separación técnica:
+
+- Las nuevas vistas insertan `produccion_new_version` y `business_review_new_version`.
+  Ya no reemplazan el widget ni el texto de `business_review`.
+- `project.project.get_produccion_br_data_new_version` es un método nuevo;
+  no redefine `get_produccion_br_data`.
+- `produccion.real.motor.new.version` hereda el motor original con otro `_name`;
+  no cambia el motor que utilizan las páginas, el cron o los cierres originales.
+- `produccion.exportar.br.new.version` tiene modelo, ACL, formulario y acción propios;
+  el asistente original sigue utilizando el endpoint y los colores originales.
+- JS, plantilla OWL, registro de widget y estilos tienen nombres propios.
+
+Sin fechas, o con fechas invertidas, la página nueva muestra la explicación
+del plan incompleto. No intenta sincronizar el TCV ni consultar costes del mes.
+Los botones que requieren fechas permanecen ocultos en las páginas nuevas.
+Con fechas válidas conserva la sincronización de TCV original: si el contrato
+cambió, esta operación puede reajustar la previsión compartida, como antes.
+
+Los logs de PRE confirmaron que el aviso de «Internal» del 30/10 a las 11:09 UTC
+venía de `action_recalcular_produccion_real` sin fechas. La llamada para abrir la
+tabla ya terminaba correctamente tras la corrección del import `UserError`.
+
+Para desplegar hay que actualizar los **tres módulos `_new_version`** además
+de descargar el código y reiniciar: hay vistas, un modelo transitorio y una ACL
+nuevos. No desinstalar ni actualizar los módulos originales para este cambio.
+
+Validación del 30/10/2026:
+
+- 10 pruebas locales de cálculo, importaciones y XLSX: correctas.
+- Navegador Chrome con OWL y RPC simulados: endpoint nuevo, registro sin
+  colisiones, colores, costes, actualización y página sin fechas correctos.
+- En una copia neutralizada de PRE se instalaron primero las versiones anteriores
+  de los tres módulos con sus nombres `_new_version`. Después se actualizaron
+  los tres a 19.0.2.1.0: 9 pruebas ORM, sin fallos ni errores.
+- La arquitectura combinada contiene una página de cada nombre y ambos widgets.
+  El mismo proyecto devuelve −20 € guardados por el endpoint original y −125 €
+  de horas nuevas por el nuevo; volver al original sigue devolviendo −20 €.
+  Se comprobó también el modelo/acción Excel separado y su generación real.
+- Sin cambios en las 1.342 líneas de planificación, 134 avances, 259 proyectos,
+  ajustes, XML IDs originales ni número de cron (comparación de hashes).
+- El log conserva una incidencia previa de `aunna_portal_iframe_example` que
+  no es instalable. No se ha modificado ese módulo.
+
+Estas pruebas se hicieron en la base temporal, no actualizando el PRE activo.
+
+## Historial anterior a 19.0.2.1.0
+
+Los apartados siguientes describen la implementación y las pruebas anteriores.
+Las menciones a dos pestañas o a sustituir métodos quedan superadas por la
+separación descrita arriba.
 
 ## Corrección 19.0.2.0.1: proyecto sin fechas
 

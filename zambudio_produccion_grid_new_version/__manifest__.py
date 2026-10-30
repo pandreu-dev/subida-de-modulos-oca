@@ -1,4 +1,4 @@
-{'version': '19.0.2.0.0',
+{'version': '19.0.2.1.0',
  'author': 'AUNNA IT',
  'category': 'Services/Project',
  'auto_install': False,
@@ -6,6 +6,6 @@
  'application': False,
  'license': 'LGPL-3',
  'name': 'Declaración de producción — cuadrícula (Enterprise)_new_version',
- 'summary': 'Reutiliza la cuadrícula existente sin duplicar sus vistas',
+ 'summary': 'Acceso a la cuadrícula desde la página Producción (new_version)',
  'depends': ['zambudio_produccion_new_version', 'zambudio_produccion_grid'],
- 'data': []}
+ 'data': ['views/grid_views.xml']}

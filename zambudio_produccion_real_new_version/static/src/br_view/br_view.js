@@ -46,7 +46,7 @@ export class ProduccionBRView extends Component {
         }
         this.state.cargando = true;
         this.state.data = await this.orm.call(
-            "project.project", "get_produccion_br_data", [[this.projectId]],
+            "project.project", "get_produccion_br_data_new_version", [[this.projectId]],
             { anio: this.state.anio }
         );
         this.state.cargando = false;
@@ -319,12 +319,7 @@ export class ProduccionBRView extends Component {
         await this.cargar();
     }
 
-    async recalcular() {
-        await this.orm.call(
-            "project.project", "action_recalcular_produccion_real", [[this.projectId]]
-        );
-        await this.cargar();
-    }
+
 }
 
 export const produccionBRView = {

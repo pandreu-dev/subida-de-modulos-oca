@@ -18,26 +18,14 @@ TIPOS_COMPRA = [
 
 
 class ProduccionRealMotor(models.AbstractModel):
+    _name = 'produccion.real.motor.new.version'
     _inherit = 'produccion.real.motor'
-
-    def _recalcular_proyecto(self, project, fecha_desde, fecha_hasta):
-        d_ini = fecha_desde or project.produccion_fecha_inicio or project.date_start
-        d_fin = fecha_hasta or project.produccion_fecha_fin or project.date
-        if not d_ini or not d_fin:
-            return
-        # El plan trabaja por MESES completos: los reales también (si el
-        # proyecto acaba el 15, lo imputado del 16 al 30 es de ese mes).
-        d_ini = d_ini.replace(day=1)
-        d_fin = d_fin + relativedelta(day=31)
-
-        reales = self._costes_por_periodo(project, d_ini, d_fin)
-        self._escribir_en_plan(project, d_ini, d_fin, reales)
-        project.sudo().write({"produccion_real_last_update": fields.Datetime.now()})
+    _description = 'Motor de consulta de seguimiento new_version'
 
     def _costes_por_periodo(self, project, d_ini, d_fin):
         """Lee las cuatro fuentes sin guardar líneas ni marcar el plan al día.
 
-        Compartido por el recálculo persistente y la consulta del mes abierto.
+        Solo lo utiliza la consulta nueva; el recálculo original no se sustituye.
         Las fechas son inclusivas; no se amplían a meses completos aquí.
         """
         reales = defaultdict(float)  # (mes 'YYYY-MM', concepto) -> importe

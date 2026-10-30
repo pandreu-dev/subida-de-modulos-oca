@@ -84,7 +84,7 @@ class TestMesActualLocal(unittest.TestCase):
         self.motor.detalle_compras = lambda *args: []
         self.project = Project()
         p = self.project
-        p.env = {"produccion.real.motor": self.motor}
+        p.env = {"produccion.real.motor.new.version": self.motor}
         p.ensure_one = lambda: None
         p.with_company = lambda company: p
         p._sincronizar_tcv = lambda: None
@@ -143,14 +143,14 @@ class TestMesActualLocal(unittest.TestCase):
             raise PlanningError("Indica las fechas de inicio y fin de la planificación")
 
         project._meses_planificacion = missing_dates
-        data = project.get_produccion_br_data()
+        data = project.get_produccion_br_data_new_version()
         self.assertEqual(data["meses"], [])
         self.assertEqual(data["estado_mes"], {})
         self.assertEqual(self.queries, [])
 
     def test_current_costs_refresh_without_persisting_or_closing_income(self):
         self.sources["horas"] = [(Date.today, "horas_internas", -125.0)]
-        data = self.project.get_produccion_br_data()
+        data = self.project.get_produccion_br_data_new_version()
         self.assertEqual(self.cost(data), {"valor": -125.0, "real": -125.0,
                                           "previsto": -500.0, "desviacion": 375.0})
         self.assertEqual(data["avance"]["2026-10"]["valor"], 1000.0)
@@ -160,9 +160,9 @@ class TestMesActualLocal(unittest.TestCase):
         self.assertEqual(data["wip"]["2026-10"], 1600.0)
         self.assertEqual(data["estado_mes"], {"2026-09": "pasado", "2026-10": "actual", "2026-11": "futuro"})
         self.sources["horas"].append((Date.today, "horas_internas", -75.0))
-        self.assertEqual(self.cost(self.project.get_produccion_br_data())["valor"], -200.0)
+        self.assertEqual(self.cost(self.project.get_produccion_br_data_new_version())["valor"], -200.0)
         self.sources["horas"].clear()
-        self.assertEqual(self.cost(self.project.get_produccion_br_data())["valor"], 0.0)
+        self.assertEqual(self.cost(self.project.get_produccion_br_data_new_version())["valor"], 0.0)
         self.assertEqual(self.project.produccion_real_last_update, datetime(2026, 10, 1))
         self.assertTrue(all(l.importe_real == -20.0 for l in self.project.produccion_linea_ids if l.concepto == "horas_internas"))
 
@@ -172,36 +172,36 @@ class TestMesActualLocal(unittest.TestCase):
         self.sources["gastos"] = [(Date.today, "viajes", -30.0)]
         self.sources["almacen"] = [(Date.today, "materiales", -80.0), (Date.today, "materiales", 20.0),
                                     (date(2026, 10, 31), "materiales", -999.0)]
-        data = self.project.get_produccion_br_data()
+        data = self.project.get_produccion_br_data_new_version()
         self.assertEqual(sum(f["celdas"]["2026-10"]["valor"] for f in data["costes"]), -440.0)
         self.assertEqual(self.cost(data, "licencias_software")["valor"], -250.0)
         self.assertEqual({name for name, _, _ in self.queries}, set(self.sources))
         self.assertTrue(all((start, end) == (date(2026, 10, 1), Date.today) for _, start, end in self.queries))
 
     def test_past_and_future_unchanged(self):
-        data = self.project.get_produccion_br_data()
+        data = self.project.get_produccion_br_data_new_version()
         self.assertEqual(self.cost(data, month="2026-09")["valor"], -20.0)
         self.assertEqual(self.cost(data, month="2026-11")["valor"], -500.0)
         self.assertEqual(data["avance"]["2026-09"]["valor"], 800.0)
         self.assertTrue(data["avance"]["2026-09"]["confirmado"])
 
     def test_other_year_or_no_dates_does_not_query_current_sources(self):
-        self.assertEqual(self.project.get_produccion_br_data(anio=2025)["meses"], [])
+        self.assertEqual(self.project.get_produccion_br_data_new_version(anio=2025)["meses"], [])
         def missing_dates():
             raise ValueError("Sin fechas")
         self.project._meses_planificacion = missing_dates
-        self.assertEqual(self.project.get_produccion_br_data()["meses"], [])
+        self.assertEqual(self.project.get_produccion_br_data_new_version()["meses"], [])
         self.assertEqual(self.queries, [])
 
     def test_rollover_and_year_boundary(self):
         Date.today = date(2026, 11, 1)
         self.sources["horas"] = [(Date.today, "horas_internas", -12.0)]
-        data = self.project.get_produccion_br_data()
+        data = self.project.get_produccion_br_data_new_version()
         self.assertEqual(data["estado_mes"]["2026-10"], "pasado")
         self.assertEqual(self.cost(data, month="2026-11")["valor"], -12.0)
         Date.today = date(2027, 1, 1)
         self.project._meses_planificacion = lambda: [date(2026, 12, 1), date(2027, 1, 1), date(2027, 2, 1)]
-        data = self.project.get_produccion_br_data()
+        data = self.project.get_produccion_br_data_new_version()
         self.assertEqual(list(data["estado_mes"].values()), ["pasado", "actual", "futuro"])
 
     def test_datetime_month_limits_and_dst(self):
@@ -213,7 +213,7 @@ class TestMesActualLocal(unittest.TestCase):
             self.assertEqual((domain[1][2] - domain[0][2]).total_seconds() / 3600, hours)
 
     def test_today_afternoon_inside_stock_domain(self):
-        data = self.project.get_produccion_br_data()
+        data = self.project.get_produccion_br_data_new_version()
         self.assertEqual(data["dominio_fechas_actual_datetime"], [
             ("date", ">=", "2026-09-30 22:00:00"), ("date", "<", "2026-10-30 23:00:00")])
         after_midnight = datetime(2026, 10, 30, 20)

@@ -1,4 +1,4 @@
-{'version': '19.0.2.0.0',
+{'version': '19.0.2.1.0',
  'author': 'AUNNA IT',
  'category': 'Services/Project',
  'auto_install': False,
@@ -6,6 +6,6 @@
  'application': False,
  'license': 'LGPL-3',
  'name': 'Declaración de producción de proyectos_new_version',
- 'summary': 'Integra las ampliaciones con la planificación existente',
+ 'summary': 'Página propia de producción sobre la planificación existente',
  'depends': ['zambudio_produccion'],
- 'data': []}
+ 'data': ['views/project_views.xml']}

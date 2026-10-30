@@ -1,4 +1,4 @@
-"""Amplia el asistente Excel original sin crear otro modelo ni accion."""
+"""Asistente Excel propio; conserva intacto el asistente original."""
 import base64
 import io
 
@@ -22,7 +22,9 @@ COLOR_GRUPOS = {
 
 
 class ProduccionExportarBR(models.TransientModel):
+    _name = 'produccion.exportar.br.new.version'
     _inherit = 'produccion.exportar.br'
+    _description = 'Exportar seguimiento new_version'
 
     def action_exportar(self):
         self.ensure_one()
@@ -32,7 +34,7 @@ class ProduccionExportarBR(models.TransientModel):
         except ImportError:
             raise UserError("Falta la librería openpyxl en el servidor.")
 
-        datos = self.project_id.get_produccion_br_data(
+        datos = self.project_id.get_produccion_br_data_new_version(
             anio=self.anio or None
         )
         if not datos["meses"]:
@@ -280,7 +282,7 @@ class ProduccionExportarBR(models.TransientModel):
         ws2.freeze_panes = "B5"
 
         # ============ Hoja 3: detalle de horas =================================
-        motor = self.env["produccion.real.motor"]
+        motor = self.env["produccion.real.motor.new.version"]
         d_ini = fields.Date.to_date(datos["meses"][0] + "-01")
         import calendar as _cal
 

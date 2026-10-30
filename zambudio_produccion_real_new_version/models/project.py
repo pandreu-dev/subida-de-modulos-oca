@@ -34,7 +34,7 @@ ORDEN_COSTES_BR = [
 class ProjectProject(models.Model):
     _inherit = 'project.project'
 
-    def get_produccion_br_data(self, anio=None):
+    def get_produccion_br_data_new_version(self, anio=None):
         """Estructura completa para pintar la tabla BR de un proyecto:
         meses, estado (pasado/actual/futuro), avance, costes por tipología,
         PM, %PM, %PM acumulado, facturación y WIP. Una cifra por celda:
@@ -43,17 +43,19 @@ class ProjectProject(models.Model):
         """
         self.ensure_one()
         project = self.with_company(self.company_id)
-        # El TCV de la ficha manda: si ha cambiado desde el último reparto, se
-        # rehace antes de pintar (tolerante: si no cabe, deja aviso visible).
-        project._sincronizar_tcv()
-        motor = project.env["produccion.real.motor"]
+        motor = project.env["produccion.real.motor.new.version"]
         hoy = fields.Date.context_today(self)
         mes_actual = hoy.strftime("%Y-%m")
 
+        aviso_planificacion = False
         try:
             meses = project._meses_planificacion() or []
-        except UserError:
+        except UserError as error:
+            aviso_planificacion = str(error)
             meses = []  # sin fechas en la ficha: la pestaña enseña el aviso, no un error
+        if meses:
+            # Conserva el reparto del TCV original, pero no lo intenta sin fechas.
+            project._sincronizar_tcv()
         if anio:
             meses = [m for m in meses if m.year == anio]
         claves = [m.strftime("%Y-%m") for m in meses]
@@ -74,7 +76,7 @@ class ProjectProject(models.Model):
         avances = {
             a.fecha_mes.strftime("%Y-%m"): a for a in project.produccion_avance_ids
         }
-        facturacion = motor.facturacion_por_mes(project)
+        facturacion = motor.facturacion_por_mes(project) if meses else {}
 
         def estado_mes(clave):
             """Un mes solo está CERRADO cuando ya ha terminado. El mes en curso
@@ -187,6 +189,7 @@ class ProjectProject(models.Model):
             # proyecto ya resuelve la moneda que toca
             "moneda": project.currency_id.symbol or "",
             "meses": claves,
+            "aviso_planificacion": aviso_planificacion,
             "estado_mes": {c: estado_mes(c) for c in claves},
             "costes_actuales_hasta": fields.Date.to_string(hoy)
             if mes_actual in claves else False,

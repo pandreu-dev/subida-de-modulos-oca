@@ -21,7 +21,7 @@ def main():
     case = TestMesActualLocal()
     case.setUp()
     case.sources["horas"] = [(Date.today, "horas_internas", -125.0)]
-    data = case.project.get_produccion_br_data()
+    data = case.project.get_produccion_br_data_new_version()
     source = (ROOT / "static/src/br_view/br_view.js").read_text(encoding="utf-8")
     source = re.sub(r"^import .*?;\s*$", "", source, flags=re.MULTILINE)
     source = source.replace("export class ", "class ").replace("export const ", "const ")
@@ -55,7 +55,13 @@ def main():
                 widgets.set(key, value);
             } }) };
             const services = {
-                orm: { call: async () => { window.rpcCalls++; return structuredClone(window.fixture); } },
+                orm: { call: async (model, method) => {
+                    if (method !== 'get_produccion_br_data_new_version') {
+                        throw new Error('RPC original utilizado: ' + method);
+                    }
+                    window.rpcCalls++;
+                    return structuredClone(window.fixture);
+                } },
                 action: { doAction: action => window.actions.push(action) },
             };
             const useService = name => services[name];
@@ -85,7 +91,7 @@ def main():
         domain = page.evaluate("window.actions.at(-1).domain")
         assert ["date", "<", "2026-10-30 23:00:00"] in domain
         case.sources["horas"].append((Date.today, "horas_internas", -75.0))
-        page.evaluate("data => window.fixture = data", case.project.get_produccion_br_data())
+        page.evaluate("data => window.fixture = data", case.project.get_produccion_br_data_new_version())
         page.get_by_role("button", name="Actualizar tabla").click()
         page.wait_for_function("window.rpcCalls === 2 && !window.component.state.cargando")
         page.wait_for_function("document.querySelector('tbody tr:nth-child(4) td.br-actual').textContent.includes('-200,00')")
@@ -94,6 +100,12 @@ def main():
         assert pm.inner_text() == "800,00"
         if args.screenshot:
             page.screenshot(path=args.screenshot, full_page=True)
+        page.evaluate("""async () => {
+            window.fixture = {meses: [], aviso_planificacion: 'Faltan las fechas de planificación.'};
+            await window.component.cargar();
+        }""")
+        page.get_by_text("Puedes consultar esta pestaña", exact=False).wait_for()
+        assert page.locator("table.br-tabla").count() == 0
         assert not errors, errors
         browser.close()
     print("OK: OWL renderiza; colores, etiqueta, costes, tooltip, desviación, navegación y actualización correctos.")
