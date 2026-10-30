@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- «Puerta de atrás» controlada (petición de Laura, 18/08/2026): solo quien
+         tenga este grupo puede cargar o corregir importes de MESES YA CERRADOS
+         (carga inicial del histórico y corrección de errores). Todo queda
+         registrado: quién, cuándo, qué valor había y qué valor se puso.
+         Pensado para 2-3 personas; se asigna desde Ajustes → Usuarios. -->
+    <!-- SIN privilege_id a propósito: en Odoo 19 los grupos de un mismo
+         privilegio son una selección EXCLUYENTE en la ficha de usuario (elegir
+         este quitaría «Administrador de proyecto»). Sin privilegio aparece
+         como casilla en «Derechos extra». -->
+    <record id="group_produccion_carga_inicial" model="res.groups">
+        <field name="name">Producción: carga inicial y corrección de meses cerrados</field>
+        <field name="privilege_id" eval="False"/>
+        <field name="comment">Puede modificar ingresos y costes planificados de meses ya
+cerrados a través del asistente de carga inicial (queda registro de cada cambio).
+Reservado a pocas personas.</field>
+    </record>
+
+    <!-- Los administradores de Ajustes lo tienen implícito (para poder arrancar
+         y asignarlo); el resto de usuarios, incluido el administrador de
+         proyectos, NO. -->
+    <record id="base.group_system" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('aunna_produccion_borrar.group_produccion_carga_inicial'))]"/>
+    </record>
+
+    <record id="rule_plan_ajuste_company" model="ir.rule">
+        <field name="name">Ajustes de producción: multicompañía</field>
+        <field name="model_id" ref="model_produccion_plan_ajuste"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+</odoo>
