@@ -1,6 +1,26 @@
 # Costes reales del mes en curso
 
-Fecha: 30/10/2026. Módulo: `zambudio_produccion_real_new_version`. Versión: `19.0.2.0.0`.
+Fecha: 30/10/2026. Módulo: `zambudio_produccion_real_new_version`. Versión: `19.0.2.0.1`.
+
+## Corrección 19.0.2.0.1: proyecto sin fechas
+
+Al extraer la ampliación se omitió el import de `UserError` en `models/project.py`.
+Un proyecto sin fechas disparaba esa excepción en el módulo original y el
+`except UserError` de la ampliación fallaba con `NameError`, provocando RPC_ERROR.
+Se recupera el import para mostrar el aviso de falta de planificación sin
+generar líneas ni exigir fechas solo para abrir la pestaña. No se modifica
+ningún módulo original ni las otras dos ampliaciones.
+
+Se añade una regresión local que ejecuta el archivo completo, incluidos sus
+imports: reproduce el `NameError` antes de corregirlo. El cargador simplificado
+de las pruebas anteriores aportaba `UserError` y ocultaba este import ausente.
+La suite local tiene ahora diez pruebas. Se añade también el caso ORM de un
+proyecto nuevo sin fechas en `test_mes_actual.py`.
+
+Validación de la corrección: **10/10 pruebas locales correctas** y **1/1 caso
+ORM sin fechas correcto** en la copia neutralizada de PRE, que conserva el
+nombre técnico anterior de la ampliación. Se verificaron sin cambios sus
+planes, ajustes, avances, proyectos, XML IDs originales y número de crons.
 
 ## Petición de Laura y ubicación
 

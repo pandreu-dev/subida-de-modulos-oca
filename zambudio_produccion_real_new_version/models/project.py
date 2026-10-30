@@ -2,6 +2,7 @@
 from dateutil.relativedelta import relativedelta
 
 from odoo import fields, models
+from odoo.exceptions import UserError
 from .produccion_real import TIPOS_COMPRA
 
 ETIQUETAS_COSTE_BR = dict(

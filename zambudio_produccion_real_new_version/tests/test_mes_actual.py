@@ -3,6 +3,7 @@ from datetime import date, datetime
 from unittest.mock import patch
 
 from odoo import fields
+from odoo.exceptions import UserError
 from odoo.tests import TransactionCase, tagged
 
 from odoo.addons.zambudio_produccion.models.produccion import PERMISO_MESES_CERRADOS
@@ -107,6 +108,20 @@ class TestSeguimientoMesActual(TransactionCase):
     def test_filtro_ano_no_consulta_fuentes_del_mes_actual(self):
         with patch.object(type(self.motor), "_costes_por_periodo", side_effect=AssertionError("Consulta innecesaria")):
             self.assertEqual(self.project.get_produccion_br_data(anio=2025)["meses"], [])
+
+    def test_proyecto_sin_fechas_muestra_aviso_sin_error_rpc(self):
+        project = self.env["project.project"].create({
+            "name": "TEST SIN FECHAS DE PLANIFICACION",
+            "date_start": False,
+            "date": False,
+        })
+        with self.assertRaises(UserError):
+            project._meses_planificacion()
+        with patch.object(type(self.motor), "_costes_por_periodo", side_effect=AssertionError("Consulta innecesaria")):
+            data = project.get_produccion_br_data()
+        self.assertEqual(data["meses"], [])
+        self.assertFalse(project.produccion_linea_ids)
+        self.assertFalse(project.produccion_avance_ids)
 
     def test_limites_datetime_incluyen_hoy_y_cambio_horario(self):
         # Este método lo hereda del motor original, sin redefinirlo en AUNNA.

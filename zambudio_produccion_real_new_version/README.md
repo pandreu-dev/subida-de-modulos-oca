@@ -1,6 +1,6 @@
 # Producción — Seguimiento económico
 
-**Ampliación `zambudio_produccion_real_new_version`, versión 19.0.2.0.0.**
+**Ampliación `zambudio_produccion_real_new_version`, versión 19.0.2.0.1.**
 El cambio del mes en curso solicitado por Laura está descrito en
 [Mes en curso: comportamiento, pruebas e instalación](docs/mes_en_curso.md).
 Esta versión depende de los módulos originales `zambudio_produccion` y

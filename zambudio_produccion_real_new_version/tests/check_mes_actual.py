@@ -8,11 +8,13 @@ Requieren python-dateutil, pytz y openpyxl, habituales en el entorno de Odoo.
 import ast
 import base64
 import io
+import sys
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 import openpyxl
 import pytz
@@ -110,6 +112,41 @@ class TestMesActualLocal(unittest.TestCase):
     @staticmethod
     def cost(data, concept="horas_internas", month="2026-10"):
         return next(f["celdas"][month] for f in data["costes"] if f["concepto"] == concept)
+
+    def test_project_without_dates_using_actual_module_imports(self):
+        """Carga todo project.py: no inyecta UserError en sus variables globales."""
+        class PlanningError(Exception):
+            pass
+
+        odoo = ModuleType("odoo")
+        odoo.fields = SimpleNamespace(Date=Date, Datetime=Datetime)
+        odoo.models = SimpleNamespace(Model=object)
+        exceptions = ModuleType("odoo.exceptions")
+        exceptions.UserError = PlanningError
+        motor_module = ModuleType("br_regression.produccion_real")
+        motor_module.TIPOS_COMPRA = motor_constants["TIPOS_COMPRA"]
+        module = ModuleType("br_regression.project")
+        module.__package__ = "br_regression"
+        path = ROOT / "models/project.py"
+        with patch.dict(sys.modules, {
+            "odoo": odoo, "odoo.exceptions": exceptions,
+            "br_regression.produccion_real": motor_module,
+        }):
+            exec(compile(path.read_text(encoding="utf-8"), str(path), "exec"), module.__dict__)
+
+        project = module.ProjectProject()
+        project.__dict__.update(self.project.__dict__)
+        project.with_company = lambda company: project
+        project.produccion_fecha_inicio = project.produccion_fecha_fin = False
+
+        def missing_dates():
+            raise PlanningError("Indica las fechas de inicio y fin de la planificación")
+
+        project._meses_planificacion = missing_dates
+        data = project.get_produccion_br_data()
+        self.assertEqual(data["meses"], [])
+        self.assertEqual(data["estado_mes"], {})
+        self.assertEqual(self.queries, [])
 
     def test_current_costs_refresh_without_persisting_or_closing_income(self):
         self.sources["horas"] = [(Date.today, "horas_internas", -125.0)]
