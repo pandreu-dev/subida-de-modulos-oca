@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Pestaña «Producción» dentro de la ficha del proyecto -->
+    <record id="view_project_form_produccion" model="ir.ui.view">
+        <field name="name">project.project.form.produccion</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <notebook position="inside">
+                <page string="Producción" name="produccion">
+                    <div class="alert alert-info" role="alert">
+                        <b>Declaración de producción de este proyecto.</b><br/>
+                        1) En la ficha del proyecto informa el <b>TCV</b>, el <b>Tipo de
+                        proyecto</b> y la <b>Fecha planificada</b>; aquí se muestran ya
+                        rellenos (no se editan en esta pestaña).<br/>
+                        2) Pulsa <b>Generar planificación</b>: se crean los meses del contrato.<br/>
+                        3) Rellena los <b>costes previstos</b> de cada mes. El ingreso se
+                        calcula solo en proyectos cerrados (por avance de coste) y recurrentes
+                        (TCV entre meses); en Tiempo &amp; Materiales lo indicas tú.<br/>
+                        <i>Los meses ya cerrados no se pueden modificar; el mes en curso
+                        siempre es previsión.</i>
+                    </div>
+                    <group>
+                        <group string="Contrato (de la ficha del proyecto)">
+                            <!-- TCV, tipo y fechas se toman de la FICHA del proyecto
+                                 (tcv_amount, zambudio_project_type, date_start/date —
+                                 confirmado por Laura 18/08/2026). Aquí son informativos.
+                                 El TCV manual solo aparece si la ficha no tiene TCV
+                                 (bases sin el módulo de TCV o proyecto sin importe). -->
+                            <field name="tcv_efectivo"/>
+                            <field name="tcv_fuente"/>
+                            <field name="tcv" invisible="tcv_fuente != 'manual'"/>
+                            <field name="tipo_produccion"/>
+                            <field name="produccion_tcv_alerta" invisible="not produccion_tcv_alerta"
+                                   class="text-warning fw-bold"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="Periodo de planificación (de la ficha)">
+                            <!-- Se leen de la «Fecha planificada» del proyecto. -->
+                            <field name="produccion_fecha_inicio"/>
+                            <field name="produccion_fecha_fin"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Resumen planificado">
+                            <field name="produccion_ingreso_total"/>
+                            <field name="produccion_coste_total"/>
+                            <field name="produccion_margen"/>
+                            <field name="produccion_margen_pct" widget="percentage"/>
+                            <field name="produccion_tcv_restante"/>
+                        </group>
+                    </group>
+                    <div class="mb-3">
+                        <button name="action_generar_planificacion" type="object"
+                                string="Generar planificación" class="btn-primary"/>
+                        <button name="action_recalcular_ingresos" type="object"
+                                string="Recalcular ingresos" class="btn-secondary ms-2"/>
+                        <button name="%(action_importar_produccion)d" type="action"
+                                string="Importar / Exportar Excel"
+                                class="btn-secondary ms-2"/>
+                        <button name="action_ver_produccion" type="object"
+                                string="Ver cuadrícula (pivot)" class="btn-link ms-2"/>
+                        <button name="%(action_carga_inicial_produccion)d" type="action"
+                                string="Carga inicial / corregir meses cerrados"
+                                class="btn-warning ms-2"
+                                groups="aunna_produccion_borrar.group_produccion_carga_inicial"/>
+                    </div>
+                    <field name="produccion_linea_ids"
+                           context="{'default_project_id': id}">
+                        <list editable="bottom" default_order="fecha_mes,secuencia"
+                              create="0" delete="0"
+                              decoration-muted="mes_cerrado"
+                              decoration-bf="es_ingreso">
+                            <field name="etiqueta_mes" string="Mes" readonly="1"/>
+                            <field name="concepto" readonly="1"/>
+                            <!-- el ingreso de proyecto cerrado/recurrente lo calcula
+                                 el reparto: solo se teclea en T&amp;M -->
+                            <field name="importe_previsto"
+                                   readonly="mes_cerrado or (es_ingreso and parent.tipo_produccion != 'tm')"/>
+                            <field name="importe_real" optional="show"/>
+                            <field name="desviacion" optional="hide"/>
+                            <field name="mes_cerrado" column_invisible="1"/>
+                            <field name="es_ingreso" column_invisible="1"/>
+                            <field name="secuencia" column_invisible="1"/>
+                            <field name="currency_id" column_invisible="1"/>
+                        </list>
+                    </field>
+                </page>
+            </notebook>
+        </field>
+    </record>
+</odoo>

@@ -2,7 +2,7 @@
 
 > Empezar siempre con `cd /tmp`. En `psql`, usar `PAGER=cat`.
 
-## Estado de servicios
+## Estado  de servicios
 ```bash
 sudo systemctl status odoo19 --no-pager -l          # PRO
 sudo systemctl status odoo19_pruebas --no-pager -l  # PRE

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Nueva pestaña «Seguimiento económico» — herencia propia, la pestaña
+         «Producción» original queda intacta. -->
+    <record id="view_project_form_br" model="ir.ui.view">
+        <field name="name">project.project.form.business.review</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="aunna_produccion_borrar.view_project_form_produccion"/>
+        <field name="arch" type="xml">
+            <page name="produccion" position="after">
+                <page name="business_review" string="Seguimiento económico"
+                      groups="project.group_project_user">
+                    <div class="alert alert-info" role="alert" style="margin-bottom: 8px;">
+                        La <b>foto económica completa</b> del proyecto: meses pasados con
+                        el <b>dato real</b> (cian) y meses futuros con la <b>previsión</b>
+                        (morado). Pase el ratón por una celda para ver
+                        previsto/real/desviación y haga clic para ver los apuntes de origen.
+                    </div>
+                    <group>
+                        <group string="Contrato (fuente oficial)">
+                            <field name="tcv_efectivo" readonly="1"/>
+                            <field name="tcv_fuente" readonly="1"/>
+                        </group>
+                        <group string="Datos reales">
+                            <field name="produccion_real_last_update" readonly="1"/>
+                            <field name="produccion_real_stale" readonly="1"
+                                   widget="boolean" string="¿Hay imputaciones sin recalcular?"/>
+                        </group>
+                    </group>
+                    <div class="mb-3">
+                        <button name="action_recalcular_produccion_real" type="object"
+                                string="Recalcular datos reales" class="btn-primary"
+                                groups="aunna_produccion_real_borrar.group_produccion_confirmar"/>
+                        <button name="action_abrir_avances" type="object"
+                                string="Confirmar avance mensual" class="btn-secondary"/>
+                        <button name="%(aunna_produccion_real_borrar.action_exportar_br)d"
+                                type="action" string="Exportar Excel"
+                                class="btn-secondary"/>
+                    </div>
+                    <widget name="produccion_br_view"/>
+                </page>
+            </page>
+        </field>
+    </record>
+</odoo>

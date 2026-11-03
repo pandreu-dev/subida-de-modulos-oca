@@ -1,0 +1,17 @@
+{
+  "servidor": "51.91.126.132",
+  "ruta_origen": "/opt/odoo19_pruebas/addons/modules/subida-de-modulos-oca",
+  "fecha_utc": "2026-10-30T09:29:38.215864+00:00",
+  "head_repo_informativo": "a1728f2ebdfc4d5c8e35c229a001c6fa88751835",
+  "nota": "Los SHA256 identifican el contenido leido; los modulos pueden no estar versionados en el repo de PRE.",
+  "sha256_originales": {
+    "zambudio_produccion_grid/__init__.py": "5fd10918e1361ad65b4b41bcd8fb525e659267f47c8c4334ae52530e58908e9e",
+    "zambudio_produccion_grid/__manifest__.py": "c2258c4a16a7c6fda13a1841a168db28489a78b5bcebd840e65aeb3daf3cb622",
+    "zambudio_produccion_grid/models/__init__.py": "4258c16a6223c2b36f3cf241e6780584157dbf5a0c58a3f85c12acdf7487f554",
+    "zambudio_produccion_grid/models/project.py": "f6f22e17814501d548d39f28d8f4cb602a2156916b334da3cea9ead1faa982f1",
+    "zambudio_produccion_grid/views/grid_views.xml": "a3197bb226d379e93316f05aa4401d861085c55fa070b9d8fbebb9b2e19b5a65"
+  },
+  "modulo_original": "zambudio_produccion_grid",
+  "copia": "aunna_produccion_grid_borrar",
+  "uso": "Referencia de PRE para comparar. No instalar junto a los originales ni a las copias de desarrollo."
+}

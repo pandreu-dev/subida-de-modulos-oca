@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- La «cuadrícula»: pivot conceptos (filas) × meses (columnas) -->
+    <record id="view_produccion_pivot" model="ir.ui.view">
+        <field name="name">produccion.plan.linea.pivot</field>
+        <field name="model">produccion.plan.linea</field>
+        <field name="arch" type="xml">
+            <pivot string="Producción" sample="1">
+                <field name="concepto" type="row"/>
+                <field name="fecha_mes" interval="month" type="col"/>
+                <field name="importe_previsto" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_produccion_list" model="ir.ui.view">
+        <field name="name">produccion.plan.linea.list</field>
+        <field name="model">produccion.plan.linea</field>
+        <field name="arch" type="xml">
+            <list editable="bottom" create="0" delete="0" decoration-muted="mes_cerrado" decoration-bf="es_ingreso">
+                <field name="project_id"/>
+                <field name="etiqueta_mes" string="Mes"/>
+                <field name="concepto"/>
+                <field name="importe_previsto" readonly="mes_cerrado"/>
+                <field name="importe_real"/>
+                <field name="desviacion" optional="hide"/>
+                <field name="mes_cerrado" column_invisible="1"/>
+                <field name="es_ingreso" column_invisible="1"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_produccion_lineas" model="ir.actions.act_window">
+        <field name="name">Planificación de producción</field>
+        <field name="res_model">produccion.plan.linea</field>
+        <field name="view_mode">pivot,list</field>
+        <field name="context">{'pivot_row_groupby': ['concepto'],
+                               'pivot_column_groupby': ['fecha_mes:month']}</field>
+    </record>
+
+    <menuitem id="menu_produccion_root" name="Producción" parent="project.menu_main_pm"
+              action="action_produccion_lineas" sequence="90"/>
+</odoo>

@@ -1,0 +1,84 @@
+/* Mes abierto diferenciado del cian histórico y de la previsión morada. */
+.o_produccion_br {
+    .br-wrap {
+        overflow: auto;
+        max-width: 100%;
+        border: 1px solid #d8dee6;
+        border-radius: 4px;
+    }
+    .br-tabla {
+        border-collapse: separate;
+        border-spacing: 0;
+        width: max-content;
+        min-width: 100%;
+        font-size: 13px;
+
+        th, td {
+            border-right: 1px solid #e6e9ed;
+            border-bottom: 1px solid #e6e9ed;
+            padding: 5px 10px;
+            white-space: nowrap;
+            text-align: right;
+        }
+        thead th {
+            position: sticky;
+            top: 0;
+            z-index: 3;
+            font-weight: 700;
+            text-align: center;
+            color: #1a1a1a;
+        }
+        .br-etiqueta {
+            position: sticky;
+            left: 0;
+            z-index: 2;
+            background: #fff;
+            text-align: left;
+            min-width: 210px;
+            font-weight: 600;
+            box-shadow: 1px 0 0 #d8dee6;
+        }
+        thead .br-etiqueta {
+            background: #f6f7f8;
+            z-index: 5;
+        }
+
+        /* Colores BR por estado del mes */
+        thead .br-pasado  { background: #6dd9ff; }
+        thead .br-actual  { background: #2563eb; color: #fff; }
+        thead .br-futuro  { background: #bd92de; }
+        thead .br-agregado { background: #7030a0; color: #fff; }
+        tbody .br-pasado  { background: #eefaff; }
+        tbody .br-actual  { background: #dbeafe; }
+        tbody .br-futuro  { background: #f7f0fc; }
+        tbody .br-agregado { background: #ece2f4; font-weight: 700; }
+
+        /* Cabeceras de grupo (misma familia de color que el informe conocido) */
+        .br-grupo td {
+            font-weight: 700;
+            color: #fff;
+            text-align: left;
+            padding: 4px 10px;
+        }
+        .br-grupo-avance td { background: #1f4e79; }
+        .br-grupo-costes td { background: #843c39; }
+        .br-grupo-pm td     { background: #375623; }
+        .br-grupo-wip td    { background: #bf6000; }
+        .br-fila-pm td { font-weight: 700; }
+
+        .br-delta {
+            font-size: 10px;
+            line-height: 1.1;
+        }
+        .br-pos { color: #067647; }
+        .br-neg { color: #b42318; font-weight: 600; }
+        .br-check {
+            color: #067647;
+            font-weight: 700;
+            margin-left: 3px;
+            font-size: 11px;
+        }
+        .br-click { cursor: pointer; }
+        .br-click:hover { outline: 2px solid #714b67; outline-offset: -2px; }
+    }
+}
