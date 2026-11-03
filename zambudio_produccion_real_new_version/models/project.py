@@ -1,12 +1,16 @@
 # -*- coding: utf-8 -*-
 """Extensión del proyecto: recálculo de actuals, detección de datos obsoletos,
 TCV efectivo y endpoint JSON de la pestaña Seguimiento económico."""
+import logging
+
 from dateutil.relativedelta import relativedelta
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 from .produccion_real import TIPOS_COMPRA
+
+_logger = logging.getLogger(__name__)
 
 ETIQUETAS_COSTE_BR = dict(
     TIPOS_COMPRA
@@ -136,6 +140,14 @@ class ProjectProject(models.Model):
             desde = hoy.replace(day=1) - relativedelta(months=meses_atras)
         Avance = self.env["produccion.avance.mes"]
         for project in proyectos:
+            try:
+                project._meses_planificacion()
+            except UserError:
+                # Sin «Fecha planificada» válida no hay meses que recalcular; si no
+                # se salta, el error deshace el recálculo de todos los proyectos.
+                _logger.warning("Producción: «%s» no tiene fechas de planificación "
+                                "válidas; no se recalcula.", project.display_name)
+                continue
             project._sincronizar_tcv()
             motor.recalcular_proyectos(project, fecha_desde=desde)
             Avance.sincronizar_proyecto(project)

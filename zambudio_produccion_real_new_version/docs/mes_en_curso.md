@@ -40,7 +40,10 @@ refiere a los datos guardados y puede seguir visible.
 
 Sin fechas, o con fechas invertidas: la pestaña Seguimiento económico muestra el
 aviso de planificación incompleta, no sincroniza el TCV ni consulta costes, y en
-ambas pestañas se ocultan los botones que requieren fechas.
+ambas pestañas se ocultan los botones que requieren fechas. El cron diario
+«Producción: recálculo de datos reales» salta ese proyecto y lo anota en el log;
+en el original, un solo proyecto planificado sin fechas hacía fallar la pasada
+entera (se deshacía el recálculo de todos) y Odoo acababa desactivando el cron.
 
 ## Alcance técnico
 
@@ -60,15 +63,29 @@ ambas pestañas se ocultan los botones que requieren fechas.
   figura como previsto, no como real, en la hoja «Previsto vs Real».
 - Vistas: aviso y botones ocultos sin fechas válidas en las pestañas Producción y
   Seguimiento económico.
+- `cron_recalcular_produccion_real`: salta los proyectos sin fechas válidas.
+- Manifests: `excludes` con el módulo original equivalente. Odoo rechaza instalar
+  esta versión en una base donde estén los originales (p. ej. PRE), en lugar de
+  romper el registro por modelos y widget duplicados.
 
 ## Pruebas
 
 ORM (`tests/test_mes_actual.py`, se ejecutan con `--test-enable`):
 imputación nueva/modificada/borrada sin recálculo, pasado/futuro y horas sin
 validar, cambio de mes, filtro de año, límites UTC y cambio horario, proyecto sin
-fechas (sin error ni consulta), sin fechas con líneas (no reparte TCV), una sola
-pestaña de cada con sus nombres originales, y Excel con el mes en curso en azul.
-También se conservan `tests/test_motor.py` y `test_tcv_y_carga.py` del original.
+fechas (sin error ni consulta), sin fechas con líneas (no reparte TCV), cron que
+salta un proyecto sin fechas y sigue con los demás, una sola pestaña de cada con
+sus nombres originales, y Excel con el mes en curso en azul.
+
+```bash
+odoo-bin ... --test-enable --test-tags '/zambudio_produccion_real_new_version:TestSeguimientoMesActual'
+```
+
+Se conservan sin cambios los tests del original (`tests/test_motor.py` y
+`test_tcv_y_carga.py`), que asumen un entorno concreto: `test_motor` necesita
+`stock` y `purchase_stock`, y con `zambudio_project_tcv` instalado varios casos de
+`test_tcv_y_carga` fallan porque pasan `tcv_amount` (calculado) en el `create`.
+No afectan a la instalación ni al funcionamiento.
 
 Locales sin Odoo, desde la carpeta del módulo:
 
@@ -77,8 +94,9 @@ py -3 -B tests/check_mes_actual.py
 py -3 -B tests/check_br_view.py --owl "RUTA_LOCAL_A_owl.js"
 ```
 
-El primero ejecuta los métodos reales con registros simulados (10 pruebas, incluida
-la carga de `project.py` completo para detectar imports ausentes). El segundo monta
+El primero ejecuta los métodos reales con registros simulados (11 pruebas, incluidas
+la carga de `project.py` completo para detectar imports ausentes y el cron que salta
+un proyecto sin fechas). El segundo monta
 el widget con OWL de Odoo 19 en Chrome (Playwright) y comprueba colores, etiqueta,
 costes, tooltips, navegación, actualización y el aviso sin fechas.
 

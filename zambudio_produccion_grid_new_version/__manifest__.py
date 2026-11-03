@@ -6,6 +6,7 @@
     "author": "AUNNA IT",
     "category": "Services/Project",
     "depends": ["zambudio_produccion_new_version", "web_grid"],
+    "excludes": ["zambudio_produccion_grid"],
     "data": ["views/grid_views.xml"],
     "installable": True,
     "auto_install": True,

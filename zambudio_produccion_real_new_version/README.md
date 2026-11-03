@@ -31,6 +31,9 @@ conservan los originales de Verónica; en PRO se instala esta versión.
 - **Proyecto sin fechas:** la pestaña muestra un aviso en lugar de un error y se
   ocultan los botones que necesitan fechas (generar, recalcular, importar,
   confirmar avance, exportar). Era el origen del aviso «Internal» de PRE (30/10).
+  El cron diario de recálculo salta ese proyecto en vez de fallar para todos.
+- **Protección:** los manifests declaran `excludes` con los originales; Odoo no
+  deja instalar esta versión donde estén los de Verónica.
 
 Detalle técnico y pruebas: [docs/mes_en_curso.md](docs/mes_en_curso.md).
 

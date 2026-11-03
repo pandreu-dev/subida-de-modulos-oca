@@ -41,6 +41,8 @@ con los mismos colores.
         "purchase",
         "project",
     ],
+    # Mismos modelos y widget que el original: no pueden convivir en la misma base.
+    "excludes": ["zambudio_produccion_real"],
     "external_dependencies": {"python": ["openpyxl"]},
     "data": [
         "security/security.xml",

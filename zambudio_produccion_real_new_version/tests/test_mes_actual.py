@@ -142,6 +142,19 @@ class TestSeguimientoMesActual(TransactionCase):
         self.assertEqual(data["meses"], [])
         self.assertTrue(data["aviso_planificacion"])
 
+    def test_cron_salta_proyecto_sin_fechas_y_sigue_con_los_demas(self):
+        otro = self.env["project.project"].create({
+            "name": "TEST CRON SIN FECHAS", "tcv": 1000.0,
+            "zambudio_project_type": "recurring",
+            "date_start": date(2026, 9, 1), "date": date(2026, 11, 30),
+            "allow_timesheets": True,
+        })
+        otro.action_generar_planificacion()
+        otro.write({"date_start": False, "date": False})
+        self.project.produccion_real_last_update = False
+        self.env["project.project"].cron_recalcular_produccion_real()
+        self.assertTrue(self.project.produccion_real_last_update)
+
     def test_estructura_autonoma_una_pestana_de_cada(self):
         """Versión autónoma: una sola pestaña de cada, con sus nombres originales."""
         raiz = self.env.ref("zambudio_produccion_real_new_version.view_project_form_br")

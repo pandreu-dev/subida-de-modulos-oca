@@ -8,6 +8,7 @@ Requieren python-dateutil, pytz y openpyxl, habituales en el entorno de Odoo.
 import ast
 import base64
 import io
+import logging
 import sys
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
@@ -46,7 +47,7 @@ def load_methods(relative, class_name, extra=None):
     namespace = dict(
         api=SimpleNamespace(model=lambda fn: fn),
         fields=SimpleNamespace(Date=Date, Datetime=Datetime),
-        UserError=ValueError, defaultdict=defaultdict, pytz=pytz,
+        UserError=ValueError, defaultdict=defaultdict, pytz=pytz, logging=logging,
         datetime=datetime, time=time, timedelta=timedelta,
         relativedelta=relativedelta, io=io, base64=base64,
     )
@@ -112,6 +113,37 @@ class TestMesActualLocal(unittest.TestCase):
     @staticmethod
     def cost(data, concept="horas_internas", month="2026-10"):
         return next(f["celdas"][month] for f in data["costes"] if f["concepto"] == concept)
+
+    def test_cron_skips_project_without_dates_and_continues(self):
+        pasos = []
+
+        def proyecto(nombre, con_fechas):
+            p = SimpleNamespace(display_name=nombre)
+
+            def meses():
+                if not con_fechas:
+                    raise ValueError("Indica las fechas de inicio y fin de la planificación")
+                return [date(2026, 10, 1)]
+
+            p._meses_planificacion = meses
+            p._sincronizar_tcv = lambda: pasos.append(("tcv", nombre))
+            return p
+
+        proyectos = [proyecto("A", True), proyecto("B sin fechas", False), proyecto("C", True)]
+        cron = Project()
+        cron.search = lambda domain: proyectos
+        cron.env = {
+            "produccion.real.motor": SimpleNamespace(
+                recalcular_proyectos=lambda p, fecha_desde=None: pasos.append(("recalculo", p.display_name))),
+            "produccion.avance.mes": SimpleNamespace(
+                sincronizar_proyecto=lambda p: pasos.append(("avance", p.display_name)),
+                congelar_meses_cerrados=lambda p: None),
+        }
+        with self.assertLogs(level="WARNING") as logs:
+            self.assertTrue(cron.cron_recalcular_produccion_real())
+        self.assertEqual([n for paso, n in pasos if paso == "recalculo"], ["A", "C"])
+        self.assertNotIn("B sin fechas", [n for _, n in pasos])
+        self.assertIn("B sin fechas", logs.output[0])
 
     def test_project_without_dates_using_actual_module_imports(self):
         """Carga project.py completo con sus imports reales: no inyecta UserError.

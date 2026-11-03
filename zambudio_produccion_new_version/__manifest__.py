@@ -30,6 +30,8 @@ ficha del proyecto, según las Especificaciones funcionales de AUNNA IT (23/07/2
     # zambudio_project_type aporta el «Tipo de proyecto» de la ficha, que es la
     # fuente del tipo de producción.
     "depends": ["project", "hr_timesheet", "analytic", "zambudio_project_type"],
+    # Mismos modelos que el original: Odoo rechaza instalar los dos en la misma base.
+    "excludes": ["zambudio_produccion"],
     "data": [
         "security/security.xml",
         "security/ir.model.access.csv",
