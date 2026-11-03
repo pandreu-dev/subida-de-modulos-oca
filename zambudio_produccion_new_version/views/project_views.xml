@@ -2,17 +2,12 @@
 <odoo>
     <!-- Pestaña «Producción» dentro de la ficha del proyecto -->
     <record id="view_project_form_produccion" model="ir.ui.view">
-        <field name="name">project.project.form.produccion.new_version</field>
+        <field name="name">project.project.form.produccion</field>
         <field name="model">project.project</field>
         <field name="inherit_id" ref="project.edit_project"/>
-        <field name="priority">90</field>
         <field name="arch" type="xml">
             <notebook position="inside">
-                <page string="Producción (new_version)" name="produccion_new_version">
-                    <div class="alert alert-info" role="alert">
-                        Esta pestaña utiliza la misma planificación que <b>Producción</b>.
-                        Los cambios en previsiones se reflejan en ambas pestañas.
-                    </div>
+                <page string="Producción" name="produccion">
                     <div class="alert alert-warning" role="alert"
                          invisible="produccion_fecha_inicio and produccion_fecha_fin and produccion_fecha_fin &gt;= produccion_fecha_inicio">
                         Puedes consultar el proyecto. Para generar o recalcular la planificación,
@@ -65,15 +60,15 @@
                                 string="Generar planificación" class="btn-primary"/>
                         <button name="action_recalcular_ingresos" type="object"
                                 string="Recalcular ingresos" class="btn-secondary ms-2"/>
-                        <button name="%(zambudio_produccion.action_importar_produccion)d" type="action"
+                        <button name="%(action_importar_produccion)d" type="action"
                                 string="Importar / Exportar Excel"
                                 class="btn-secondary ms-2"/>
                         <button name="action_ver_produccion" type="object"
                                 string="Ver cuadrícula (pivot)" class="btn-link ms-2"/>
-                        <button name="%(zambudio_produccion.action_carga_inicial_produccion)d" type="action"
+                        <button name="%(action_carga_inicial_produccion)d" type="action"
                                 string="Carga inicial / corregir meses cerrados"
                                 class="btn-warning ms-2"
-                                groups="zambudio_produccion.group_produccion_carga_inicial"/>
+                                groups="zambudio_produccion_new_version.group_produccion_carga_inicial"/>
                     </div>
                     <field name="produccion_linea_ids"
                            context="{'default_project_id': id}">

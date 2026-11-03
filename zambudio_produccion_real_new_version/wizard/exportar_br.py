@@ -1,18 +1,17 @@
-"""Asistente Excel propio; conserva intacto el asistente original."""
+# -*- coding: utf-8 -*-
+"""Exportación Excel con el formato visual del BR corporativo: pasado cian,
+mes en curso azul intenso, futuro morado, agregados Q/H/FY morado oscuro."""
 import base64
 import io
 
 from odoo import fields, models
 from odoo.exceptions import UserError
 
+# Paleta BR con el mes abierto diferenciado, igual que en pantalla.
 COLOR_PASADO = "6DD9FF"
-
 COLOR_ACTUAL = "2563EB"
-
 COLOR_FUTURO = "BD92DE"
-
 COLOR_AGREGADO = "7030A0"
-
 COLOR_GRUPOS = {
     "avance": "1F4E79",
     "costes": "843C39",
@@ -22,9 +21,17 @@ COLOR_GRUPOS = {
 
 
 class ProduccionExportarBR(models.TransientModel):
-    _name = 'produccion.exportar.br.new.version'
-    _inherit = 'produccion.exportar.br'
-    _description = 'Exportar seguimiento new_version'
+    _name = "produccion.exportar.br"
+    _description = "Exportar Seguimiento económico a Excel"
+
+    project_id = fields.Many2one("project.project", required=True)
+    anio = fields.Integer(
+        string="Año (vacío = todo el periodo)",
+        help="Deje vacío para exportar el periodo completo del proyecto.",
+    )
+    incluir_agregados = fields.Boolean(string="Incluir Q / H / FY", default=True)
+    fichero = fields.Binary(readonly=True)
+    nombre_fichero = fields.Char(readonly=True)
 
     def action_exportar(self):
         self.ensure_one()
@@ -34,7 +41,7 @@ class ProduccionExportarBR(models.TransientModel):
         except ImportError:
             raise UserError("Falta la librería openpyxl en el servidor.")
 
-        datos = self.project_id.get_produccion_br_data_new_version(
+        datos = self.project_id.get_produccion_br_data(
             anio=self.anio or None
         )
         if not datos["meses"]:
@@ -282,7 +289,7 @@ class ProduccionExportarBR(models.TransientModel):
         ws2.freeze_panes = "B5"
 
         # ============ Hoja 3: detalle de horas =================================
-        motor = self.env["produccion.real.motor.new.version"]
+        motor = self.env["produccion.real.motor"]
         d_ini = fields.Date.to_date(datos["meses"][0] + "-01")
         import calendar as _cal
 

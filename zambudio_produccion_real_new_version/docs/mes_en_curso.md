@@ -1,264 +1,93 @@
 # Costes reales del mes en curso
 
-Fecha: 30/10/2026. Módulo: `zambudio_produccion_real_new_version`. Versión: `19.0.2.1.0`.
+Módulo: `zambudio_produccion_real_new_version`. Versión: `19.0.3.0.0` (03/11/2026).
 
-## Versión actual: cuatro páginas y consultas separadas
-
-La petición es mantener la misma planificación y funciones, con páginas nuevas
-para comparar el cambio del mes actual. La adaptación 19.0.2.0.x sustituía el
-widget y métodos originales; esta versión corrige ese enfoque.
-
-| Página | Datos y comportamiento |
-|---|---|
-| Producción | Original, sin cambios en su vista |
-| Seguimiento económico | Widget, endpoint y Excel originales |
-| Producción (new_version) | Misma planificación, formulario y acceso a grid/pivot |
-| Seguimiento económico (new_version) | Consulta y Excel propios; costes del mes actual hasta hoy y azul intenso |
-
-Los modelos persistentes de planes y avances son compartidos. Una edición o
-recálculo explícito afecta a esos datos compartidos; no se crea otra contabilidad
-ni se duplican cron, permisos o proyectos. Se conservan las acciones originales
-de generación de planificación, reparto, carga, importación, recálculo y confirmación.
-El mes actual de la página nueva se obtiene sin necesidad de recálculo persistente.
-
-Separación técnica:
-
-- Las nuevas vistas insertan `produccion_new_version` y `business_review_new_version`.
-  Ya no reemplazan el widget ni el texto de `business_review`.
-- `project.project.get_produccion_br_data_new_version` es un método nuevo;
-  no redefine `get_produccion_br_data`.
-- `produccion.real.motor.new.version` hereda el motor original con otro `_name`;
-  no cambia el motor que utilizan las páginas, el cron o los cierres originales.
-- `produccion.exportar.br.new.version` tiene modelo, ACL, formulario y acción propios;
-  el asistente original sigue utilizando el endpoint y los colores originales.
-- JS, plantilla OWL, registro de widget y estilos tienen nombres propios.
-
-Sin fechas, o con fechas invertidas, la página nueva muestra la explicación
-del plan incompleto. No intenta sincronizar el TCV ni consultar costes del mes.
-Los botones que requieren fechas permanecen ocultos en las páginas nuevas.
-Con fechas válidas conserva la sincronización de TCV original: si el contrato
-cambió, esta operación puede reajustar la previsión compartida, como antes.
-
-Los logs de PRE confirmaron que el aviso de «Internal» del 30/10 a las 11:09 UTC
-venía de `action_recalcular_produccion_real` sin fechas. La llamada para abrir la
-tabla ya terminaba correctamente tras la corrección del import `UserError`.
-
-Para desplegar hay que actualizar los **tres módulos `_new_version`** además
-de descargar el código y reiniciar: hay vistas, un modelo transitorio y una ACL
-nuevos. No desinstalar ni actualizar los módulos originales para este cambio.
-
-Validación del 30/10/2026:
-
-- 10 pruebas locales de cálculo, importaciones y XLSX: correctas.
-- Navegador Chrome con OWL y RPC simulados: endpoint nuevo, registro sin
-  colisiones, colores, costes, actualización y página sin fechas correctos.
-- En una copia neutralizada de PRE se instalaron primero las versiones anteriores
-  de los tres módulos con sus nombres `_new_version`. Después se actualizaron
-  los tres a 19.0.2.1.0: 9 pruebas ORM, sin fallos ni errores.
-- La arquitectura combinada contiene una página de cada nombre y ambos widgets.
-  El mismo proyecto devuelve −20 € guardados por el endpoint original y −125 €
-  de horas nuevas por el nuevo; volver al original sigue devolviendo −20 €.
-  Se comprobó también el modelo/acción Excel separado y su generación real.
-- Sin cambios en las 1.342 líneas de planificación, 134 avances, 259 proyectos,
-  ajustes, XML IDs originales ni número de cron (comparación de hashes).
-- El log conserva una incidencia previa de `aunna_portal_iframe_example` que
-  no es instalable. No se ha modificado ese módulo.
-
-Estas pruebas se hicieron en la base temporal, no actualizando el PRE activo.
-
-## Historial anterior a 19.0.2.1.0
-
-Los apartados siguientes describen la implementación y las pruebas anteriores.
-Las menciones a dos pestañas o a sustituir métodos quedan superadas por la
-separación descrita arriba.
-
-## Corrección 19.0.2.0.1: proyecto sin fechas
-
-Al extraer la ampliación se omitió el import de `UserError` en `models/project.py`.
-Un proyecto sin fechas disparaba esa excepción en el módulo original y el
-`except UserError` de la ampliación fallaba con `NameError`, provocando RPC_ERROR.
-Se recupera el import para mostrar el aviso de falta de planificación sin
-generar líneas ni exigir fechas solo para abrir la pestaña. No se modifica
-ningún módulo original ni las otras dos ampliaciones.
-
-Se añade una regresión local que ejecuta el archivo completo, incluidos sus
-imports: reproduce el `NameError` antes de corregirlo. El cargador simplificado
-de las pruebas anteriores aportaba `UserError` y ocultaba este import ausente.
-La suite local tiene ahora diez pruebas. Se añade también el caso ORM de un
-proyecto nuevo sin fechas en `test_mes_actual.py`.
-
-Validación de la corrección: **10/10 pruebas locales correctas** y **1/1 caso
-ORM sin fechas correcto** en la copia neutralizada de PRE, que conserva el
-nombre técnico anterior de la ampliación. Se verificaron sin cambios sus
-planes, ajustes, avances, proyectos, XML IDs originales y número de crons.
-
-## Petición de Laura y ubicación
+## Petición de Laura
 
 En **Proyecto → Seguimiento económico**, el mes abierto debe mostrar los costes
 reales que se van generando y distinguirse visualmente de los meses pasados y
-futuros. En el ejemplo de Laura es octubre de 2026; el código utiliza la fecha
-actual de Odoo y no fija octubre ni 2026.
+futuros. El código usa la fecha actual de Odoo; no fija ningún mes.
 
-## Diagnóstico
+## Diagnóstico sobre el original
 
-El código de origen ya devolvía el estado `actual` para el mes en curso y mantenía
-su ingreso como previsión. Sin embargo, leía los costes de `importe_real` en las
-líneas del plan: esos importes solo se renovaban mediante el botón de recálculo
-o el cron. La columna actual era cian, muy parecida a los meses cerrados, y el
-texto explicativo de la pestaña solo distinguía pasado y futuro.
-
-Se reprodujo esta diferencia con datos simulados: ante un coste guardado de
-−20 € y nuevas horas computables de −125 €, el endpoint original devolvía −20 €;
-el modificado devuelve −125 €. Esto demuestra el comportamiento del código,
-sin afirmar que se hayan auditado las imputaciones concretas de Laura en PRE.
+El original ya devolvía el estado `actual` para el mes en curso y mantenía su
+ingreso como previsión, pero leía los costes de `importe_real` de las líneas del
+plan, que solo se renuevan con el cron diario o el botón de recálculo. La columna
+era cian, casi igual a los meses cerrados.
 
 ## Comportamiento
 
 | Periodo | Costes mostrados | Ingreso mostrado | Color |
 |---|---|---|---|
-| Pasado | Real del último recálculo guardado | Avance mensual según la lógica existente | Cian |
-| Mes en curso | Real consultado desde el día 1 hasta hoy | Previsión vigente, sin marcar confirmado | Azul intenso, «En curso» |
+| Pasado | Real del último recálculo guardado | Avance mensual (confirmado si lo está) | Cian |
+| Mes en curso | Real consultado desde el día 1 hasta hoy | Previsión vigente, sin confirmar | Azul intenso, «En curso» |
 | Futuro | Previsión | Previsión | Morado |
 
 La tabla consulta los costes al cargarse, al cambiar el filtro de año y al pulsar
-**Actualizar tabla**. No es una actualización continua en segundo plano. La
-exportación Excel utiliza el mismo endpoint y obtiene los costes actuales al
-exportar. PM, %PM y agregados utilizan estos costes; WIP mantiene su fórmula.
+**Actualizar tabla**; no es una actualización continua. El Excel usa el mismo
+endpoint. PM, %PM y agregados usan estos costes; WIP mantiene su fórmula.
 
-Se reutilizan las cuatro fuentes existentes: horas, compras, gastos de empleado
-y entregas de almacén. Conservan sus condiciones de cómputo: por ejemplo, horas
-validadas cuando existe ese circuito, facturas de proveedor contabilizadas,
-recepciones realizadas y devoluciones. Un borrador o una hora sin validar no
-empiezan a contar por este cambio. Los apuntes fechados después de hoy se excluyen
-del acumulado actual, incluso dentro del mismo mes.
+Se reutilizan las cuatro fuentes existentes (horas, compras, gastos de empleado y
+entregas de almacén) con sus condiciones: horas validadas cuando existe ese
+circuito, facturas de proveedor contabilizadas, recepciones realizadas y
+devoluciones. Los apuntes fechados después de hoy no cuentan. Si un concepto con
+costes reales no tiene línea de previsión, el coste se muestra igualmente; si se
+anula una imputación, la consulta devuelve el importe actualizado, incluido cero.
 
-Si no existe línea de previsión para un concepto con costes reales, el coste se
-muestra igualmente. Si desaparece o se anula una imputación computable, la nueva
-consulta devuelve el importe actualizado, incluido cero; no conserva el dato
-anterior como sustituto.
+La lectura del mes en curso no guarda el plan, no confirma avances y no cambia la
+fecha del último recálculo. El aviso **Plan guardado pendiente de recálculo** se
+refiere a los datos guardados y puede seguir visible.
 
-La desviación actual es **real acumulado − previsión del mes completo**. Es una
-comparación parcial, no el resultado de un cierre. El ingreso actual aparece
-como previsto en los tooltips; no se presenta como ingreso real en la hoja
-«Previsto vs Real» del Excel.
+Sin fechas, o con fechas invertidas: la pestaña Seguimiento económico muestra el
+aviso de planificación incompleta, no sincroniza el TCV ni consulta costes, y en
+ambas pestañas se ocultan los botones que requieren fechas.
 
 ## Alcance técnico
 
-- `models/produccion_real.py`: `_costes_por_periodo` comparte la lectura de las
-  cuatro fuentes entre consulta y recálculo. La consulta no escribe importes.
-- `models/project.py`: el mes actual usa esa lectura hasta hoy; pasado y futuro
-  conservan el criterio anterior. Si el año seleccionado no contiene el mes
-  actual, no se ejecuta esa consulta adicional.
-- Los filtros de fechas de recepciones/entregas convierten días locales completos
-  a UTC y usan un límite final exclusivo. Así no se pierden los movimientos de
-  la tarde del último día; se respeta también el cambio de horario. Este helper
-  se utiliza además en el recálculo, avisos y detalle Excel de almacén para
-  mantener el mismo criterio temporal. Un recálculo posterior puede incorporar
-  movimientos del último día que antes quedaban excluidos.
-- Vista, plantilla, JavaScript y SCSS: cabecera `#2563EB`, letras blancas y celdas
-  `#DBEAFE`, etiqueta «En curso», explicación del acumulado y botón de actualización.
-- `wizard/exportar_br.py`: mismos datos, colores y distinción entre ingreso
-  previsto y real; se conserva el resto de hojas del libro.
-- La versión 19.0.2.0.0 convierte las tres copias en ampliaciones compatibles:
-  base y grid dependen de sus originales sin repetir modelos ni datos XML;
-  real hereda el motor, proyecto y asistente Excel originales y añade una vista
-  heredada y un widget con nombre propio. No se modifican los originales,
-  otros módulos, las referencias `_borrar` ni `new/doc`.
+- `models/produccion_real.py`: `_costes_por_periodo` lee las cuatro fuentes y lo
+  comparten el recálculo guardado y la consulta del mes en curso;
+  `_dominio_fechas_datetime` convierte días locales completos a UTC con límite
+  final exclusivo (respeta el cambio de horario). Se usa en recepciones, entregas
+  de almacén, avisos de posible doble coste y detalle Excel.
+- `models/project.py` (`get_produccion_br_data`): el mes en curso usa esa lectura
+  hasta hoy; pasado y futuro conservan el criterio original. Si el año filtrado no
+  contiene el mes actual, no se consulta. Devuelve `aviso_planificacion` cuando
+  faltan fechas.
+- Widget OWL (`produccion_br_view`), plantilla y SCSS: cabecera `#2563EB` con
+  texto blanco, celdas `#DBEAFE`, etiqueta «En curso», explicación del acumulado y
+  botón **Actualizar tabla**.
+- `wizard/exportar_br.py`: mismos datos y colores; el ingreso del mes en curso
+  figura como previsto, no como real, en la hoja «Previsto vs Real».
+- Vistas: aviso y botones ocultos sin fechas válidas en las pestañas Producción y
+  Seguimiento económico.
 
-La lectura nueva no guarda el plan, no confirma avances y no cambia la fecha del
-último recálculo. El aviso **Plan guardado pendiente de recálculo** sigue referido
-a los datos persistidos; puede seguir visible con el mes actual ya actualizado.
-El endpoint conserva la sincronización previa del TCV que ya existía, la cual
-sí puede reajustar previsiones si cambia el TCV. No se convierte todo el endpoint
-en una operación de solo lectura.
+## Pruebas
 
-## Pruebas ejecutadas
+ORM (`tests/test_mes_actual.py`, se ejecutan con `--test-enable`):
+imputación nueva/modificada/borrada sin recálculo, pasado/futuro y horas sin
+validar, cambio de mes, filtro de año, límites UTC y cambio horario, proyecto sin
+fechas (sin error ni consulta), sin fechas con líneas (no reparte TCV), una sola
+pestaña de cada con sus nombres originales, y Excel con el mes en curso en azul.
+También se conservan `tests/test_motor.py` y `test_tcv_y_carga.py` del original.
 
-**Nueve pruebas locales de Python**, ejecutando métodos del módulo con registros
-simulados; las fuentes de datos y el ORM se sustituyen por dobles de prueba:
-
-1. Nuevas imputaciones, modificación y desaparición sin recálculo previo.
-2. Las cuatro fuentes, devoluciones, conceptos sin línea y exclusión de fechas futuras.
-3. Conservación del criterio de meses pasados/futuros e ingreso actual previsto.
-4. Filtro de otro año y proyecto sin fechas.
-5. Paso octubre → noviembre y diciembre → enero.
-6. Límites UTC y días de 23/25 horas en Madrid.
-7. Inclusión de movimientos de hoy por la tarde.
-8. Uso de esos límites en las consultas de recepciones y almacén.
-9. Generación y lectura de un XLSX real: importes, totales, colores, etiquetas e
-   ingreso abierto sin dato real ficticio.
-
-Desde la carpeta del módulo:
+Locales sin Odoo, desde la carpeta del módulo:
 
 ```powershell
 py -3 -B tests/check_mes_actual.py
-```
-
-Requiere `python-dateutil`, `pytz` y `openpyxl`. Resultado: **9/9 correctas**.
-Se comprobó además la diferencia −20/−125 contra el código original archivado.
-
-**Prueba de navegador:** Chrome sin ventana, librería OWL distribuida con Odoo 19,
-JS/XML/SCSS del módulo y datos/servicios simulados. Comprobados renderizado,
-colores calculados, etiqueta, tooltips, ausencia de confirmación del mes abierto,
-desviaciones, dominio de navegación de material y actualización de costes/PM.
-Resultado: correcto, sin errores JavaScript. No equivale a una sesión completa
-del cliente Odoo ni a compilar los assets con su servidor.
-
-```powershell
 py -3 -B tests/check_br_view.py --owl "RUTA_LOCAL_A_owl.js"
 ```
 
-Requiere Playwright y Chrome. La ruta apunta a la librería de
-[Odoo 19](https://raw.githubusercontent.com/odoo/odoo/19.0/addons/web/static/lib/owl/owl.js).
-El script no descarga dependencias ni accede a PRE.
+El primero ejecuta los métodos reales con registros simulados (10 pruebas, incluida
+la carga de `project.py` completo para detectar imports ausentes). El segundo monta
+el widget con OWL de Odoo 19 en Chrome (Playwright) y comprueba colores, etiqueta,
+costes, tooltips, navegación, actualización y el aviso sin fechas.
 
-También se comprobaron sintaxis Python, XML, manifest y rutas de sus recursos.
+## Historia
 
-## Instalación y validación en Odoo
-
-**Los módulos originales deben permanecer instalados.** Esta versión amplía
-sus modelos mediante `_inherit`, sin volver a definirlos con `_name`, y conserva
-sus identificadores, permisos, tareas y pestañas. La cuadrícula original y
-`zambudio_cierre_mensual` mantienen sus dependencias y funcionamiento.
-
-Esto sustituye el diseño inicial de copias independientes, que no permitía
-instalarlas junto a los originales. Las tres carpetas se llaman ahora
-`zambudio_produccion_new_version`, `zambudio_produccion_real_new_version` y
-`zambudio_produccion_grid_new_version`. Sus nombres visibles terminan también
-en `_new_version`. La versión técnica del manifest es `19.0.2.0.0`.
-
-Se ejecutaron seis pruebas ORM en una copia temporal y neutralizada de PRE:
-las cinco de cálculo y fechas más una comprobación de herencia de vista,
-pestañas únicas y widget propio. Resultado: **0 fallos y 0 errores**.
-La instalación conservó exactamente los registros de 1.342 líneas de plan,
-134 avances, 259 proyectos y sus ajustes, los XML IDs originales y el número
-de tareas programadas. No se instaló la ampliación en el PRE activo.
-
-Esa instalación se probó con los nombres anteriores a `_new_version`.
-El cambio posterior de nombres conserva el comportamiento y actualiza las
-dependencias, XML IDs propios, assets, widget y referencias de las pruebas.
-El log de la copia mostró una incidencia preexistente de
-`aunna_portal_iframe_example` no instalable; no se modificó ese módulo.
-
-Ejemplo para repetir las pruebas en una copia neutralizada con los originales
-instalados y con un proceso/configuración propios:
-
-```bash
-/ruta/venv/bin/python /ruta/odoo/odoo-bin \
-  -c /ruta/configuracion_aislada.conf -d zambudio_br_sandbox \
-  -i zambudio_produccion_real_new_version --test-enable \
-  --test-tags '/zambudio_produccion_real_new_version:TestSeguimientoMesActual' \
-  --stop-after-init --http-interface=127.0.0.1 --http-port=8099 \
-  --workers=0 --max-cron-threads=0
-```
-
-Si la ampliación ya estaba instalada **en esa base aislada**, usar `-u` en lugar
-de `-i`. El comando de ejemplo utiliza rutas orientativas. Referencia:
-[pruebas de Odoo 19](https://www.odoo.com/documentation/19.0/developer/reference/backend/testing.html).
-
-Después de desplegar en el entorno de destino: abrir un proyecto
-con planificación, añadir una imputación válida del mes y pulsar «Actualizar
-tabla»; comprobar coste, PM, columna azul y Excel, y repetir con devolución o
-anulación. Comprobar también los permisos de los usuarios que usarán la pestaña.
-Las pruebas locales no garantizan por sí solas la integración con todos los
-módulos y datos de la instalación destino.
+- 19.0.1.x: copia de desarrollo independiente con los cambios aplicados al código
+  original (no instalable junto a los originales).
+- 19.0.2.x: ampliación que dependía de los originales y añadía páginas propias
+  «(new_version)» para comparar en PRE.
+- 19.0.3.0.0: versión autónoma para PRO. Código original con los cambios del mes
+  en curso y las correcciones de la 2.x (proyecto sin fechas). Sin páginas
+  duplicadas ni etiquetas «(new_version)».

@@ -1,8 +1,11 @@
-"""Seguimiento del mes abierto sobre los proyectos y planes originales."""
+# -*- coding: utf-8 -*-
+"""Extensión del proyecto: recálculo de actuals, detección de datos obsoletos,
+TCV efectivo y endpoint JSON de la pestaña Seguimiento económico."""
 from dateutil.relativedelta import relativedelta
 
-from odoo import fields, models
+from odoo import api, fields, models
 from odoo.exceptions import UserError
+
 from .produccion_real import TIPOS_COMPRA
 
 ETIQUETAS_COSTE_BR = dict(
@@ -16,6 +19,7 @@ ETIQUETAS_COSTE_BR = dict(
     ]
 )
 
+# Orden de presentación de los costes en la vista BR y el Excel
 ORDEN_COSTES_BR = [
     "horas_internas",
     "horas_externas",
@@ -32,9 +36,128 @@ ORDEN_COSTES_BR = [
 
 
 class ProjectProject(models.Model):
-    _inherit = 'project.project'
+    _inherit = "project.project"
 
-    def get_produccion_br_data_new_version(self, anio=None):
+    produccion_avance_ids = fields.One2many(
+        "produccion.avance.mes", "project_id", string="Avances mensuales"
+    )
+    produccion_real_last_update = fields.Datetime(
+        string="Último recálculo de reales", readonly=True
+    )
+    produccion_real_stale = fields.Boolean(
+        string="Reales desactualizados", compute="_compute_produccion_real_stale"
+    )
+    # El TCV efectivo (ficha del proyecto `tcv_amount`, con fallback al manual)
+    # y su fuente los define ya el módulo base (zambudio_produccion_new_version): aquí solo
+    # se consumen.
+
+    # ------------------------------------------------------------------
+    # Frescura: ¿hay movimientos posteriores al último recálculo?
+    # ------------------------------------------------------------------
+    def _compute_produccion_real_stale(self):
+        Analitica = self.env["account.analytic.line"].sudo()
+        Move = self.env["account.move.line"].sudo()
+        for project in self:
+            marca = project.produccion_real_last_update
+            if not marca:
+                project.produccion_real_stale = bool(project.produccion_linea_ids)
+                continue
+            stale = bool(
+                Analitica.search_count(
+                    [
+                        ("project_id", "=", project.id),
+                        ("write_date", ">", marca),
+                    ],
+                    limit=1,
+                )
+            )
+            motor = self.env["produccion.real.motor"]
+            cuenta = motor._cuenta_analitica(project)
+            if not stale and cuenta:
+                stale = bool(
+                    Move.search_count(
+                        [
+                            ("analytic_distribution", "in", [cuenta.id]),
+                            ("write_date", ">", marca),
+                        ],
+                        limit=1,
+                    )
+                )
+            # albaranes (recepciones, devoluciones, entregas) y gastos nuevos
+            if not stale and "stock.move" in self.env:
+                movs = motor._movimientos_compra(project, cuenta)
+                stale = bool(movs.filtered(lambda m: m.write_date and m.write_date > marca))
+                if not stale and "project_id" in self.env["stock.picking"]._fields:
+                    stale = bool(self.env["stock.picking"].sudo().search_count(
+                        [("project_id", "=", project.id), ("write_date", ">", marca)], limit=1))
+            if not stale and cuenta and "hr.expense" in self.env:
+                stale = bool(self.env["hr.expense"].sudo().search_count(
+                    [("analytic_distribution", "in", [cuenta.id]), ("write_date", ">", marca)],
+                    limit=1))
+            project.produccion_real_stale = stale
+
+    # ------------------------------------------------------------------
+    # Acciones
+    # ------------------------------------------------------------------
+    def action_recalcular_produccion_real(self):
+        """Botón «Recalcular»: actuals + sincronización de avances."""
+        motor = self.env["produccion.real.motor"]
+        Avance = self.env["produccion.avance.mes"]
+        for project in self:
+            project._sincronizar_tcv()  # si el TCV de la ficha cambió, rehacer reparto
+            motor.recalcular_proyectos(project)
+            Avance.sincronizar_proyecto(project)
+            Avance.congelar_meses_cerrados(project)
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "type": "success",
+                "title": "Producción",
+                "message": "Datos reales recalculados.",
+                "next": {"type": "ir.actions.client", "tag": "soft_reload"},
+            },
+        }
+
+    @api.model
+    def cron_recalcular_produccion_real(self, meses_atras=2):
+        """Cron: recalcula proyectos activos con planificación. Ventana corta a
+        diario; el día 1 de cada mes, el año completo."""
+        hoy = fields.Date.context_today(self)
+        proyectos = self.search(
+            [("active", "=", True), ("produccion_linea_ids", "!=", False)]
+        )
+        motor = self.env["produccion.real.motor"]
+        if hoy.day == 1:
+            desde = None  # día 1: repaso del periodo completo de cada proyecto
+        else:
+            from dateutil.relativedelta import relativedelta
+
+            desde = hoy.replace(day=1) - relativedelta(months=meses_atras)
+        Avance = self.env["produccion.avance.mes"]
+        for project in proyectos:
+            project._sincronizar_tcv()
+            motor.recalcular_proyectos(project, fecha_desde=desde)
+            Avance.sincronizar_proyecto(project)
+            Avance.congelar_meses_cerrados(project)
+        return True
+
+    def action_abrir_avances(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Avance mensual — %s" % self.name,
+            "res_model": "produccion.avance.mes",
+            "view_mode": "list",
+            "domain": [("project_id", "=", self.id)],
+            "context": {"default_project_id": self.id},
+            "target": "current",
+        }
+
+    # ------------------------------------------------------------------
+    # Endpoint de datos de la pestaña Seguimiento económico (widget OWL)
+    # ------------------------------------------------------------------
+    def get_produccion_br_data(self, anio=None):
         """Estructura completa para pintar la tabla BR de un proyecto:
         meses, estado (pasado/actual/futuro), avance, costes por tipología,
         PM, %PM, %PM acumulado, facturación y WIP. Una cifra por celda:
@@ -43,7 +166,7 @@ class ProjectProject(models.Model):
         """
         self.ensure_one()
         project = self.with_company(self.company_id)
-        motor = project.env["produccion.real.motor.new.version"]
+        motor = project.env["produccion.real.motor"]
         hoy = fields.Date.context_today(self)
         mes_actual = hoy.strftime("%Y-%m")
 
@@ -54,7 +177,9 @@ class ProjectProject(models.Model):
             aviso_planificacion = str(error)
             meses = []  # sin fechas en la ficha: la pestaña enseña el aviso, no un error
         if meses:
-            # Conserva el reparto del TCV original, pero no lo intenta sin fechas.
+            # El TCV de la ficha manda: si ha cambiado desde el último reparto, se
+            # rehace antes de pintar (tolerante: si no cabe, deja aviso visible).
+            # Sin fechas no se intenta: no hay meses sobre los que repartir.
             project._sincronizar_tcv()
         if anio:
             meses = [m for m in meses if m.year == anio]

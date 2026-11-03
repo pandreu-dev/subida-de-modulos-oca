@@ -21,7 +21,7 @@ def main():
     case = TestMesActualLocal()
     case.setUp()
     case.sources["horas"] = [(Date.today, "horas_internas", -125.0)]
-    data = case.project.get_produccion_br_data_new_version()
+    data = case.project.get_produccion_br_data()
     source = (ROOT / "static/src/br_view/br_view.js").read_text(encoding="utf-8")
     source = re.sub(r"^import .*?;\s*$", "", source, flags=re.MULTILINE)
     source = source.replace("export class ", "class ").replace("export const ", "const ")
@@ -48,16 +48,11 @@ def main():
         page.add_script_tag(content="""
             const { Component, onWillStart, onWillUpdateProps, useState } = owl;
             const standardWidgetProps = { record: Object };
-            // Simula que el widget original ya está registrado en Odoo.
-            const widgets = new Map([['produccion_br_view', {}]]);
-            const registry = { category: () => ({ add: (key, value) => {
-                if (widgets.has(key)) { throw new Error('Widget duplicado: ' + key); }
-                widgets.set(key, value);
-            } }) };
+            const registry = { category: () => ({ add: () => {} }) };
             const services = {
                 orm: { call: async (model, method) => {
-                    if (method !== 'get_produccion_br_data_new_version') {
-                        throw new Error('RPC original utilizado: ' + method);
+                    if (method !== 'get_produccion_br_data') {
+                        throw new Error('RPC inesperado: ' + method);
                     }
                     window.rpcCalls++;
                     return structuredClone(window.fixture);
@@ -91,7 +86,7 @@ def main():
         domain = page.evaluate("window.actions.at(-1).domain")
         assert ["date", "<", "2026-10-30 23:00:00"] in domain
         case.sources["horas"].append((Date.today, "horas_internas", -75.0))
-        page.evaluate("data => window.fixture = data", case.project.get_produccion_br_data_new_version())
+        page.evaluate("data => window.fixture = data", case.project.get_produccion_br_data())
         page.get_by_role("button", name="Actualizar tabla").click()
         page.wait_for_function("window.rpcCalls === 2 && !window.component.state.cargando")
         page.wait_for_function("document.querySelector('tbody tr:nth-child(4) td.br-actual').textContent.includes('-200,00')")
@@ -100,6 +95,7 @@ def main():
         assert pm.inner_text() == "800,00"
         if args.screenshot:
             page.screenshot(path=args.screenshot, full_page=True)
+        # Proyecto sin fechas: aviso dentro de la pestaña, sin tabla ni error.
         page.evaluate("""async () => {
             window.fixture = {meses: [], aviso_planificacion: 'Faltan las fechas de planificación.'};
             await window.component.cargar();
@@ -108,7 +104,8 @@ def main():
         assert page.locator("table.br-tabla").count() == 0
         assert not errors, errors
         browser.close()
-    print("OK: OWL renderiza; colores, etiqueta, costes, tooltip, desviación, navegación y actualización correctos.")
+    print("OK: OWL renderiza; colores, etiqueta, costes, tooltip, desviación, navegación, "
+          "actualización y aviso sin fechas correctos.")
 
 
 if __name__ == "__main__":

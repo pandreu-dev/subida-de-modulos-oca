@@ -1,1 +1,3 @@
-# Reutiliza los modelos, permisos y vistas de los módulos originales.
+from . import models
+from . import wizard
+from .hooks import post_init_hook
