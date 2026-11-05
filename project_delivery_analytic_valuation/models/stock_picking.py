@@ -16,8 +16,15 @@ class StockPicking(models.Model):
             self._propagate_project_delivery_analytic_distribution(
                 force="analytic_distribution" in vals,
             )
-        if "analytic_distribution" in vals:
-            self.filtered(lambda picking: picking.state == "done")._sync_project_delivery_analytic_lines()
+        if "analytic_distribution" in vals or "project_id" in vals:
+            done_pickings = self.filtered(lambda picking: picking.state == "done")
+            done_pickings._sync_project_delivery_analytic_lines()
+            if "project_id" in vals:
+                # Sin proyecto ya no hay coste que imputar: fuera los apuntes previos.
+                for move in done_pickings.move_ids.filtered(
+                    lambda move: move.state == "done" and not move._is_manual_project_delivery_move()
+                ):
+                    move.sudo()._reset_project_delivery_analytic_lines()
         return result
 
     @api.onchange("analytic_distribution")
@@ -35,7 +42,10 @@ class StockPicking(models.Model):
                 continue
             distribution = dict(picking.analytic_distribution or {})
             for move in picking.move_ids:
-                move.with_context(skip_project_delivery_analytic_sync=True).analytic_distribution = distribution
+                move_distribution = move._get_project_delivery_internal_distribution()
+                move.with_context(skip_project_delivery_analytic_sync=True).analytic_distribution = (
+                    distribution if move_distribution is None else move_distribution
+                )
 
     def _sync_project_delivery_analytic_lines(self):
         moves = self.move_ids.filtered(
@@ -96,6 +106,11 @@ class StockPicking(models.Model):
     @api.model
     def _get_project_delivery_picking_type_codes(self):
         return ("outgoing", "internal")
+
+    @api.model
+    def _get_project_delivery_rule_picking_type_codes(self):
+        """Operaciones a las que se aplica la regla 100 % / 0 % por categoría."""
+        return ("internal",)
 
     def _has_purchase_source(self):
         self.ensure_one()

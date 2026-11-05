@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Producción — Seguimiento económico_new_version",
-    "version": "19.0.3.0.0",
+    "version": "19.0.3.1.0",
     "summary": "Datos reales (actuals) + seguimiento económico en la ficha del proyecto",
     "description": """
 Producción REAL + Seguimiento económico
@@ -18,7 +18,8 @@ calculados en vivo desde las fuentes nativas de Odoo:
 * Horas internas / externas: partes de horas (dimensión analítica P&L).
 * Compras de bienes: recepción del pedido menos devoluciones (precio del pedido).
   Servicios y facturas sin pedido: factura de proveedor contabilizada.
-  Material servido desde almacén (albarán con proyecto) y gastos de empleado.
+  Material servido desde almacén (albarán con proyecto, según el % de cada línea:
+  herramientas y EPI al 0 %) y gastos de empleado.
 * Facturación: facturas de cliente con analítica del proyecto.
 * Avance (ingreso reconocido): confirmación mensual con doble sugerencia
   (previsión propia y curva lineal por días).

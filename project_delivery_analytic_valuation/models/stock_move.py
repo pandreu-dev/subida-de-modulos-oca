@@ -23,11 +23,53 @@ class StockMove(models.Model):
             self.filtered(lambda move: move.state == "done").sudo()._sync_project_delivery_analytic_lines()
         return result
 
+    @api.depends("product_id", "picking_id.project_id", "picking_id.picking_type_id")
+    def _compute_analytic_distribution(self):
+        """Regla de los traslados internos (Laura, 05/11/2026): con proyecto, cada
+        línea va a la cuenta del proyecto al 100 %, salvo los productos de las
+        categorías marcadas «al 0 %» (herramientas y EPI). Se recalcula al cambiar el
+        producto o el proyecto; un cambio a mano en la línea se respeta hasta entonces."""
+        super()._compute_analytic_distribution()
+        for move in self:
+            distribution = move._get_project_delivery_internal_distribution()
+            if distribution is not None:
+                move.analytic_distribution = distribution
+
+    def _get_project_delivery_internal_distribution(self):
+        """Distribución que corresponde a la línea de un traslado interno, o None si
+        el movimiento no está sujeto a la regla (entregas, recepciones, traslados que
+        vienen de una compra...)."""
+        self.ensure_one()
+        picking = self.picking_id
+        if (
+            not picking
+            or picking.picking_type_code not in picking._get_project_delivery_rule_picking_type_codes()
+            or picking._has_purchase_source()
+        ):
+            return None
+        header = dict(picking.analytic_distribution or {})
+        account = self._get_project_account(picking.project_id)
+        if not account:
+            return header
+        distribution = header or {str(account.id): 100.0}
+        if self._is_project_delivery_excluded_product():
+            return {key: 0.0 for key in distribution}
+        return distribution
+
+    def _is_project_delivery_excluded_product(self):
+        self.ensure_one()
+        category = self.product_id.categ_id
+        return bool(category) and category._is_project_delivery_analytic_excluded()
+
     def _set_project_delivery_analytic_distribution_from_picking(self):
         for move in self:
-            if move.analytic_distribution or not move.picking_id.analytic_distribution:
+            if move.analytic_distribution:
                 continue
-            move.analytic_distribution = dict(move.picking_id.analytic_distribution)
+            distribution = move._get_project_delivery_internal_distribution()
+            if distribution is None:
+                distribution = dict(move.picking_id.analytic_distribution or {})
+            if distribution:
+                move.analytic_distribution = distribution
 
     def _action_done(self, cancel_backorder=False):
         self._set_project_delivery_analytic_distribution_from_picking()
@@ -88,12 +130,28 @@ class StockMove(models.Model):
         self.ensure_one()
         if self.analytic_distribution:
             return dict(self.analytic_distribution)
+        # Solo para lo pendiente: los movimientos ya hechos sin distribución se
+        # imputaron al 100 % y así siguen, igual que sus apuntes.
+        if self.state != "done":
+            distribution = self._get_project_delivery_internal_distribution()
+            if distribution:
+                return distribution
         if self.picking_id and self.picking_id.analytic_distribution:
             return dict(self.picking_id.analytic_distribution)
         account = self._get_project_delivery_analytic_account()
         if account:
             return {str(account.id): 100.0}
         return self._get_sale_line_analytic_distribution()
+
+    def _get_project_delivery_account_share(self, account):
+        """% del coste del movimiento que va a la cuenta analítica indicada."""
+        self.ensure_one()
+        account_id = str(account.id)
+        share = 0.0
+        for key, percentage in (self._get_project_analytic_distribution() or {}).items():
+            if account_id in str(key).split(","):
+                share += float(percentage or 0.0)
+        return share
 
     def _get_sale_line_analytic_distribution(self):
         self.ensure_one()
@@ -192,6 +250,9 @@ class StockMove(models.Model):
                     "name": "%s - %s" % (self.reference, self.product_id.display_name),
                     "ref": self.picking_id.name or self.reference,
                     "category": "picking_entry",
+                    # Fecha del movimiento, no la del día en que se regenera el apunte
+                    # (al editar la línea o al actualizar el módulo).
+                    "date": fields.Date.context_today(self, self.date),
                 }
             )
         return vals

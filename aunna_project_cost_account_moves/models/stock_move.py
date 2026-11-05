@@ -63,6 +63,10 @@ class StockMove(models.Model):
             return False
         if hasattr(self.picking_id, "_has_purchase_source") and self.picking_id._has_purchase_source():
             return False
+        if hasattr(self, "_get_project_analytic_distribution"):
+            distribution = self._get_project_analytic_distribution() or {}
+            if not any(self._aunna_distribution_percentage(distribution, key) > 0.0 for key in distribution):
+                return False  # línea al 0 % (herramientas, EPI): sin coste para el proyecto
         if hasattr(self, "_is_manual_project_delivery_move"):
             return self._is_manual_project_delivery_move()
         return bool(self.analytic_distribution)

@@ -1,7 +1,7 @@
 {
     "name": "Project Delivery Analytic Valuation",
     "summary": "Tracks manual delivery inventory costs on project dashboards",
-    "version": "19.0.1.1.5",
+    "version": "19.0.1.2.0",
     "category": "Inventory/Inventory",
     "author": "Aunnna",
     "license": "LGPL-3",
@@ -17,8 +17,10 @@
     "data": [
         "views/project_delivery_stock_move_views.xml",
         "views/stock_picking_views.xml",
+        "views/product_category_views.xml",
         "data/project_delivery_analytic_sync.xml",
     ],
+    "post_init_hook": "post_init_hook",
     "installable": True,
     "application": False,
 }

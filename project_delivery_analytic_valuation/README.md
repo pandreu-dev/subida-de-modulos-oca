@@ -133,6 +133,19 @@ cuenta analitica del proyecto: 100%
 
 Esto permite que el coste de una entrega directa desde stock interno pueda ir al presupuesto analitico correcto, por ejemplo combinando proyecto y linea de coste de materiales o subcontrata.
 
+## Herramientas y EPI al 0 por ciento
+
+Peticion de Laura (05/11/2026): cuando un traslado interno tiene proyecto, cada linea lleva la distribucion analitica al 100 por ciento sobre la cuenta del proyecto, salvo los productos de herramientas y EPI, que van al 0 por ciento y no imputan coste al proyecto.
+
+- Cada categoria de producto tiene la casilla `Al 0 % en traslados con proyecto` (`project_delivery_analytic_exclude`). Afecta tambien a sus subcategorias.
+- Al actualizar a 19.0.1.2.0 se marcan solas las categorias llamadas `HERRAMIENTA(S)` o `EPI(S)` (en PRO: las cuatro de herramienta y las cuatro de EPI, una por area). Despues manda la casilla: se puede marcar o desmarcar cualquier categoria sin desarrollo.
+- La distribucion de la linea se calcula al crearla y se recalcula al cambiar el producto o el proyecto del traslado. Un cambio a mano en una linea se respeta hasta entonces.
+- Si el albaran tiene distribucion en la cabecera, las lineas normales la copian y las de herramientas y EPI la llevan al 0 por ciento.
+- Sin proyecto, el traslado interno no imputa nada, como antes. Si se quita el proyecto de un traslado ya hecho, se borran sus apuntes. Si se cambia, se rehacen sobre el nuevo proyecto.
+- Solo aplica a traslados internos (`_get_project_delivery_rule_picking_type_codes`). Las entregas siguen como antes.
+- Lo ya hecho no cambia: los movimientos validados sin distribucion siguen imputados al 100 por ciento, igual que sus apuntes.
+- Una linea al 0 por ciento no genera apunte analitico ni cuenta en el boton del proyecto. Tampoco cuenta en el Seguimiento economico (`zambudio_produccion_real_new_version` 19.0.3.1.0) ni genera asiento tecnico (`aunna_project_cost_account_moves` 19.0.1.7.3).
+
 ## Vistas
 
 En el formulario de albaran, el campo `Proyecto` se muestra junto a los datos principales
@@ -180,6 +193,8 @@ stock.picking._sync_existing_project_delivery_analytic_lines()
 
 Esto intenta sincronizar entregas existentes que ya estaban hechas antes de instalar el modulo.
 
+Desde 19.0.1.2.0 la funcion va en un bloque `noupdate` y solo se ejecuta al instalar. Antes se ejecutaba en cada actualizacion y regeneraba todos los apuntes con la fecha de ese dia: por eso los traslados de julio tienen apuntes del 03/08/2026. Ademas, los apuntes regenerados conservan ahora la fecha del movimiento.
+
 ## Flujo funcional
 
 1. Configurar proyecto con cuenta analitica.
@@ -210,6 +225,10 @@ Su alcance es la imputacion analitica y la visibilidad del coste de entregas en 
 - `models/stock_move.py`: distribucion e imputacion analitica por movimiento.
 - `models/stock_picking.py`: distribucion, deteccion y sincronizacion desde entregas.
 - `models/project_project.py`: boton y consulta desde proyecto.
+- `models/product_category.py`: casilla de categoria al 0 por ciento y marcado inicial.
+- `views/product_category_views.xml`: casilla en el formulario de categoria.
+- `migrations/19.0.1.2.0/post-migrate.py` y `hooks.py`: marcado inicial de herramientas y EPI.
+- `tests/test_category_rule.py`: pruebas de la regla.
 - `views/project_delivery_stock_move_views.xml`: vistas de movimientos de coste.
 - `views/stock_picking_views.xml`: distribucion analitica en albaran y movimientos, y
   posicion del campo `Proyecto` bajo `Documento de origen`.

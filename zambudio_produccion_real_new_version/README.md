@@ -42,7 +42,7 @@ Detalle técnico y pruebas: [docs/mes_en_curso.md](docs/mes_en_curso.md).
 | Bloque | Contenido |
 |---|---|
 | **Avance** | Ingreso reconocido mensual, confirmable por el gestor. Sugiere la previsión propia del proyecto y la curva lineal por días. |
-| **Costes reales** | Partes de horas **validados** (internas/externas según la dimensión analítica P&L); compras de **bienes** por recepción menos devoluciones (al precio del pedido); **servicios** y facturas sin pedido por factura de proveedor contabilizada; gastos de empleado; material servido desde almacén al proyecto. Clasificación por el «Tipo de coste (producción)» del pedido o la factura. |
+| **Costes reales** | Partes de horas **validados** (internas/externas según la dimensión analítica P&L); compras de **bienes** por recepción menos devoluciones (al precio del pedido); **servicios** y facturas sin pedido por factura de proveedor contabilizada; gastos de empleado; material servido desde almacén al proyecto (según el % de la línea del albarán: herramientas y EPI de un traslado interno van al 0 % y no cuentan; las líneas sin distribución cuentan enteras). Clasificación por el «Tipo de coste (producción)» del pedido o la factura. |
 | **PM (Rentabilidad)** | PM = Avance − Costes · %PM · %PM acumulado. |
 | **Facturación y WIP** | Facturas de cliente contabilizadas · WIP = avance acumulado − facturado acumulado. |
 

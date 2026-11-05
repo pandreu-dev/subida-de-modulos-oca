@@ -503,6 +503,7 @@ class ProduccionRealMotor(models.AbstractModel):
                 ("state", "=", "done"),
             ] + self._dominio_fechas_datetime("date_done", d_ini, d_fin)
         )
+        cuenta = self._cuenta_analitica(project)
         for pick in pickings:
             mes = self._mes_de(pick.date_done)
             for mov in pick.move_ids.filtered(lambda m: m.state == "done"):
@@ -514,8 +515,12 @@ class ProduccionRealMotor(models.AbstractModel):
                 sentido = self._sentido_entrega(mov)
                 if not sentido:
                     continue
+                pct = self._pct_almacen(mov, cuenta)
+                if not pct:
+                    continue
                 # sale hacia el proyecto → coste; vuelve del proyecto → lo resta
-                reales[(mes, "materiales")] -= sentido * self._valor_movimiento(mov, project)
+                reales[(mes, "materiales")] -= (
+                    sentido * self._valor_movimiento(mov, project) * pct / 100.0)
 
     def posibles_duplicados_almacen(self, project, d_ini, d_fin):
         """Opción A acordada con Laura (18/08/2026): AVISAR, no decidir.
@@ -539,10 +544,13 @@ class ProduccionRealMotor(models.AbstractModel):
             for mov in pick.move_ids.filtered(lambda m: m.state == "done"):
                 if mov.purchase_line_id or self._sentido_entrega(mov) <= 0:
                     continue
-                entregas.append((pick, mov))
+                pct = self._pct_almacen(mov, cuenta)
+                if not pct:
+                    continue  # al 0 % (herramientas, EPI): no carga nada, no duplica
+                entregas.append((pick, mov, pct))
         if not entregas:
             return []
-        productos = {mov.product_id.id for _p, mov in entregas}
+        productos = {mov.product_id.id for _p, mov, _pct in entregas}
         # recepciones contra el proyecto de esos mismos productos (sin acotar
         # fecha: la compra pudo ser meses antes)
         comprados = {}  # product_id -> [(pedido, cantidad)]
@@ -553,7 +561,7 @@ class ProduccionRealMotor(models.AbstractModel):
             cant = (mov.quantity if "quantity" in mov._fields else mov.product_uom_qty) or 0.0
             comprados.setdefault(mov.product_id.id, []).append((linea_pc.order_id.name, cant))
         avisos = []
-        for pick, mov in entregas:
+        for pick, mov, pct in entregas:
             if mov.product_id.id not in comprados:
                 continue
             cant = (mov.quantity if "quantity" in mov._fields else mov.product_uom_qty) or 0.0
@@ -565,7 +573,7 @@ class ProduccionRealMotor(models.AbstractModel):
                 "move_id": mov.id,
                 "producto": mov.product_id.display_name or "",
                 "cantidad": cant,
-                "importe": -self._valor_movimiento(mov, project),
+                "importe": -self._valor_movimiento(mov, project) * pct / 100.0,
                 "pedidos": ", ".join(pedidos),
                 "comprado": sum(c for _p, c in comprados[mov.product_id.id]),
             })
@@ -582,6 +590,16 @@ class ProduccionRealMotor(models.AbstractModel):
         if signo > 0 and mov.origin_returned_move_id                 and self._signo_movimiento(mov.origin_returned_move_id) < 0:
             return -1
         return 0
+
+    def _pct_almacen(self, mov, cuenta):
+        """% del movimiento de almacén que va al proyecto. Si la línea del albarán
+        lleva distribución analítica, manda su % para la cuenta del proyecto: las
+        herramientas y EPI de un traslado interno van al 0 % (Laura, 05/11/2026).
+        Sin distribución, el albarán con proyecto cuenta entero, como hasta ahora."""
+        distribucion = mov.analytic_distribution if "analytic_distribution" in mov._fields else None
+        if not distribucion or not cuenta:
+            return 100.0
+        return self._pct_distribucion(distribucion, cuenta.id)
 
     @staticmethod
     def _valor_movimiento(mov, project):
@@ -759,11 +777,13 @@ class ProduccionRealMotor(models.AbstractModel):
                     valor = self._valor_movimiento(mov, project)
                     if not valor:
                         continue
+                    pct = self._pct_almacen(mov, cuenta)
                     cant = mov.quantity if "quantity" in mov._fields else mov.product_uom_qty
                     aviso = sospechosos.get((pick.id, mov.product_id.display_name or ""))
                     resultado.append({
                         "fecha": pick.date_done.date(),
                         "origen": ("Entrega de almacén" if sentido > 0 else "Retorno de material al almacén")
+                        + (" (al 0 % en el proyecto)" if not pct else "")
                         + (" ⚠ posible duplicado (comprado en %s)" % aviso if aviso and sentido > 0 else ""),
                         "documento": pick.name or "",
                         "tercero": pick.partner_id.name or "",
@@ -772,8 +792,9 @@ class ProduccionRealMotor(models.AbstractModel):
                             mov.product_id.with_company(project.company_id).standard_price or 0.0),
                         "descripcion": mov.product_id.display_name or "",
                         "tipo": "Materiales",
-                        "importe": -sentido * valor,
-                        "computa": True,
+                        # al 0 % se enseña el valor en gris, como las facturas ya contadas
+                        "importe": -sentido * valor * (pct / 100.0 if pct else 1.0),
+                        "computa": bool(pct),
                     })
         resultado.sort(key=lambda x: x["fecha"])
         return resultado

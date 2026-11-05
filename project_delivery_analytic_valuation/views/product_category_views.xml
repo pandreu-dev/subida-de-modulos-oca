@@ -1,0 +1,14 @@
+<odoo>
+    <record id="product_category_form_view_project_delivery" model="ir.ui.view">
+        <field name="name">product.category.form.project.delivery</field>
+        <field name="model">product.category</field>
+        <field name="inherit_id" ref="product.product_category_form_view"/>
+        <field name="arch" type="xml">
+            <group name="first" position="after">
+                <group name="project_delivery" string="Proyectos">
+                    <field name="project_delivery_analytic_exclude"/>
+                </group>
+            </group>
+        </field>
+    </record>
+</odoo>

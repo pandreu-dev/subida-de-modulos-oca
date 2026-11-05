@@ -360,6 +360,41 @@ class TestMotorCompras(TransactionCase):
         datos = self.project.get_produccion_br_data()
         self.assertEqual(len(datos["posibles_duplicados"]), 1)
 
+    def test_entrega_almacen_respeta_el_porcentaje_de_la_linea(self):
+        """Laura (05/11/2026): las herramientas y EPI de un traslado interno con
+        proyecto van al 0 %: no cuentan como materiales y salen en gris en el detalle."""
+        Picking = self.env["stock.picking"]
+        if "project_id" not in Picking._fields or "analytic_distribution" not in self.env["stock.move"]._fields:
+            self.skipTest("esta base no tiene proyecto o distribución analítica en los albaranes")
+        wh = self.env["stock.warehouse"].search([("company_id", "=", self.company.id)], limit=1)
+        furgoneta = self.env["stock.location"].create({
+            "name": "FURGONETA TEST", "usage": "transit", "company_id": self.company.id})
+        herramienta = self.env["product.product"].create({
+            "name": "TEST HERRAMIENTA", "type": "consu", "is_storable": True, "standard_price": 50.0})
+        for producto in (self.bien, herramienta):
+            self.env["stock.quant"]._update_available_quantity(producto, wh.lot_stock_id, 10)
+        pick = Picking.create({
+            "picking_type_id": wh.int_type_id.id,
+            "location_id": wh.lot_stock_id.id, "location_dest_id": furgoneta.id,
+            "project_id": self.project.id,
+            "move_ids": [(0, 0, {
+                "product_id": producto.id, "product_uom_qty": 2, "product_uom": producto.uom_id.id,
+                "location_id": wh.lot_stock_id.id, "location_dest_id": furgoneta.id,
+            }) for producto in (self.bien, herramienta)],
+        })
+        pick.action_confirm(); pick.action_assign()
+        self._validar(pick)
+        clave = str(self.aa.id)
+        pick.move_ids.filtered(lambda m: m.product_id == self.bien).analytic_distribution = {clave: 100.0}
+        pick.move_ids.filtered(lambda m: m.product_id == herramienta).analytic_distribution = {clave: 0.0}
+        reales = self.defaultdict(float)
+        self.motor._acumular_almacen(self.project, self.d_ini, self.d_fin, reales)
+        self.assertEqual({k[1]: round(v, 2) for k, v in reales.items()}, {"materiales": -200.0})
+        det = [x for x in self.motor.detalle_compras(self.project, self.d_ini, self.d_fin)
+               if x["descripcion"] == herramienta.display_name]
+        self.assertTrue(det and not det[0]["computa"])
+        self.assertIn("al 0 %", det[0]["origen"])
+
 
     # ------------------------------------------------------------ hallazgos de la revisión 18/08
     def _proyecto_b(self):
