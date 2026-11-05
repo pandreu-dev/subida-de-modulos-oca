@@ -1,7 +1,7 @@
 from dateutil.relativedelta import relativedelta
 
-from odoo import fields
-from odoo.tests import TransactionCase, tagged
+from odoo import Command, fields
+from odoo.tests import Form, TransactionCase, tagged
 
 
 @tagged("post_install", "-at_install")
@@ -84,6 +84,13 @@ class TestCategoryRule(TransactionCase):
         return self.env["account.analytic.line"].search([
             ("category", "=", "picking_entry"), ("ref", "=", picking.name)])
 
+    def _sin_distribucion(self, moves):
+        """Líneas de antes de 19.0.1.2.0: la columna a NULL."""
+        self.env.flush_all()
+        self.env.cr.execute(
+            "UPDATE stock_move SET analytic_distribution = NULL WHERE id IN %s", [tuple(moves.ids)])
+        moves.invalidate_recordset(["analytic_distribution"])
+
     def test_lineas_al_100_y_herramientas_al_0(self):
         picking = self._picking(
             [(self.material, 2), (self.tool, 1), (self.tool_sub, 1)], project=self.project)
@@ -161,6 +168,90 @@ class TestCategoryRule(TransactionCase):
         move.analytic_distribution = {str(self.account.id): 100.0}
         line = self._lines(picking)
         self.assertEqual(line.date, fields.Date.context_today(move, past))
+
+    def test_hecho_antes_de_la_regla_sigue_al_100(self):
+        picking = self._picking([(self.tool, 1)], project=self.project)
+        self._validate(picking)
+        self._sin_distribucion(picking.move_ids)
+        picking._sync_project_delivery_analytic_lines()
+        self.assertFalse(picking.move_ids.analytic_distribution)
+        self.assertAlmostEqual(sum(self._lines(picking).mapped("amount")), -20.0)
+        moves, total = self.project._get_project_delivery_stock_move_totals()
+        self.assertIn(picking.move_ids, moves)
+        self.assertAlmostEqual(total, -20.0)
+
+    def test_pendiente_antes_de_la_regla_la_aplica_al_validar(self):
+        picking = self._picking([(self.material, 1), (self.tool, 1)], project=self.project)
+        self._sin_distribucion(picking.move_ids)
+        self._validate(picking)
+        self.assertEqual(self._distribution(self._move(picking, self.tool)), {str(self.account.id): 0.0})
+        self.assertEqual(self._lines(picking).product_id, self.material)
+
+    def test_actualizacion_rellena_pendientes_vacios(self):
+        picking = self._picking([(self.material, 1), (self.tool, 1)], project=self.project)
+        self._sin_distribucion(picking.move_ids)
+        self.env["stock.move"]._apply_project_delivery_rule_to_pending_moves(only_empty=True)
+        key = str(self.account.id)
+        self.assertEqual(self._distribution(self._move(picking, self.material)), {key: 100.0})
+        self.assertEqual(self._distribution(self._move(picking, self.tool)), {key: 0.0})
+
+    def test_cambio_a_mano_sobrevive_al_pendiente(self):
+        picking = self._picking([(self.tool, 2)], project=self.project)
+        key = str(self.account.id)
+        picking.move_ids.analytic_distribution = {key: 100.0}
+        picking.action_confirm()
+        picking.action_assign()
+        picking.move_ids.quantity = 1
+        picking.move_ids.picked = True
+        Form.from_action(self.env, picking.button_validate()).save().process()
+        self.assertTrue(picking.backorder_ids)
+        self.assertEqual(self._distribution(picking.backorder_ids.move_ids), {key: 100.0})
+        self.assertAlmostEqual(sum(self._lines(picking).mapped("amount")), -20.0)
+
+    def test_proyecto_y_linea_en_el_mismo_guardado(self):
+        other_project, other_account = self._project("TEST TRASLADOS F")
+        picking = self._picking([(self.material, 1), (self.tool, 1)], project=self.project)
+        tool_move = self._move(picking, self.tool)
+        key = str(other_account.id)
+        picking.write({
+            "project_id": other_project.id,
+            "move_ids": [Command.update(tool_move.id, {"analytic_distribution": {key: 100.0}})],
+        })
+        self.assertEqual(self._distribution(tool_move), {key: 100.0})
+        self.assertEqual(self._distribution(self._move(picking, self.material)), {key: 100.0})
+
+    def test_editar_linea_con_cabecera_en_traslado_hecho(self):
+        picking = self._picking([(self.material, 1), (self.tool, 1)], project=self.project)
+        key = str(self.account.id)
+        picking.analytic_distribution = {key: 100.0}
+        self._validate(picking)
+        tool_move = self._move(picking, self.tool)
+        picking.write({"move_ids": [Command.update(tool_move.id, {"analytic_distribution": {key: 100.0}})]})
+        self.assertEqual(self._distribution(tool_move), {key: 100.0})
+        self.assertAlmostEqual(sum(self._lines(picking).mapped("amount")), -30.0)
+
+    def test_entrega_con_proyecto_imputa_la_herramienta_al_100(self):
+        customers = self.env.ref("stock.stock_location_customers")
+        delivery = self._picking(
+            [(self.tool, 1)], project=self.project,
+            picking_type=self.wh.out_type_id, location_dest=customers)
+        self._validate(delivery)
+        self.assertAlmostEqual(sum(self._lines(delivery).mapped("amount")), -20.0)
+
+    def test_pasar_a_entrega_quita_el_0(self):
+        customers = self.env.ref("stock.stock_location_customers")
+        picking = self._picking([(self.tool, 1)], project=self.project)
+        self.assertEqual(self._distribution(picking.move_ids), {str(self.account.id): 0.0})
+        picking.write({"picking_type_id": self.wh.out_type_id.id, "location_dest_id": customers.id})
+        self.assertFalse(picking.move_ids.analytic_distribution)
+
+    def test_boton_pondera_el_porcentaje(self):
+        other_account = self._project("TEST TRASLADOS E")[1]
+        picking = self._picking([(self.material, 2)], project=self.project)
+        picking.analytic_distribution = {str(self.account.id): 50.0, str(other_account.id): 50.0}
+        self._validate(picking)
+        _moves, total = self.project._get_project_delivery_stock_move_totals()
+        self.assertAlmostEqual(total, -10.0)
 
     def test_marcado_inicial_de_categorias(self):
         Category = self.env["product.category"]

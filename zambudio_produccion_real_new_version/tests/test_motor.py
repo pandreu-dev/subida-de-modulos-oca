@@ -395,6 +395,81 @@ class TestMotorCompras(TransactionCase):
         self.assertTrue(det and not det[0]["computa"])
         self.assertIn("al 0 %", det[0]["origen"])
 
+    def _almacen_con_regla(self):
+        """Almacén, furgoneta y una herramienta en categoría «al 0 %» (necesita
+        project_delivery_analytic_valuation 19.0.1.2.0 o posterior)."""
+        Picking, Categ = self.env["stock.picking"], self.env["product.category"]
+        if "project_id" not in Picking._fields or "project_delivery_analytic_exclude" not in Categ._fields:
+            self.skipTest("sin project_delivery_analytic_valuation 19.0.1.2.0")
+        wh = self.env["stock.warehouse"].search([("company_id", "=", self.company.id)], limit=1)
+        furgoneta = self.env["stock.location"].create({
+            "name": "FURGONETA TEST", "usage": "transit", "company_id": self.company.id})
+        herramienta = self.env["product.product"].create({
+            "name": "TEST HERRAMIENTA", "type": "consu", "is_storable": True, "standard_price": 50.0,
+            "purchase_method": "receive",
+            "categ_id": Categ.create({"name": "TEST HERR", "project_delivery_analytic_exclude": True}).id})
+        return wh, furgoneta, herramienta
+
+    def _traslado(self, wh, destino, productos, cantidad=2):
+        pick = self.env["stock.picking"].create({
+            "picking_type_id": wh.int_type_id.id,
+            "location_id": wh.lot_stock_id.id, "location_dest_id": destino.id,
+            "project_id": self.project.id,
+            "move_ids": [(0, 0, {
+                "product_id": producto.id, "product_uom_qty": cantidad, "product_uom": producto.uom_id.id,
+                "location_id": wh.lot_stock_id.id, "location_dest_id": destino.id,
+            }) for producto in productos],
+        })
+        pick.action_confirm(); pick.action_assign()
+        self._validar(pick)
+        return pick
+
+    def _materiales(self):
+        reales = self.defaultdict(float)
+        self.motor._acumular_almacen(self.project, self.d_ini, self.d_fin, reales)
+        return round(sum(reales.values()), 2)
+
+    def test_almacen_regla_categoria_duplicado_y_pct_parcial(self):
+        wh, furgoneta, herramienta = self._almacen_con_regla()
+        self._validar(self._po(herramienta, 2, 50.0, "materiales").picking_ids)
+        for producto in (self.bien, herramienta):
+            self.env["stock.quant"]._update_available_quantity(producto, wh.lot_stock_id, 10)
+        pick = self._traslado(wh, furgoneta, (self.bien, herramienta))
+        self.assertEqual(self._materiales(), -200.0, "la herramienta (categoría al 0 %) no cuenta")
+        avisos = self.motor.posibles_duplicados_almacen(self.project, self.d_ini, self.d_fin)
+        self.assertFalse([a for a in avisos if a["producto"] == herramienta.display_name])
+        _pb, aa_b = self._proyecto_b()
+        pick.move_ids.filtered(lambda m: m.product_id == self.bien).analytic_distribution = {
+            str(self.aa.id): 50.0, str(aa_b.id): 50.0}
+        self.assertEqual(self._materiales(), -100.0)
+
+    def test_pct_almacen_suma_las_claves_multiplano(self):
+        aa = str(self.aa.id)
+        mov = self.env["stock.move"].new({"analytic_distribution": {aa + ",901": 60.0, aa + ",902": 40.0, "903": 100.0}})
+        self.assertEqual(self.motor._pct_almacen(mov, self.aa), 100.0)
+        mov = self.env["stock.move"].new({"analytic_distribution": {aa: 50.0, "903": 50.0}})
+        self.assertEqual(self.motor._pct_almacen(mov, self.aa), 50.0)
+
+    def test_retorno_de_herramienta_entregada_antes_de_la_regla(self):
+        """Lo entregado antes de la regla se cargó entero: su devolución lo descuenta
+        entero aunque la línea de la devolución salga al 0 %."""
+        wh, furgoneta, herramienta = self._almacen_con_regla()
+        self.env["stock.quant"]._update_available_quantity(herramienta, wh.lot_stock_id, 10)
+        pick = self._traslado(wh, furgoneta, (herramienta,))
+        self.env.flush_all()
+        self.env.cr.execute(
+            "UPDATE stock_move SET analytic_distribution = NULL WHERE id IN %s", [tuple(pick.move_ids.ids)])
+        pick.move_ids.invalidate_recordset(["analytic_distribution"])
+        self.assertEqual(self._materiales(), -100.0)
+        Ret = self.env["stock.return.picking"].with_context(
+            active_id=pick.id, active_ids=pick.ids, active_model="stock.picking")
+        ret = Ret.create({})
+        for l in ret.product_return_moves:
+            l.quantity = 2
+        dev = self.env["stock.picking"].browse(ret.action_create_returns()["res_id"])
+        self._validar(dev, {herramienta.id: 2})
+        self.assertEqual(self._materiales(), 0.0)
+
 
     # ------------------------------------------------------------ hallazgos de la revisión 18/08
     def _proyecto_b(self):

@@ -11,7 +11,18 @@ class StockPicking(models.Model):
         return pickings
 
     def write(self, vals):
+        line_vals = {}
+        if "move_ids" in vals and ("project_id" in vals or "picking_type_id" in vals):
+            # Las líneas del mismo guardado (p. ej. una herramienta puesta a mano al
+            # 100 %) se escriben después de aplicar la regla del proyecto o del tipo.
+            vals = dict(vals)
+            line_vals = {"move_ids": vals.pop("move_ids")}
         result = super().write(vals)
+        if "project_id" in vals:
+            self._apply_project_delivery_rule_to_done_moves()
+        if line_vals:
+            result = super().write(line_vals) and result
+            vals = dict(vals, **line_vals)
         if "analytic_distribution" in vals or "move_ids" in vals or "move_ids_without_package" in vals:
             self._propagate_project_delivery_analytic_distribution(
                 force="analytic_distribution" in vals,
@@ -36,12 +47,35 @@ class StockPicking(models.Model):
         self._sync_project_delivery_analytic_lines()
         return result
 
+    def _apply_project_delivery_rule_to_done_moves(self):
+        """El cálculo automático no toca lo validado: al cambiar el proyecto de un
+        traslado hecho, la regla se aplica aquí (y luego se rehacen sus apuntes)."""
+        for move in self.filtered(lambda picking: picking.state == "done").move_ids:
+            if move.state != "done":
+                continue
+            distribution = move._get_project_delivery_internal_distribution()
+            if distribution is not None:
+                move.with_context(skip_project_delivery_analytic_sync=True).analytic_distribution = distribution
+
+    def _create_backorder(self, backorder_moves=None):
+        """La parte pendiente conserva la distribución de sus líneas, también la puesta a
+        mano: pasarlas al pedido pendiente no cambia ni el producto ni el proyecto."""
+        moves = backorder_moves or self.move_ids.filtered(lambda move: move.state not in ("done", "cancel"))
+        saved = {move.id: dict(move.analytic_distribution) for move in moves if move.analytic_distribution}
+        backorders = super()._create_backorder(backorder_moves=backorder_moves)
+        for move in backorders.move_ids:
+            if move.id in saved and move.analytic_distribution != saved[move.id]:
+                move.with_context(skip_project_delivery_analytic_sync=True).analytic_distribution = saved[move.id]
+        return backorders
+
     def _propagate_project_delivery_analytic_distribution(self, force=False):
         for picking in self:
             if not picking.analytic_distribution and not force:
                 continue
             distribution = dict(picking.analytic_distribution or {})
             for move in picking.move_ids:
+                if not force and move.analytic_distribution:
+                    continue  # sin forzar solo se rellenan las líneas vacías
                 move_distribution = move._get_project_delivery_internal_distribution()
                 move.with_context(skip_project_delivery_analytic_sync=True).analytic_distribution = (
                     distribution if move_distribution is None else move_distribution

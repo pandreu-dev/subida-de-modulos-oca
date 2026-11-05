@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Producción — Seguimiento económico_new_version",
-    "version": "19.0.3.1.0",
+    "version": "19.0.3.1.1",
     "summary": "Datos reales (actuals) + seguimiento económico en la ficha del proyecto",
     "description": """
 Producción REAL + Seguimiento económico

@@ -139,8 +139,12 @@ Peticion de Laura (05/11/2026): cuando un traslado interno tiene proyecto, cada 
 
 - Cada categoria de producto tiene la casilla `Al 0 % en traslados con proyecto` (`project_delivery_analytic_exclude`). Afecta tambien a sus subcategorias.
 - Al actualizar a 19.0.1.2.0 se marcan solas las categorias llamadas `HERRAMIENTA(S)` o `EPI(S)` (en PRO: las cuatro de herramienta y las cuatro de EPI, una por area). Despues manda la casilla: se puede marcar o desmarcar cualquier categoria sin desarrollo.
-- La distribucion de la linea se calcula al crearla y se recalcula al cambiar el producto o el proyecto del traslado. Un cambio a mano en una linea se respeta hasta entonces.
-- Si el albaran tiene distribucion en la cabecera, las lineas normales la copian y las de herramientas y EPI la llevan al 0 por ciento.
+- La distribucion de la linea se calcula al crearla y se recalcula al cambiar el producto o el proyecto del traslado. Un cambio a mano en una linea se respeta hasta entonces, tambien si se guarda junto con el cambio de proyecto y al pasar la linea a un pedido pendiente (backorder).
+- Si el albaran tiene distribucion en la cabecera, las lineas normales la copian y las de herramientas y EPI la llevan al 0 por ciento. Al cambiar la cabecera se reescriben todas las lineas; al anadir o editar lineas solo se rellenan las que estan vacias.
+- Si el traslado deja de ser interno (cambio de tipo de operacion), las lineas que la regla dejo al 0 por ciento vuelven a la distribucion de la cabecera (sin ella, la entrega imputa al 100 por ciento, como siempre).
+- El calculo automatico no toca movimientos ya validados. Al cambiar el proyecto de un traslado hecho, la regla se aplica explicitamente y se rehacen sus apuntes (y el asiento tecnico, si `aunna_project_cost_account_moves` esta instalado).
+- Al actualizar a 19.0.1.2.1, las lineas pendientes que venian vacias de antes de la regla se rellenan con ella. Al instalar desde cero se recalculan las pendientes despues de marcar las categorias.
+- En el Seguimiento economico, una devolucion resta el mismo porcentaje que cargo su salida: devolver una herramienta entregada antes de la regla (cargada al 100 por ciento) la descuenta entera.
 - Sin proyecto, el traslado interno no imputa nada, como antes. Si se quita el proyecto de un traslado ya hecho, se borran sus apuntes. Si se cambia, se rehacen sobre el nuevo proyecto.
 - Solo aplica a traslados internos (`_get_project_delivery_rule_picking_type_codes`). Las entregas siguen como antes.
 - Lo ya hecho no cambia: los movimientos validados sin distribucion siguen imputados al 100 por ciento, igual que sus apuntes.
@@ -194,6 +198,11 @@ stock.picking._sync_existing_project_delivery_analytic_lines()
 Esto intenta sincronizar entregas existentes que ya estaban hechas antes de instalar el modulo.
 
 Desde 19.0.1.2.0 la funcion va en un bloque `noupdate` y solo se ejecuta al instalar. Antes se ejecutaba en cada actualizacion y regeneraba todos los apuntes con la fecha de ese dia: por eso los traslados de julio tienen apuntes del 03/08/2026. Ademas, los apuntes regenerados conservan ahora la fecha del movimiento.
+
+Pendiente (no se corrige en este cambio porque mueve cifras ya publicadas y necesita el OK de Laura):
+
+- Los apuntes ya re-fechados siguen con la fecha de la actualizacion (03/08). Se corregirian ejecutando una vez `stock.picking._sync_existing_project_delivery_analytic_lines()` con 19.0.1.2.1: regenera con la fecha del movimiento y no cambia el porcentaje de lo ya hecho.
+- Las devoluciones de material con proyecto suman coste en los apuntes (`-abs`), en vez de descontarlo; el Seguimiento economico si las descuenta.
 
 ## Flujo funcional
 

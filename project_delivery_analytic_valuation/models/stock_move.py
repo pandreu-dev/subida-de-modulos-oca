@@ -28,12 +28,41 @@ class StockMove(models.Model):
         """Regla de los traslados internos (Laura, 05/11/2026): con proyecto, cada
         línea va a la cuenta del proyecto al 100 %, salvo los productos de las
         categorías marcadas «al 0 %» (herramientas y EPI). Se recalcula al cambiar el
-        producto o el proyecto; un cambio a mano en la línea se respeta hasta entonces."""
+        producto o el proyecto; un cambio a mano en la línea se respeta hasta entonces.
+        Lo validado no se recalcula aquí: el cambio de proyecto de un traslado hecho lo
+        aplica stock.picking.write, que además rehace los apuntes."""
         super()._compute_analytic_distribution()
         for move in self:
+            if move.state == "done":
+                continue
+            distribution = move._get_project_delivery_internal_distribution()
+            if distribution is None:
+                # Fuera de la regla (p. ej. el traslado pasa a ser una entrega): no se
+                # queda con el 0 % que había puesto la regla.
+                current = move.analytic_distribution or {}
+                if not current or any(float(value or 0.0) for value in current.values()):
+                    continue
+                distribution = dict(move.picking_id.analytic_distribution or {})
+            move.analytic_distribution = distribution
+
+    @api.model
+    def _apply_project_delivery_rule_to_pending_moves(self, only_empty=False):
+        """Aplica la regla a las líneas pendientes de traslados internos con proyecto: al
+        instalar (se calcularon antes de marcar las categorías) o al actualizar (vienen
+        vacías de antes de 19.0.1.2.0)."""
+        moves = self.search([
+            ("state", "not in", ("done", "cancel")),
+            ("picking_id.picking_type_code", "in",
+             self.env["stock.picking"]._get_project_delivery_rule_picking_type_codes()),
+            ("picking_id.project_id", "!=", False),
+        ])
+        for move in moves:
+            if only_empty and move.analytic_distribution:
+                continue
             distribution = move._get_project_delivery_internal_distribution()
             if distribution is not None:
                 move.analytic_distribution = distribution
+        return moves
 
     def _get_project_delivery_internal_distribution(self):
         """Distribución que corresponde a la línea de un traslado interno, o None si

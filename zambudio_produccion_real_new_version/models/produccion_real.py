@@ -595,11 +595,18 @@ class ProduccionRealMotor(models.AbstractModel):
         """% del movimiento de almacén que va al proyecto. Si la línea del albarán
         lleva distribución analítica, manda su % para la cuenta del proyecto: las
         herramientas y EPI de un traslado interno van al 0 % (Laura, 05/11/2026).
-        Sin distribución, el albarán con proyecto cuenta entero, como hasta ahora."""
+        Sin distribución, el albarán con proyecto cuenta entero, como hasta ahora.
+        Un retorno resta el mismo % que cargó su salida: lo entregado antes de la regla
+        se cargó entero y su devolución lo descuenta entero."""
+        if mov.origin_returned_move_id and self._sentido_entrega(mov) < 0:
+            mov = mov.origin_returned_move_id
         distribucion = mov.analytic_distribution if "analytic_distribution" in mov._fields else None
         if not distribucion or not cuenta:
             return 100.0
-        return self._pct_distribucion(distribucion, cuenta.id)
+        # suma todas las claves con la cuenta (multiplano: "305,12", "305,13"), como el botón del proyecto
+        cuenta_id = str(cuenta.id)
+        return sum(float(pct or 0.0) for clave, pct in distribucion.items()
+                   if cuenta_id in str(clave).split(","))
 
     @staticmethod
     def _valor_movimiento(mov, project):
