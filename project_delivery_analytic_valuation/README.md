@@ -99,16 +99,26 @@ No procesa operaciones que el modulo identifica como originadas por compra.
 
 ## Calculo del importe
 
-El coste analitico se genera con signo negativo:
+La salida al proyecto genera coste (importe negativo) y su devolucion lo descuenta (importe positivo y cantidad negativa, asi que sigue contando como coste y no como ingreso):
 
 ```text
-importe = -abs(valor del movimiento)
+salida:      importe = -abs(valor del movimiento)   cantidad = +cantidad
+devolucion:  importe = +abs(valor del movimiento)   cantidad = -cantidad
 ```
+
+Una devolucion es un movimiento creado con el boton «Devolver» (`origin_returned_move_id`). La devolucion de una devolucion vuelve a cargar. Desde 19.0.1.3.0 (Laura, 11/11/2026); antes las devoluciones sumaban coste. Al actualizar, la migracion regenera los apuntes de las devoluciones ya hechas, con la fecha del movimiento.
 
 Si el movimiento no tiene valor pero si cantidad, se calcula un fallback usando:
 
+- En una devolucion, el coste unitario con el que se cargo su salida, para descontar exactamente lo cargado aunque el coste del producto haya cambiado.
 - `purchase_price` de la linea de venta, si existe.
 - Precio estandar del producto en la compania, si no hay precio de compra en la linea.
+
+Una devolucion descuenta con el mismo porcentaje que cargo su salida: una herramienta entregada al 100 % antes de la regla se descuenta entera.
+
+Los movimientos del modulo crean sus apuntes aunque el tipo de operacion no tenga «Costes analiticos». Odoo 19 los filtra desde el 17/07/2026 (commit `adbfd40bf6` de `project_stock_account`), y sin la sobrescritura de `_create_analytic_move` los traslados dejarian de imputar coste al actualizar Odoo.
+
+Las devoluciones de entregas a cliente (recepciones) siguen sin generar apunte: solo se tratan los traslados internos y las entregas.
 
 La cantidad se obtiene de la cantidad valorada o de la cantidad del movimiento convertida a la unidad base del producto.
 
@@ -202,7 +212,8 @@ Desde 19.0.1.2.0 la funcion va en un bloque `noupdate` y solo se ejecuta al inst
 Pendiente (no se corrige en este cambio porque mueve cifras ya publicadas y necesita el OK de Laura):
 
 - Los apuntes ya re-fechados siguen con la fecha de la actualizacion (03/08). Se corregirian ejecutando una vez `stock.picking._sync_existing_project_delivery_analytic_lines()` con 19.0.1.2.1: regenera con la fecha del movimiento y no cambia el porcentaje de lo ya hecho.
-- Las devoluciones de material con proyecto suman coste en los apuntes (`-abs`), en vez de descontarlo; el Seguimiento economico si las descuenta.
+
+Corregido en 19.0.1.3.0: las devoluciones restan (ver «Calculo del importe»).
 
 ## Flujo funcional
 

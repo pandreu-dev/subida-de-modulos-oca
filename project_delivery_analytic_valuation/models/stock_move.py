@@ -76,6 +76,11 @@ class StockMove(models.Model):
             or picking._has_purchase_source()
         ):
             return None
+        origin = self.origin_returned_move_id
+        if origin and origin.picking_id.project_id == picking.project_id:
+            # Una devolución descuenta con el mismo % con el que se cargó su salida
+            # (p. ej. una herramienta entregada antes de la regla se cargó al 100 %).
+            return origin._get_project_analytic_distribution()
         header = dict(picking.analytic_distribution or {})
         account = self._get_project_account(picking.project_id)
         if not account:
@@ -228,14 +233,45 @@ class StockMove(models.Model):
         )
 
     def _get_project_delivery_analytic_amounts(self):
+        """Importe y cantidad del apunte: la salida al proyecto es coste (importe
+        negativo) y su devolución lo descuenta (importe positivo, cantidad negativa).
+        Laura, 11/11/2026: las devoluciones restan en lugar de sumar."""
         self.ensure_one()
-        unit_amount = self._get_valued_qty()
-        if not unit_amount:
-            unit_amount = self.product_uom._compute_quantity(self.quantity, self.product_id.uom_id)
-        amount = self.value
+        unit_amount = abs(self._get_project_delivery_quantity())
+        amount = abs(self.value or 0.0)
         if not amount and unit_amount:
-            amount = unit_amount * self._get_project_delivery_fallback_price_unit()
-        return -abs(amount), unit_amount
+            amount = unit_amount * self._get_project_delivery_unit_cost()
+        direction = self._get_project_delivery_direction()
+        return -direction * amount, direction * unit_amount
+
+    def _get_project_delivery_quantity(self):
+        """Cantidad hecha en la unidad de medida del producto."""
+        self.ensure_one()
+        return self._get_valued_qty() or self.product_uom._compute_quantity(
+            self.quantity, self.product_id.uom_id)
+
+    def _get_project_delivery_direction(self):
+        """1 si el movimiento lleva material al proyecto (coste) y -1 si devuelve lo
+        que llevó otro (resta). La devolución de una devolución vuelve a cargar."""
+        self.ensure_one()
+        direction, move, seen = 1, self, set()
+        while move.origin_returned_move_id and move.id not in seen:
+            seen.add(move.id)
+            direction = -direction
+            move = move.origin_returned_move_id
+        return direction
+
+    def _get_project_delivery_unit_cost(self):
+        """Coste unitario del apunte. Una devolución usa el de su salida, para
+        descontar exactamente lo que se cargó aunque el coste del producto haya
+        cambiado entre medias."""
+        self.ensure_one()
+        origin = self.origin_returned_move_id
+        if origin and origin.state == "done" and origin._is_manual_project_delivery_move():
+            origin_quantity = abs(origin._get_project_delivery_quantity())
+            if origin_quantity:
+                return abs(origin.project_delivery_analytic_cost) / origin_quantity
+        return self._get_project_delivery_fallback_price_unit()
 
     def _get_project_delivery_fallback_price_unit(self):
         self.ensure_one()
@@ -244,6 +280,19 @@ class StockMove(models.Model):
             if "purchase_price" in sale_line._fields and sale_line.purchase_price:
                 return sale_line.purchase_price
         return self.product_id.with_company(self.company_id).standard_price
+
+    def _create_analytic_move(self):
+        """Los movimientos con proyecto de este módulo imputan coste aunque su tipo de
+        operación no tenga «Costes analíticos». Odoo 19 los descarta desde el
+        17/07/2026 (commit adbfd40bf6 de project_stock_account); sin esto, al
+        actualizar Odoo los traslados dejarían de imputar coste sin avisar."""
+        manual = self.filtered(lambda move: move._is_manual_project_delivery_move())
+        super(StockMove, self - manual)._create_analytic_move()
+        for move in manual:
+            analytic_line_vals = move._prepare_analytic_lines()
+            if analytic_line_vals:
+                move.analytic_account_line_ids += self.env["account.analytic.line"].sudo().create(
+                    analytic_line_vals)
 
     def _sync_project_delivery_analytic_lines(self):
         for move in self.sudo():

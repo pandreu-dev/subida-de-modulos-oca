@@ -1194,13 +1194,17 @@ class AunnaWipAnnualReport(models.Model):
         domain = [
             ("account_id", "=", analytic_account.id),
             ("company_id", "=", self.company_id.id),
-            ("timesheet_invoice_type", "=", "other_costs"),
-            ("amount", "<", 0),
             ("date", ">=", start_date),
             ("date", "<=", end_date),
         ]
+        costs = ["&", ("timesheet_invoice_type", "=", "other_costs"), ("amount", "<", 0)]
         if "category" in AAL._fields:
-            domain.append(("category", "!=", "vendor_bill"))
+            # Devoluciones de material (Laura, 11/11/2026): su apunte de albaran es
+            # positivo y resta, igual que en la fila "Materiales" del panel.
+            returns = ["&", ("category", "=", "picking_entry"), ("amount", ">", 0)]
+            domain += ["|", "&", *costs, ("category", "!=", "vendor_bill"), *returns]
+        else:
+            domain += costs
         # Deduplicacion (clave del arreglo): del mismo movimiento de entrega solo se
         # cuenta la linea manual SIN move_line_id (fecha efectiva de validacion). Las
         # lineas CON move_line_id (valoracion de stock en fecha prevista y asiento
