@@ -94,6 +94,9 @@ class ProjectProject(models.Model):
                 if not stale and "project_id" in self.env["stock.picking"]._fields:
                     stale = bool(self.env["stock.picking"].sudo().search_count(
                         [("project_id", "=", project.id), ("write_date", ">", marca)], limit=1))
+                    # el % de una línea (p. ej. herramienta al 0 %) cambia el movimiento, no el albarán
+                    stale = stale or bool(self.env["stock.move"].sudo().search_count(
+                        [("picking_id.project_id", "=", project.id), ("write_date", ">", marca)], limit=1))
             if not stale and cuenta and "hr.expense" in self.env:
                 stale = bool(self.env["hr.expense"].sudo().search_count(
                     [("analytic_distribution", "in", [cuenta.id]), ("write_date", ">", marca)],

@@ -1,3 +1,7 @@
 <odoo>
-    <function model="stock.picking" name="_sync_existing_project_delivery_analytic_lines"/>
+    <!-- Solo al instalar. Sin noupdate se ejecutaba en cada actualización y volvía a
+         generar todos los apuntes con la fecha de ese día. -->
+    <data noupdate="1">
+        <function model="stock.picking" name="_sync_existing_project_delivery_analytic_lines"/>
+    </data>
 </odoo>

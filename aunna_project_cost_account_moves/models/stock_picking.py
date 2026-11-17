@@ -9,6 +9,14 @@ class StockPicking(models.Model):
         self._aunna_sync_stock_delivery_cost_moves()
         return result
 
+    def write(self, vals):
+        result = super().write(vals)
+        # cambiar proyecto o distribución de un traslado hecho rehace sus apuntes: el
+        # asiento técnico tiene que seguirles (o revertirse si ya no hay coste)
+        if {"project_id", "analytic_distribution"} & set(vals):
+            self.filtered(lambda picking: picking.state == "done")._aunna_sync_stock_delivery_cost_moves()
+        return result
+
     def _aunna_sync_stock_delivery_cost_moves(self):
         for picking in self:
             picking.move_ids.filtered(

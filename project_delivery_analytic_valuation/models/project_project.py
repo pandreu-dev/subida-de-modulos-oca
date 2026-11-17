@@ -47,12 +47,27 @@ class ProjectProject(models.Model):
     def _get_project_delivery_stock_moves(self):
         self.ensure_one()
         moves = self.env["stock.move"].sudo().search(self._get_project_delivery_stock_moves_domain())
-        return moves.filtered(lambda move: move._is_manual_project_delivery_move())
+        return moves.filtered(
+            lambda move: move._is_manual_project_delivery_move()
+            and self._get_project_delivery_move_share(move) > 0
+        )
+
+    def _get_project_delivery_move_share(self, move):
+        """% del coste del movimiento que corresponde a este proyecto (0 en las
+        líneas de herramientas y EPI de un traslado interno)."""
+        self.ensure_one()
+        if not self.account_id:
+            return 100.0
+        return move._get_project_delivery_account_share(self.account_id)
 
     def _get_project_delivery_stock_move_totals(self):
         self.ensure_one()
         moves = self._get_project_delivery_stock_moves()
-        return moves, sum(moves.mapped("project_delivery_analytic_cost"))
+        total = sum(
+            move.project_delivery_analytic_cost * self._get_project_delivery_move_share(move) / 100.0
+            for move in moves
+        )
+        return moves, total
 
     def _get_items_from_aal_picking(self, with_action=True):
         self.ensure_one()
