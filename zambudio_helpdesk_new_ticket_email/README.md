@@ -14,7 +14,10 @@ personas, usando una plantilla. Sustituye la automatización de Odoo Studio
   `mail_template_new_ticket_notice` (editable desde la interfaz; se crea con `noupdate`
   para que no se sobrescriba al actualizar el módulo).
 - **Destinatarios actuales** (campo `email_to` de la plantilla): `lmoreno`, `vpinar`,
-  `jhurtado`, `lmyances`, `ccledesma`, `aarmero` (@aunnait.es).
+  `jhurtado`, `lmyances`, `ccledesma`, `clopez` (@aunnait.es). Cayetano (`clopez`) se
+  añadió en PRO el 18/11/2026 a petición de Laura. `aarmero` nunca llegó a PRO y su
+  usuario está archivado. Como la plantilla es `noupdate`, cambiar este XML no toca
+  una base ya instalada: los destinatarios de PRO se cambian en la propia plantilla.
 - Se encola (`force_send=False`) para no bloquear la creación del ticket, y va envuelto
   en `try/except`: un fallo de correo **nunca** impide crear el ticket.
 
