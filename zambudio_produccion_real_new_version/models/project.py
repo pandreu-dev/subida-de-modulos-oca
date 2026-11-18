@@ -87,6 +87,13 @@ class ProjectProject(models.Model):
                         limit=1,
                     )
                 )
+            # pedidos de compra: los servicios cuentan al confirmar (la
+            # confirmación cambia el pedido, no la línea)
+            if not stale and cuenta:
+                stale = bool(self.env["purchase.order.line"].sudo().search_count(
+                    [("analytic_distribution", "in", [cuenta.id]),
+                     "|", ("write_date", ">", marca), ("order_id.write_date", ">", marca)],
+                    limit=1))
             # albaranes (recepciones, devoluciones, entregas) y gastos nuevos
             if not stale and "stock.move" in self.env:
                 movs = motor._movimientos_compra(project, cuenta)

@@ -7,10 +7,14 @@ Fuentes (validadas al céntimo contra el sistema anterior el 11/08/2026):
   * Compras de BIENES (material, hardware…): albaranes de RECEPCIÓN del pedido
     de compra menos las DEVOLUCIONES al proveedor, al precio del pedido. El
     coste nace al recibir, no al facturar (criterio de Laura, 14/08/2026).
-  * Compras de SERVICIOS (contratas, licencias…) y facturas de proveedor sin
-    pedido: no tienen albarán, así que cuentan al contabilizar la factura de
-    proveedor con analítica del proyecto (abono resta). Una factura de bienes
-    ya contados por su recepción NO se vuelve a contar.
+  * Compras de SERVICIOS con pedido (contratas, licencias…): no tienen
+    albarán, así que cuentan al CONFIRMAR el pedido, por el subtotal de la
+    línea (criterio de Laura, 18/11/2026; el mismo que el Informe operativo).
+    Su factura no vuelve a contar: solo la diferencia con el pedido, en el mes
+    de la factura.
+  * Facturas de proveedor sin pedido: cuentan al contabilizarse con analítica
+    del proyecto (abono resta). Una factura de bienes ya contados por su
+    recepción NO se vuelve a contar.
   * Gastos de empleado aprobados/contabilizados/pagados.
   * Material servido desde almacén al proyecto (albarán con proyecto, sin
     pedido de compra) a coste estándar; su retorno lo resta.
@@ -302,10 +306,120 @@ class ProduccionRealMotor(models.AbstractModel):
         return 0
 
     def _acumular_compras(self, project, d_ini, d_fin, reales):
-        """Compras = bienes por RECEPCIÓN (− devoluciones) + servicios y
-        facturas sin albarán por FACTURA de proveedor contabilizada."""
+        """Compras = bienes por RECEPCIÓN (− devoluciones) + servicios con
+        pedido al CONFIRMAR el pedido + facturas de proveedor (las que no tienen
+        pedido, y la diferencia de precio de los servicios)."""
         self._acumular_recepciones(project, d_ini, d_fin, reales)
+        self._acumular_servicios_pedido(project, d_ini, d_fin, reales)
         self._acumular_facturas_proveedor(project, d_ini, d_fin, reales)
+
+    # ------------------------------------------------------------------
+    # Servicios con pedido: cuentan al CONFIRMAR el pedido (Laura, 18/11/2026)
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _es_servicio(linea_pc):
+        """Línea de pedido que no se recepciona: producto de tipo servicio (o
+        línea sin producto). Secciones y notas no son coste."""
+        if not linea_pc or linea_pc.display_type:
+            return False
+        return not linea_pc.product_id or linea_pc.product_id.type == "service"
+
+    def _fecha_pedido(self, pedido):
+        """Día local de confirmación del pedido (de pedido si no la tiene)."""
+        dt = pedido.date_approve or pedido.date_order
+        if not dt:
+            return False
+        tz = pytz.timezone(self.env.context.get("tz") or self.env.user.tz or "Europe/Madrid")
+        return pytz.utc.localize(dt).astimezone(tz).date()
+
+    def _lineas_servicio_pedido(self, project, cuenta):
+        """Líneas de servicio de pedidos CONFIRMADOS con la analítica del
+        proyecto. Sin acotar por fecha (son pocas): se filtra por la fecha del
+        pedido al acumular."""
+        POL = self.env["purchase.order.line"].sudo()
+        if not cuenta:
+            return POL.browse()
+        dominio = [
+            ("order_id.state", "=", "purchase"),
+            ("display_type", "=", False),
+            ("analytic_distribution", "in", [cuenta.id]),
+            "|", ("product_id", "=", False), ("product_id.type", "=", "service"),
+        ]
+        if project.company_id:
+            dominio.append(("company_id", "=", project.company_id.id))
+        return POL.search(dominio, order="id asc")
+
+    def _servicio_contado_en_pedido(self, linea_pc, cuenta):
+        """True si la confirmación del pedido ya contó esta línea en el proyecto."""
+        return bool(
+            cuenta
+            and self._es_servicio(linea_pc)
+            and linea_pc.order_id.state == "purchase"
+            and self._pct_distribucion(linea_pc.analytic_distribution, cuenta.id)
+        )
+
+    def _importe_servicio_pedido(self, linea_pc):
+        """Subtotal de la línea (con descuento, sin impuestos) en moneda de la
+        compañía, al cambio del día de confirmación."""
+        pedido = linea_pc.order_id
+        compania = pedido.company_id
+        importe = linea_pc.price_subtotal or 0.0
+        if not importe or pedido.currency_id == compania.currency_id:
+            return importe
+        return pedido.currency_id._convert(
+            importe, compania.currency_id, compania,
+            self._fecha_pedido(pedido) or fields.Date.context_today(self))
+
+    def _acumular_servicios_pedido(self, project, d_ini, d_fin, reales):
+        """Coste de los servicios = subtotal de la línea del pedido en el mes de
+        confirmación, por el % de la analítica del proyecto. Si el pedido se
+        modifica o se cancela, el siguiente recálculo lo recoge."""
+        cuenta = self._cuenta_analitica(project)
+        for linea_pc in self._lineas_servicio_pedido(project, cuenta):
+            fecha = self._fecha_pedido(linea_pc.order_id)
+            if not fecha or (d_ini and fecha < d_ini) or (d_fin and fecha > d_fin):
+                continue
+            pct = self._pct_distribucion(linea_pc.analytic_distribution, cuenta.id)
+            if not pct:
+                continue
+            concepto = self._concepto_de_pedido(linea_pc.order_id)
+            reales[(fecha.strftime("%Y-%m"), concepto)] -= (
+                self._importe_servicio_pedido(linea_pc) * pct / 100.0)
+
+    def _coste_pedido_equivalente(self, lin, cuenta):
+        """Lo que la confirmación del pedido ya contó por las unidades de esta
+        línea de factura (negativo = coste; en un abono, positivo). Las unidades
+        facturadas por encima de lo pedido no las contó el pedido: cuentan
+        enteras en la factura."""
+        linea_pc = lin.purchase_line_id
+        if not linea_pc.product_qty:
+            return 0.0
+        cubiertas = self._unidades_cubiertas_por_pedido(linea_pc).get(lin.id, 0.0)
+        unitario = self._importe_servicio_pedido(linea_pc) / linea_pc.product_qty
+        pct = self._pct_distribucion(linea_pc.analytic_distribution, cuenta.id)
+        return -cubiertas * unitario * pct / 100.0
+
+    @staticmethod
+    def _unidades_cubiertas_por_pedido(linea_pc):
+        """{id de línea de factura: unidades que caen dentro de lo pedido}, en
+        la UdM del pedido y con signo (el abono resta), recorriendo por fecha las
+        facturas contabilizadas de la línea de pedido."""
+        total = linea_pc.product_qty or 0.0
+        facturas = linea_pc.invoice_lines.filtered(
+            lambda l: l.move_id.state == "posted"
+            and l.move_id.move_type in ("in_invoice", "in_refund"))
+        acumulado, cubiertas = 0.0, {}
+        for lin in facturas.sorted(lambda l: (l.date, l.id)):
+            cantidad = lin.quantity or 0.0
+            if lin.product_uom_id and linea_pc.product_uom_id \
+                    and lin.product_uom_id != linea_pc.product_uom_id:
+                cantidad = lin.product_uom_id._compute_quantity(cantidad, linea_pc.product_uom_id)
+            if lin.move_id.move_type == "in_refund":
+                cantidad = -cantidad
+            antes, acumulado = acumulado, acumulado + cantidad
+            cubiertas[lin.id] = (max(0.0, min(acumulado, total))
+                                 - max(0.0, min(antes, total)))
+        return cubiertas
 
     def _acumular_recepciones(self, project, d_ini, d_fin, reales):
         """Coste de compras de BIENES = lo RECEPCIONADO menos lo DEVUELTO (no
@@ -400,23 +514,54 @@ class ProduccionRealMotor(models.AbstractModel):
         )
 
     def _acumular_facturas_proveedor(self, project, d_ini, d_fin, reales):
-        """Servicios (contratas, licencias…) y facturas sin pedido: cuentan al
-        contabilizar la factura de proveedor; el abono (in_refund) resta. Las
-        líneas de BIENES con pedido se saltan: ya las contó la recepción."""
+        """Facturas de proveedor: cuentan al contabilizarse; el abono
+        (in_refund) resta. Las líneas de BIENES con pedido se saltan (ya las
+        contó la recepción) y las de SERVICIOS con pedido solo aportan la
+        diferencia con lo que contó la confirmación del pedido."""
         cuenta = self._cuenta_analitica(project)
         if not cuenta:
             return
         hay_stock = self.env.get("stock.move") is not None
-        for lin in self._lineas_factura_proveedor(project, d_ini, d_fin):
+        for lin in self._lineas_factura_computables(project, cuenta, d_ini, d_fin):
             if self._factura_ya_contada_por_recepcion(lin, project, cuenta, hay_stock):
                 continue
-            pct = self._pct_distribucion(lin.analytic_distribution, cuenta.id)
-            if not pct:
-                continue
-            concepto = self._concepto_de_factura(lin)
-            # balance: en moneda de la compañía y ya con signo (factura debe +,
-            # abono haber −) → el coste es −balance
-            reales[(lin.date.strftime("%Y-%m"), concepto)] += -lin.balance * pct / 100.0
+            coste, concepto = self._coste_factura(lin, cuenta)
+            if coste:
+                reales[(lin.date.strftime("%Y-%m"), concepto)] += coste
+
+    def _lineas_factura_computables(self, project, cuenta, d_ini, d_fin):
+        """Líneas de factura con la analítica del proyecto + las de servicios
+        cuyo pedido sí la lleva aunque la factura no (si el contable la imputó a
+        otro proyecto, este tiene que devolver lo que contó el pedido)."""
+        lineas = self._lineas_factura_proveedor(project, d_ini, d_fin)
+        servicios = self._lineas_servicio_pedido(project, cuenta)
+        if servicios:
+            lineas |= self.env["account.move.line"].sudo().search([
+                ("move_id.state", "=", "posted"),
+                ("move_id.move_type", "in", ["in_invoice", "in_refund"]),
+                ("display_type", "=", "product"),
+                ("purchase_line_id", "in", servicios.ids),
+                ("date", ">=", d_ini),
+                ("date", "<=", d_fin),
+            ])
+        return lineas.sorted(lambda l: (l.date, l.id))
+
+    def _coste_factura(self, lin, cuenta):
+        """(coste, concepto) que aporta la línea de factura al proyecto
+        (negativo = coste). Si es de un servicio ya contado al confirmar su
+        pedido, solo la diferencia con lo que contó el pedido, en el concepto
+        del pedido para que quede en la misma fila."""
+        pct = self._pct_distribucion(lin.analytic_distribution, cuenta.id)
+        # balance: en moneda de la compañía y ya con signo (factura debe +,
+        # abono haber −) → el coste es −balance
+        coste = -lin.balance * pct / 100.0
+        linea_pc = lin.purchase_line_id
+        if self._servicio_contado_en_pedido(linea_pc, cuenta):
+            coste -= self._coste_pedido_equivalente(lin, cuenta)
+            if abs(coste) < 0.005:
+                coste = 0.0
+            return coste, self._concepto_de_pedido(linea_pc.order_id)
+        return coste, self._concepto_de_factura(lin)
 
     @staticmethod
     def _pct_distribucion(distribucion, cuenta_id):
@@ -687,10 +832,11 @@ class ProduccionRealMotor(models.AbstractModel):
 
     def detalle_compras(self, project, d_ini, d_fin):
         """Todo lo que no son horas, documento a documento, con la marca
-        «computa»: recepciones/devoluciones de compra (bienes), facturas de
-        proveedor (servicios y sin pedido computan; las de bienes con pedido
-        se muestran en gris porque ya las contó su recepción), gastos de
-        empleado y entregas de almacén."""
+        «computa»: recepciones/devoluciones de compra (bienes), pedidos de
+        servicio confirmados, facturas de proveedor (las sin pedido computan;
+        las de bienes con pedido y las de servicios ya contados en el pedido se
+        muestran en gris, y de estas últimas la diferencia con el pedido va en
+        su propia fila), gastos de empleado y entregas de almacén."""
         cuenta = self._cuenta_analitica(project)
         if not cuenta:
             return []
@@ -723,25 +869,63 @@ class ProduccionRealMotor(models.AbstractModel):
                     "computa": True,
                 })
 
-        # facturas de proveedor
-        for lin in self._lineas_factura_proveedor(project, d_ini, d_fin):
-            pct = self._pct_distribucion(lin.analytic_distribution, cuenta.id)
+        # servicios con pedido: cuentan al confirmar el pedido
+        for linea_pc in self._lineas_servicio_pedido(project, cuenta):
+            pedido = linea_pc.order_id
+            fecha = self._fecha_pedido(pedido)
+            if not fecha or fecha < d_ini or fecha > d_fin:
+                continue
+            pct = self._pct_distribucion(linea_pc.analytic_distribution, cuenta.id)
             if not pct:
                 continue
-            tipo = self._concepto_de_factura(lin)
-            ya_contada = self._factura_ya_contada_por_recepcion(lin, project, cuenta, hay_stock)
+            tipo = self._concepto_de_pedido(pedido)
             resultado.append({
+                "fecha": fecha,
+                "origen": "Pedido de servicio confirmado",
+                "documento": pedido.name or "",
+                "tercero": pedido.partner_id.name or "",
+                "referencia": pedido.partner_ref or "",
+                "descripcion": linea_pc.name or linea_pc.product_id.display_name or "",
+                "tipo": etiquetas.get(tipo, tipo),
+                "importe": -self._importe_servicio_pedido(linea_pc) * pct / 100.0,
+                "computa": True,
+            })
+
+        # facturas de proveedor
+        for lin in self._lineas_factura_computables(project, cuenta, d_ini, d_fin):
+            pct = self._pct_distribucion(lin.analytic_distribution, cuenta.id)
+            fila = {
                 "fecha": lin.date,
-                "origen": "Factura proveedor" + (" (bien: contado en la recepción)" if ya_contada else ""),
                 "documento": lin.move_id.name or "",
                 "tercero": lin.move_id.partner_id.name or "",
                 "referencia": lin.purchase_line_id.order_id.name
                 if lin.purchase_line_id else "",
                 "descripcion": lin.name or "",
-                "tipo": etiquetas.get(tipo, tipo),
-                "importe": -lin.balance * pct / 100.0,
-                "computa": not ya_contada,
-            })
+            }
+            if self._servicio_contado_en_pedido(lin.purchase_line_id, cuenta):
+                # la factura en gris (ya la contó el pedido) y, si no coincide
+                # con lo pedido, la diferencia aparte
+                diferencia, tipo = self._coste_factura(lin, cuenta)
+                resultado.append(dict(
+                    fila, origen="Factura proveedor (servicio: contado en el pedido)",
+                    tipo=etiquetas.get(tipo, tipo), importe=-lin.balance * pct / 100.0,
+                    computa=False))
+                if diferencia:
+                    resultado.append(dict(
+                        fila, origen="Diferencia factura / pedido",
+                        tipo=etiquetas.get(tipo, tipo), importe=diferencia, computa=True))
+                continue
+            if not pct:
+                continue
+            tipo = self._concepto_de_factura(lin)
+            ya_contada = self._factura_ya_contada_por_recepcion(lin, project, cuenta, hay_stock)
+            resultado.append(dict(
+                fila,
+                origen="Factura proveedor" + (" (bien: contado en la recepción)" if ya_contada else ""),
+                tipo=etiquetas.get(tipo, tipo),
+                importe=-lin.balance * pct / 100.0,
+                computa=not ya_contada,
+            ))
 
         # gastos de empleado
         Gasto = self.env.get("hr.expense")

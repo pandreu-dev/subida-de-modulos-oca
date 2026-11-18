@@ -231,18 +231,136 @@ class TestMotorCompras(TransactionCase):
         rec = [x for x in det if x["origen"] == "Recepción de compra"]
         self.assertTrue(rec and rec[0]["computa"] and rec[0]["importe"] == -300.0)
 
-    def test_servicio_cuenta_por_factura(self):
-        po = self._po(self.servicio, 1, 2000.0, "contratas_adm")
-        self.assertEqual(self._reales(), {}, "un servicio sin facturar no es coste")
+    # ------------------------------------------------ servicios al confirmar (18/11/2026)
+    def _reales_por_mes(self, project=None):
+        reales = self.defaultdict(float)
+        self.motor._acumular_compras(project or self.project, self.d_ini, self.d_fin, reales)
+        return {k: round(v, 2) for k, v in reales.items() if round(v, 2)}
+
+    def _facturar(self, po, fecha=None, **valores):
+        """Factura lo pendiente del pedido; `valores` se escriben en sus líneas."""
         po.action_create_invoice()
-        bill = po.invoice_ids
-        bill.invoice_date = self.hoy
+        bill = po.invoice_ids.filtered(lambda m: m.state == "draft")
+        bill.invoice_date = fecha or self.hoy
+        if valores:
+            bill.invoice_line_ids.filtered("purchase_line_id").write(valores)
         bill.action_post()
+        return bill
+
+    def _computa(self, project=None):
+        det = self.motor.detalle_compras(project or self.project, self.d_ini, self.d_fin)
+        return round(sum(x["importe"] for x in det if x["computa"]), 2)
+
+    def test_servicio_cuenta_al_confirmar_el_pedido(self):
+        """Laura: el servicio cuenta al confirmar; su factura no duplica y un abono
+        no quita lo pedido (si el servicio no se hace, se cambia el pedido)."""
+        po = self._po(self.servicio, 1, 2000.0, "contratas_adm")
         self.assertEqual(self._reales(), {"contratas_adm": -2000.0})
-        # el abono resta
+        bill = self._facturar(po)
+        self.assertEqual(self._reales(), {"contratas_adm": -2000.0}, "la factura no duplica")
+        det = self.motor.detalle_compras(self.project, self.d_ini, self.d_fin)
+        ped = [x for x in det if x["origen"] == "Pedido de servicio confirmado"]
+        self.assertTrue(ped and ped[0]["computa"] and ped[0]["importe"] == -2000.0)
+        fact = [x for x in det if x["origen"].startswith("Factura")]
+        self.assertTrue(fact and not any(x["computa"] for x in fact), "factura en gris")
+        self.assertFalse([x for x in det if x["origen"].startswith("Diferencia")])
         rev = bill._reverse_moves([{"invoice_date": self.hoy}])
         rev.action_post()
+        self.assertEqual(self._reales(), {"contratas_adm": -2000.0})
+        self.assertEqual(self._computa(), -2000.0, "el detalle cuadra con los reales")
+
+    def test_servicio_cancelado_o_modificado(self):
+        po = self._po(self.servicio, 1, 700.0, "contratas_adm")
+        po.order_line.product_qty = 2
+        self.assertEqual(self._reales(), {"contratas_adm": -1400.0}, "sigue al pedido")
+        po.button_cancel()
+        self.assertEqual(self._reales(), {}, "pedido cancelado: no cuenta")
+
+    def test_diferencia_de_precio_y_exceso_en_el_mes_de_la_factura(self):
+        """2 × 100 pedidos; factura de 1 a 120 el mes siguiente (+20) y luego
+        otra de 2 a 100 (la unidad de más no la contó el pedido: +100)."""
+        po = self._po(self.servicio, 2, 100.0, "contratas_adm")
+        m0 = self.hoy.strftime("%Y-%m")
+        sig = self.d_ini + relativedelta(months=1)
+        m1 = sig.strftime("%Y-%m")
+        self._facturar(po, sig, quantity=1, price_unit=120.0)
+        self.assertEqual(self._reales_por_mes(), {
+            (m0, "contratas_adm"): -200.0, (m1, "contratas_adm"): -20.0})
+        self._facturar(po, sig, quantity=2, price_unit=100.0)
+        self.assertEqual(self._reales_por_mes(), {
+            (m0, "contratas_adm"): -200.0, (m1, "contratas_adm"): -120.0},
+            "total = lo facturado (120 + 200)")
+        dif = [x for x in self.motor.detalle_compras(self.project, self.d_ini, self.d_fin)
+               if x["origen"] == "Diferencia factura / pedido"]
+        self.assertEqual(sorted(round(x["importe"], 2) for x in dif), [-100.0, -20.0])
+        self.assertEqual(self._computa(), -320.0)
+
+    def test_pedido_mixto_bien_por_recepcion_servicio_al_confirmar(self):
+        po = self.env["purchase.order"].create({
+            "partner_id": self.partner.id, "company_id": self.company.id,
+            "tipo_coste_produccion": "materiales",
+            "order_line": [
+                (0, 0, {"product_id": self.bien.id, "product_qty": 2, "price_unit": 150.0,
+                        "analytic_distribution": {str(self.aa.id): 100.0}}),
+                (0, 0, {"product_id": self.servicio.id, "product_qty": 1, "price_unit": 500.0,
+                        "analytic_distribution": {str(self.aa.id): 50.0}}),
+            ]})
+        po.button_confirm()
+        self.assertEqual(self._reales(), {"materiales": -250.0}, "solo el servicio, al 50 %")
+        self._validar(po.picking_ids)
+        self.assertEqual(self._reales(), {"materiales": -550.0})
+        self._facturar(po)
+        self.assertEqual(self._reales(), {"materiales": -550.0}, "la factura no duplica nada")
+
+    def test_servicio_sin_analitica_en_el_pedido_cuenta_por_factura(self):
+        po = self.env["purchase.order"].create({
+            "partner_id": self.partner.id, "company_id": self.company.id,
+            "tipo_coste_produccion": "contratas_adm",
+            "order_line": [(0, 0, {"product_id": self.servicio.id, "product_qty": 1,
+                                   "price_unit": 300.0})]})
+        po.button_confirm()
         self.assertEqual(self._reales(), {})
+        self._facturar(po, analytic_distribution={str(self.aa.id): 100.0})
+        self.assertEqual(self._reales(), {"contratas_adm": -300.0})
+
+    def test_factura_de_servicio_llevada_a_otro_proyecto(self):
+        """El pedido era del proyecto A; el contable imputa la factura al B: A
+        devuelve lo que contó el pedido y B carga la factura entera."""
+        pb, aa_b = self._proyecto_b()
+        po = self._po(self.servicio, 1, 400.0, "contratas_adm")
+        self.assertEqual(self._reales(), {"contratas_adm": -400.0})
+        self._facturar(po, analytic_distribution={str(aa_b.id): 100.0})
+        self.assertEqual(self._reales(), {})
+        self.assertEqual(self._reales_de(pb), {"contratas_adm": -400.0})
+        self.assertEqual(self._computa(), 0.0)
+
+    def test_confirmar_servicio_marca_reales_desactualizados(self):
+        self.project.produccion_real_last_update = fields.Datetime.subtract(
+            fields.Datetime.now(), hours=1)
+        self.project.invalidate_recordset(["produccion_real_stale"])
+        self.assertFalse(self.project.produccion_real_stale)
+        self._po(self.servicio, 1, 100.0, "contratas_adm")
+        self.project.invalidate_recordset(["produccion_real_stale"])
+        self.assertTrue(self.project.produccion_real_stale)
+
+    def test_migracion_recalcula_el_historico(self):
+        import importlib.util
+        from odoo.tools.misc import file_path
+        self._po(self.servicio, 1, 900.0, "contratas_adm")
+        Linea = self.env["produccion.plan.linea"]
+        mes = self.hoy.replace(day=1)
+        linea = Linea.sudo().with_context(
+            sin_recalculo=True, permitir_meses_pasados=PERMISO_MESES_CERRADOS).create({
+                "project_id": self.project.id, "fecha_mes": mes, "concepto": "contratas_adm",
+                "importe_previsto": -1000.0, "importe_real": 0.0})
+        ruta = file_path(
+            "zambudio_produccion_real_new_version/migrations/19.0.3.2.0/end-migrate.py")
+        spec = importlib.util.spec_from_file_location("zprn_end_migrate_19_0_3_2_0", ruta)
+        modulo = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(modulo)
+        modulo.migrate(self.env.cr, "19.0.3.1.1")
+        linea.invalidate_recordset()
+        self.assertAlmostEqual(linea.importe_real, -900.0)
 
     def test_factura_sin_pedido_con_tipo_propio(self):
         bill = self.env["account.move"].create({
